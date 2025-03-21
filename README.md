@@ -1,36 +1,166 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cartoon Annotation Tool
 
-## Getting Started
+A Next.js application for recording, annotating, and replaying video sessions with synchronized audio, video, and drawing capabilities.
 
-First, run the development server:
+## Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+This tool allows users to:
+- Record synchronized audio while watching and interacting with videos
+- Add visual annotations and drawings directly on the video
+- Capture all video player interactions (play, pause, seek, etc.)
+- Replay entire sessions with perfect audio-video-annotation synchronization
+- Save and load feedback sessions as JSON files
+
+## Installation & Setup
+
+1. **Clone the repository**
+   ```
+   git clone https://github.com/your-username/cartoon-annotation.git
+   cd cartoon-annotation
+   ```
+
+2. **Install dependencies**
+   ```
+   npm install
+   ```
+
+3. **Run the development server**
+   ```
+   npm run dev
+   ```
+
+4. **Build for production**
+   ```
+   npm run build
+   npm start
+   ```
+
+## Key Components
+
+### FeedbackOrchestrator
+- Core orchestration component that coordinates all events
+- Manages recording and replay synchronization
+- Uses an audio-based timeline as the primary synchronization mechanism
+- Handles all events based on relative time offsets
+- Doesn't render any UI itself (headless component)
+
+### VideoPlayerWrapper
+- Container component that integrates the orchestrator with UI components
+- Manages UI state for recording/replaying
+- Handles file saving and loading
+- Provides reset behavior for recording and replay
+- Serves as the main entry point for the application
+
+### VideoPlayer
+- Customized video player with annotation capabilities
+- Provides controls for play, pause, seek, volume, etc.
+- Exposes imperative methods for controlling playback
+- Forwards references to the annotation canvas
+
+### AnnotationCanvas
+- Canvas-based drawing component overlaid on the video
+- Supports real-time drawing with color and width controls
+- Handles both user-created and replayed annotations
+- Carefully synchronizes with video timeline
+
+### AudioRecorder
+- Handles audio recording and playback
+- Manages browser compatibility issues
+- Provides error handling for permissions issues
+- Serializes audio data for storage and replay
+
+## Data Model
+
+The application uses two main data structures:
+
+1. **FeedbackSession**: Modern format used internally
+   ```typescript
+   interface FeedbackSession {
+     id: string;
+     videoId: string;
+     startTime: number;
+     endTime?: number;
+     audioTrack: AudioTrack;
+     events: TimelineEvent[];
+   }
+   ```
+
+2. **FeedbackData**: Legacy format maintained for backward compatibility
+   ```typescript
+   interface FeedbackData {
+     sessionId: string;
+     videoId: string;
+     actions: RecordedAction[];
+     startTime: number;
+     endTime?: number;
+     annotations?: DrawingPath[];
+     audioChunks?: AudioChunk[];
+   }
+   ```
+
+## Key Features
+
+### Recording Sessions
+1. Audio is recorded using the MediaRecorder API
+2. Video interactions (play, pause, seek) are captured as events
+3. Drawing annotations are captured with timestamps
+4. All events are synchronized to a common timeline
+
+### Replaying Sessions
+1. Audio playback drives the main timeline
+2. Video events are replayed at their recorded times
+3. Annotations appear at their recorded timestamps
+4. All components reset properly when replay completes
+
+### Serialization
+- Sessions can be saved as JSON files
+- Audio data is serialized as base64 strings
+- Files can be reloaded for later replay
+
+## Project Structure
+
+```
+cartoon-annotation/
+├── app/                  # Next.js app directory
+│   ├── page.tsx          # Main application page
+│   └── layout.tsx        # App layout
+├── src/
+│   └── components/
+│       ├── FeedbackOrchestrator.tsx   # Main coordination component
+│       ├── VideoPlayerWrapper.tsx     # Container component
+│       ├── VideoPlayer.tsx            # Custom video player
+│       ├── AnnotationCanvas.tsx       # Drawing component
+│       └── AudioRecorder.tsx          # Audio recording/playback
+├── public/               # Static assets
+└── package.json          # Dependencies and scripts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Technical Details
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Built with**: Next.js, React, TypeScript
+- **Audio**: Uses MediaRecorder API with format detection
+- **Drawing**: HTML5 Canvas for vector drawing
+- **State Management**: React's Context and Refs for cross-component communication
+- **Styling**: Tailwind CSS for responsive design
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Browser Compatibility
 
-## Learn More
+- Chrome (Desktop/Mobile): Full support
+- Firefox (Desktop): Full support
+- Safari (Desktop/iOS): Partial support - may require user interaction for audio playback
+- Edge: Full support
 
-To learn more about Next.js, take a look at the following resources:
+## Potential Future Enhancements
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Visual timeline editor for post-recording edits
+- Improved marker/comment system
+- Video source selection
+- Multiple annotation layers
+- Export to video format
+- Shared/collaborative sessions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Known Issues
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Safari may require explicit user interaction before audio playback
+- Large recordings with many annotations may experience performance issues
+- Some mobile browsers have limited MediaRecorder support
