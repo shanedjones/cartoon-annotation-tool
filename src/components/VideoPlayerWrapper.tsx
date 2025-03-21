@@ -27,6 +27,11 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
+// Format category name from camelCase to readable format
+const getCategoryLabel = (category: string): string => {
+  return category.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
+};
+
 // Enhanced helper function to convert base64 back to Blob for playback
 const base64ToBlob = (base64: string, mimeType: string): Blob => {
   try {
@@ -338,7 +343,21 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
   return legacyData;
 };
 
-export default function VideoPlayerWrapper() {
+interface VideoPlayerWrapperProps {
+  categories?: Record<string, boolean>;
+  onCategoriesCleared?: () => void;
+  onCategoriesLoaded?: (categories: Record<string, boolean>) => void;
+  onReplayModeChange?: (isReplay: boolean) => void;
+}
+
+export default function VideoPlayerWrapper({ 
+  categories = {}, 
+  onCategoriesCleared,
+  onCategoriesLoaded,
+  onReplayModeChange
+}: VideoPlayerWrapperProps) {
+  // Log categories passed from parent on every render
+  console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(null);
@@ -411,8 +430,13 @@ export default function VideoPlayerWrapper() {
           annotationCanvasComponentRef.current.clearCanvasDrawings();
         }
       }
+      
+      // Call the onCategoriesCleared callback if it exists
+      if (onCategoriesCleared) {
+        onCategoriesCleared();
+      }
     }
-  }, []);
+  }, [onCategoriesCleared]);
   
   // Start replaying the recorded session
   const startReplay = useCallback(() => {
@@ -433,13 +457,22 @@ export default function VideoPlayerWrapper() {
     }
     
     if (orchestratorRef.current && currentSession) {
+      // Clear categories before replay starts
+      if (onCategoriesCleared) {
+        console.log('Clearing categories before replay');
+        onCategoriesCleared();
+      }
+      
+      // Log the categories of the session we're replaying
+      console.log('Replaying session with categories:', currentSession.categories);
+      
       orchestratorRef.current.loadSession(currentSession);
       orchestratorRef.current.startReplay();
       setIsActive(true);
     } else {
       alert('No recorded session to replay. Record a session first.');
     }
-  }, [currentSession]);
+  }, [currentSession, onCategoriesCleared]);
   
   // Stop replay
   const stopReplay = useCallback(() => {
@@ -470,14 +503,35 @@ export default function VideoPlayerWrapper() {
   
   // Handle session completion
   const handleSessionComplete = useCallback((session: FeedbackSession) => {
-    setCurrentSession(session);
+    // First create a deep copy of the session to avoid any referential issues
+    const sessionCopy = JSON.parse(JSON.stringify(session));
+    
+    // Deep copy the categories to ensure they're not references
+    const categoriesCopy = JSON.parse(JSON.stringify(categories));
+    
+    // Log the actual values we're trying to save
+    console.log('Current categories to save:', categoriesCopy);
+    
+    // Log which categories are true (selected)
+    const selectedCategories = Object.entries(categoriesCopy)
+      .filter(([_, value]) => value)
+      .map(([key]) => key);
+    console.log('Selected categories:', selectedCategories);
+    
+    // Add the categories to the session
+    const sessionWithCategories = {
+      ...sessionCopy,
+      categories: categoriesCopy
+    };
+    
+    setCurrentSession(sessionWithCategories);
     
     // Also update legacy feedbackData for compatibility
-    const legacyData = convertSessionToLegacyData(session);
+    const legacyData = convertSessionToLegacyData(sessionWithCategories);
     setFeedbackData(legacyData);
     
-    console.log('Session completed:', session);
-  }, []);
+    console.log('Session completed with categories:', sessionWithCategories);
+  }, [categories]);
   
   // Handle audio recording completed
   const handleAudioRecorded = useCallback((audioTrack: AudioTrack) => {
@@ -547,6 +601,22 @@ export default function VideoPlayerWrapper() {
       // Create a deep copy to avoid modifying the original state
       const sessionCopy = JSON.parse(JSON.stringify(currentSession));
       
+      // Ensure categories are included in the download
+      console.log('Current session categories before download:', sessionCopy.categories);
+      
+      // Deep copy the categories to ensure they're not references
+      const categoriesCopy = JSON.parse(JSON.stringify(categories));
+      
+      // Log which categories are currently selected
+      const selectedCategories = Object.entries(categoriesCopy)
+        .filter(([_, value]) => value)
+        .map(([key]) => key);
+      console.log('Selected categories for download:', selectedCategories);
+      
+      // Make sure we have the latest categories
+      sessionCopy.categories = categoriesCopy;
+      console.log('Updated session categories for download:', sessionCopy.categories);
+      
       // Prepare audio chunks for serialization
       if (sessionCopy.audioTrack && sessionCopy.audioTrack.chunks.length > 0) {
         try {
@@ -572,7 +642,7 @@ export default function VideoPlayerWrapper() {
       console.error('Error during download process:', error);
       alert('Failed to download session data. See console for details.');
     }
-  }, [currentSession]);
+  }, [currentSession, categories]);
   
   // Handle file upload for previously saved session data
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -590,6 +660,9 @@ export default function VideoPlayerWrapper() {
         if (jsonData.events && jsonData.audioTrack) {
           // It's the new FeedbackSession format
           const loadedSession = jsonData as FeedbackSession;
+          
+          // Log if we have categories
+          console.log('Loaded session categories:', loadedSession.categories);
           
           // Restore audio chunks with proper Blob objects if they exist
           if (loadedSession.audioTrack && loadedSession.audioTrack.chunks) {
@@ -612,7 +685,8 @@ export default function VideoPlayerWrapper() {
           
           setFeedbackData(legacyData);
           // Convert to new format
-          setCurrentSession(convertLegacyDataToSession(legacyData));
+          const newSession = convertLegacyDataToSession(legacyData);
+          setCurrentSession(newSession);
           
           console.log('Loaded legacy feedback data and converted to session:', legacyData);
         }
@@ -634,6 +708,16 @@ export default function VideoPlayerWrapper() {
   const getOrchestratorRef = useCallback((orchestratorInstance: any) => {
     orchestratorRef.current = orchestratorInstance;
   }, []);
+  
+  // Method to record a category change
+  const recordCategoryChange = useCallback((category: string, checked: boolean) => {
+    if (orchestratorRef.current && mode === 'record' && isActive) {
+      console.log(`Recording category change in orchestrator: ${category} = ${checked}`);
+      orchestratorRef.current.handleCategoryEvent(category, checked);
+    } else {
+      console.warn('Unable to record category change - not in recording mode or not active');
+    }
+  }, [mode, isActive]);
   
   // Get a reference to the annotation canvas via the video player
   const getVideoPlayerRef = useCallback((videoPlayerInstance: any) => {
@@ -694,6 +778,42 @@ export default function VideoPlayerWrapper() {
     };
   }, [isActive, mode]);
 
+  // Define window type with our custom property
+  declare global {
+    interface Window {
+      __videoPlayerWrapper?: {
+        recordCategoryChange: (category: string, checked: boolean) => void;
+        isRecording: boolean;
+      };
+    }
+  }
+  
+  // Expose methods to the parent component and notify about mode changes
+  useEffect(() => {
+    // This runs once when the component mounts and when dependencies change
+    if (typeof window !== 'undefined') {
+      // Set global reference available to parent component
+      window.__videoPlayerWrapper = {
+        recordCategoryChange,
+        isRecording: mode === 'record' && isActive
+      };
+    }
+    
+    // Notify parent component about replay mode changes
+    if (onReplayModeChange) {
+      const isReplay = mode === 'replay';
+      console.log(`Notifying parent about replay mode: ${isReplay}`);
+      onReplayModeChange(isReplay);
+    }
+    
+    return () => {
+      // Clean up on unmount
+      if (typeof window !== 'undefined' && window.__videoPlayerWrapper) {
+        delete window.__videoPlayerWrapper;
+      }
+    };
+  }, [recordCategoryChange, mode, isActive, onReplayModeChange]);
+  
   return (
     <div className="w-full">
       <div className="flex flex-col gap-2 mb-4">
@@ -816,6 +936,36 @@ export default function VideoPlayerWrapper() {
           onSessionComplete={handleSessionComplete}
           initialSession={currentSession}
           mode={mode}
+          onCategoriesLoaded={(loadedCategories) => {
+            // When a session is loaded with categories, we need to notify the parent component
+            if (loadedCategories) {
+              console.log('WRAPPER: Received loaded categories from orchestrator:', loadedCategories);
+              
+              // First clear existing categories
+              if (onCategoriesCleared) {
+                console.log('WRAPPER: Clearing existing categories before loading new ones');
+                onCategoriesCleared();
+              }
+              
+              // Check if we have any true categories
+              const hasCheckedCategories = Object.values(loadedCategories).some(isChecked => isChecked);
+              console.log(`WRAPPER: Has checked categories: ${hasCheckedCategories}`);
+              
+              // Then load the saved categories using the callback if available
+              if (hasCheckedCategories && onCategoriesLoaded) {
+                console.log('WRAPPER: Passing categories to parent component');
+                
+                // Delay slightly to ensure UI state is updated properly after clearing
+                setTimeout(() => {
+                  onCategoriesLoaded(loadedCategories);
+                }, 100);
+              } else {
+                console.log('WRAPPER: No checked categories or no callback available');
+              }
+            } else {
+              console.warn('WRAPPER: No categories data received from orchestrator');
+            }
+          }}
           ref={getOrchestratorRef}
         />
       </div>
@@ -828,6 +978,21 @@ export default function VideoPlayerWrapper() {
             <p><strong>Start Time:</strong> {new Date(currentSession.startTime).toLocaleString()}</p>
             <p><strong>Events:</strong> {currentSession.events.length} recorded actions</p>
             <p><strong>Audio Duration:</strong> {(currentSession.audioTrack.totalDuration / 1000).toFixed(2)}s</p>
+            
+            {currentSession.categories && Object.keys(currentSession.categories).length > 0 && (
+              <div className="mt-2">
+                <p><strong>Categories:</strong></p>
+                <ul className="list-disc ml-5">
+                  {Object.entries(currentSession.categories)
+                    .filter(([_, isSelected]) => isSelected)
+                    .map(([category]) => (
+                      <li key={category}>
+                        {category.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
           </div>
           
           <div className="max-h-48 overflow-y-auto mt-4">
@@ -853,6 +1018,11 @@ export default function VideoPlayerWrapper() {
                   {event.type === 'marker' && (
                     <span className="block text-gray-600">
                       Marker: {event.payload.text}
+                    </span>
+                  )}
+                  {event.type === 'category' && (
+                    <span className="block text-gray-600">
+                      Category: {getCategoryLabel(event.payload.category)} {event.payload.checked ? '(added)' : '(removed)'}
                     </span>
                   )}
                 </li>

@@ -15,6 +15,7 @@ export interface FeedbackSession {
   endTime?: number;
   audioTrack: AudioTrack;
   events: TimelineEvent[];
+  categories?: Record<string, boolean>;
 }
 
 /**
@@ -30,7 +31,7 @@ export interface AudioTrack {
  */
 export interface TimelineEvent {
   id: string;
-  type: 'video' | 'annotation' | 'marker';
+  type: 'video' | 'annotation' | 'marker' | 'category';
   timeOffset: number; // milliseconds from audio start
   duration?: number; // for events with duration
   payload: any; // specific data based on type
@@ -54,6 +55,8 @@ interface FeedbackOrchestratorProps {
   initialSession?: FeedbackSession | null;
   // Operation mode
   mode: 'record' | 'replay';
+  // Callback for when categories are loaded during replay
+  onCategoriesLoaded?: (categories: Record<string, boolean>) => void;
 }
 
 /**
@@ -68,7 +71,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   onAudioRecorded,
   onSessionComplete,
   initialSession,
-  mode
+  mode,
+  onCategoriesLoaded
 }, ref) => {
   // State for tracking active session
   const [isActive, setIsActive] = useState(false);
@@ -314,6 +318,14 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   }, [recordEvent]);
   
   /**
+   * Record a category change
+   */
+  const handleCategoryEvent = useCallback((category: string, checked: boolean) => {
+    console.log(`Recording category change: ${category} = ${checked}`);
+    return recordEvent('category', { category, checked });
+  }, [recordEvent]);
+  
+  /**
    * Start replay of a feedback session
    */
   const startReplay = useCallback(() => {
@@ -438,6 +450,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     }
   }, [currentSession, isActive]);
   
+  // Forward declaration of executeEvent to avoid reference-before-initialization error
+  const executeEventRef = useRef<(event: TimelineEvent) => void>();
+  
   /**
    * Process pending events based on current timeline position
    */
@@ -474,10 +489,31 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Update the pending events
     pendingEventsRef.current = remainingEvents;
     
-    // Execute the events
-    eventsToExecute.forEach(event => {
-      executeEvent(event);
+    // Execute the events with special handling for category events
+    const categoryEvents = eventsToExecute.filter(e => e.type === 'category');
+    const nonCategoryEvents = eventsToExecute.filter(e => e.type !== 'category');
+    
+    // Execute non-category events immediately
+    nonCategoryEvents.forEach(event => {
+      if (executeEventRef.current) {
+        executeEventRef.current(event);
+      }
     });
+    
+    // Execute category events with a small delay between them to avoid state batching
+    if (categoryEvents.length > 0) {
+      console.log(`Processing ${categoryEvents.length} category events with delays`);
+      
+      // Process category events with a delay between each one
+      categoryEvents.forEach((event, index) => {
+        setTimeout(() => {
+          console.log(`Delayed execution of category event ${index + 1}/${categoryEvents.length}`);
+          if (executeEventRef.current) {
+            executeEventRef.current(event);
+          }
+        }, index * 50); // 50ms between each category event
+      });
+    }
   }, []);
   
   /**
@@ -488,103 +524,85 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     switch (event.type) {
       case 'video':
-        executeVideoEvent(event);
+        if (videoElementRef.current) {
+          const video = videoElementRef.current;
+          const payload = event.payload;
+          
+          switch (payload.action) {
+            case 'play':
+              video.play().catch(err => console.warn('Failed to play video:', err));
+              break;
+            case 'pause':
+              video.pause();
+              break;
+            case 'seek':
+              if (payload.to !== undefined) {
+                video.currentTime = payload.to;
+              }
+              break;
+            case 'volume':
+              if (payload.to !== undefined) {
+                video.volume = payload.to;
+              }
+              break;
+            case 'playbackRate':
+              if (payload.to !== undefined) {
+                video.playbackRate = payload.to;
+              }
+              break;
+          }
+        }
         break;
       case 'annotation':
-        executeAnnotationEvent(event);
+        if (drawAnnotation && clearAnnotations) {
+          const payload = event.payload;
+          
+          switch (payload.action) {
+            case 'draw':
+              if (payload.path) {
+                try {
+                  // Create a copy of the path to preserve original properties
+                  const pathWithTiming = { 
+                    ...payload.path,
+                    // Ensure the timeOffset from the event is used for replay timing
+                    // This ensures the annotation appears at the correct time during replay
+                    timeOffset: event.timeOffset,
+                    // If videoTime isn't already set, set it to the event's timeOffset
+                    // This helps with filtering in the AnnotationCanvas component
+                    videoTime: payload.path.videoTime || event.timeOffset
+                  };
+                  
+                  drawAnnotation(pathWithTiming);
+                } catch (error) {
+                  console.error('Error during annotation drawing:', error);
+                }
+              }
+              break;
+            case 'clear':
+              try {
+                clearAnnotations();
+              } catch (error) {
+                console.error('Error during annotation clearing:', error);
+              }
+              break;
+          }
+        }
         break;
       case 'marker':
         // Could display a marker UI
         console.log('Marker:', event.payload.text);
         break;
+      case 'category':
+        // We're now handling all categories at the start of replay instead of during timeline events
+        console.log(`Skipping category event during replay: ${event.payload?.category} = ${event.payload?.checked}`);
+        break;
     }
-  }, []);
+  }, [videoElementRef, drawAnnotation, clearAnnotations, onCategoriesLoaded]);
   
-  /**
-   * Execute a video event
-   */
-  const executeVideoEvent = useCallback((event: TimelineEvent) => {
-    if (!videoElementRef.current) return;
-    
-    const video = videoElementRef.current;
-    const payload = event.payload;
-    
-    switch (payload.action) {
-      case 'play':
-        video.play().catch(err => console.warn('Failed to play video:', err));
-        break;
-      case 'pause':
-        video.pause();
-        break;
-      case 'seek':
-        if (payload.to !== undefined) {
-          video.currentTime = payload.to;
-        }
-        break;
-      case 'volume':
-        if (payload.to !== undefined) {
-          video.volume = payload.to;
-        }
-        break;
-      case 'playbackRate':
-        if (payload.to !== undefined) {
-          video.playbackRate = payload.to;
-        }
-        break;
-    }
-  }, [videoElementRef]);
-  
-  /**
-   * Execute an annotation event
-   */
-  const executeAnnotationEvent = useCallback((event: TimelineEvent) => {
-    const payload = event.payload;
-    
-    console.log(`Executing annotation event: ${payload.action}`, {
-      timeOffset: event.timeOffset,
-      hasPath: !!payload.path,
-      pointsCount: payload.path?.points?.length || 0
-    });
-    
-    switch (payload.action) {
-      case 'draw':
-        if (payload.path) {
-          try {
-            // Create a copy of the path to preserve original properties
-            const pathWithTiming = { 
-              ...payload.path,
-              // Ensure the timeOffset from the event is used for replay timing
-              // This ensures the annotation appears at the correct time during replay
-              timeOffset: event.timeOffset,
-              // If videoTime isn't already set, set it to the event's timeOffset
-              // This helps with filtering in the AnnotationCanvas component
-              videoTime: payload.path.videoTime || event.timeOffset
-            };
-            
-            console.log('Drawing annotation with timing:', {
-              timeOffset: event.timeOffset,
-              videoTime: pathWithTiming.videoTime
-            });
-            
-            drawAnnotation(pathWithTiming);
-          } catch (error) {
-            console.error('Error during annotation drawing:', error);
-          }
-        } else {
-          console.warn('Draw event without path data');
-        }
-        break;
-      case 'clear':
-        try {
-          clearAnnotations();
-        } catch (error) {
-          console.error('Error during annotation clearing:', error);
-        }
-        break;
-      default:
-        console.warn(`Unknown annotation action: ${payload.action}`);
-    }
-  }, [drawAnnotation, clearAnnotations]);
+  // Update the executeEventRef whenever executeEvent changes
+  useEffect(() => {
+    executeEventRef.current = executeEvent;
+  }, [executeEvent]);
   
   /**
    * Complete the replay process
@@ -658,8 +676,78 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Load a session for replay
    */
   const loadSession = useCallback((session: FeedbackSession) => {
+    console.log('Loading session for replay, session ID:', session.id);
+    console.log('Total events in session:', session.events.length);
+    console.log('All event types:', session.events.map(e => e.type));
+    
     setCurrentSession(session);
-  }, []);
+    
+    // Detailed log of all events to debug
+    session.events.forEach((event, index) => {
+      console.log(`Event ${index}: type=${event.type}, timeOffset=${event.timeOffset}, payload=`, event.payload);
+    });
+    
+    // Try direct approach first: check if session has categories property
+    if (session.categories && Object.keys(session.categories).length > 0) {
+      console.log('Session has categories property directly:', session.categories);
+      
+      if (onCategoriesLoaded) {
+        console.log('Using categories directly from session:', session.categories);
+        
+        // Use the categories directly since they're already in the right format
+        setTimeout(() => {
+          onCategoriesLoaded(session.categories);
+        }, 100);
+        
+        // We've handled categories directly, so we can return
+        return;
+      }
+    }
+    
+    // Fallback to category events if no direct categories property
+    console.log('No direct categories property, looking for category events...');
+    
+    // Find all category events, regardless of checked status first
+    const allCategoryEvents = session.events.filter(event => event.type === 'category');
+    console.log(`Found ${allCategoryEvents.length} total category events in session`);
+    
+    // Use the most recent state of each category (last event for each category determines if it's checked)
+    const categoriesState: Record<string, boolean> = {};
+    
+    // Process events in chronological order so we end up with the final state
+    allCategoryEvents.forEach(event => {
+      if (event.payload?.category) {
+        categoriesState[event.payload.category] = !!event.payload.checked;
+        console.log(`Category ${event.payload.category} = ${event.payload.checked}`);
+      }
+    });
+    
+    // Find which categories are checked in the final state
+    const checkedCategories = Object.entries(categoriesState)
+      .filter(([_, isChecked]) => isChecked)
+      .map(([category]) => category);
+    
+    console.log(`Final state has ${checkedCategories.length} checked categories:`, checkedCategories);
+    
+    // If we have categories and a callback, send all the categories at once
+    if (Object.keys(categoriesState).length > 0 && onCategoriesLoaded) {
+      console.log('Final categories state to send:', categoriesState);
+      
+      // Notify parent about all categories - use setTimeout to ensure it happens after component mount
+      setTimeout(() => {
+        if (onCategoriesLoaded) {
+          console.log('Calling onCategoriesLoaded with:', categoriesState);
+          onCategoriesLoaded(categoriesState);
+        }
+      }, 100);
+    } else {
+      console.warn('No category events found in the session or callback missing', {
+        allCategoryEvents: allCategoryEvents.length,
+        categoriesState: Object.keys(categoriesState).length,
+        hasCallback: !!onCategoriesLoaded
+      });
+    }
+  }, [onCategoriesLoaded]);
   
   /**
    * Clean up resources when component unmounts
@@ -701,6 +789,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     handleVideoEvent,
     handleAnnotationEvent,
     addMarker,
+    handleCategoryEvent,
     
     // Replay methods
     startReplay,
