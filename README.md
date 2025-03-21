@@ -15,7 +15,7 @@ This tool allows users to:
 
 1. **Clone the repository**
    ```
-   git clone https://github.com/your-username/cartoon-annotation.git
+   git clone https://github.com/shanedjones/cartoon-annotation-tool
    cd cartoon-annotation
    ```
 
