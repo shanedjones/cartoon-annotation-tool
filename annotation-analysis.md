@@ -1,89 +1,270 @@
-Analysis of Drawing Playback Issues in Cartoon Annotation Tool
-After examining your codebase, I've identified several issues causing drawings not to play and clear correctly during playback. Let's break down the problems and potential solutions.
-Root Causes
+# Annotation System Analysis
 
-Inconsistent Visibility State Management
+## Overview of the Playback Data Structure
 
-Different behavior in record vs. replay modes
-During recording: annotations are removed from allDrawings array
-During replay: annotations are only marked as hidden but kept in array
-This inconsistency creates problems when determining which annotations should be visible
+The annotation system consists of several interconnected components with a complex data flow for both recording and replaying annotations. Understanding the data flow and state management is crucial to diagnosing the issues with annotation clearing.
 
+### Key Components and Their Roles
 
-Clear Event Timing Information Loss
+1. **AnnotationCanvas**: Handles drawing, storing, and displaying annotations
+   - Manages the canvas context and actual rendering
+   - Stores annotations in `allDrawings` state
+   - Implements visibility system with `visible` and `hiddenAt` flags
+   - Processes clear events during replay via `clearEvents` state
 
-Multiple timing properties (timestamp, videoTime, timeOffset, hiddenAt, clearVideoTime)
-Inconsistent extraction and use of these properties during replay
-Missing or incorrect timing can cause out-of-order execution
+2. **VideoPlayer**: Controls video playback and annotation creation
+   - Contains the `AnnotationCanvas` component
+   - Tracks recording state and handles user interactions
+   - Dispatches annotation events to parent components
+   - Creates clear events with timestamp information
 
+3. **VideoPlayerWrapper**: Orchestrates recording and replay sessions
+   - Manages mode state ('record' vs 'replay')
+   - Passes annotation data between components
+   - Stores and retrieves session data
+   - Forwards events to the `FeedbackOrchestrator`
 
-Complex State Management Across Components
+4. **FeedbackOrchestrator**: Coordinates the recording and replay timeline
+   - Records all events with precise timestamps
+   - Processes the event timeline during replay
+   - Executes annotation and clear events at the appropriate times
+   - Manages audio synchronization and session state
 
-Annotation state exists in multiple places:
+### Data Structures
 
-AnnotationCanvas.allDrawings
-window.__hiddenAnnotations
-window.__clearEvents
-FeedbackOrchestrator.eventsRef
+The annotation system uses these primary data structures:
 
+1. **DrawingPath**: Represents a single annotation
+   ```typescript
+   interface DrawingPath {
+     points: Point[];       // The actual drawing points
+     color: string;         // Drawing color
+     width: number;         // Line width
+     timestamp: number;     // When the annotation was created
+     videoTime?: number;    // Video position when created (ms)
+     id?: string;           // Unique identifier 
+     visible?: boolean;     // Visibility flag
+     hiddenAt?: number;     // When annotation was cleared (if ever)
+   }
+   ```
 
-These can get out of sync, especially during serialization/deserialization
+2. **TimelineEvent**: Represents an action in the timeline
+   ```typescript
+   interface TimelineEvent {
+     id: string;
+     type: 'video' | 'annotation' | 'marker' | 'category';
+     timeOffset: number;    // Milliseconds from session start
+     duration?: number;     // For events with duration
+     payload: any;          // Type-specific data
+   }
+   ```
 
+3. **FeedbackSession**: The complete session data
+   ```typescript
+   interface FeedbackSession {
+     id: string;
+     videoId: string;
+     startTime: number;
+     endTime?: number;
+     audioTrack: AudioTrack;
+     events: TimelineEvent[];
+     categories?: Record<string, boolean>;
+   }
+   ```
 
-Execution Timing Issues
+## Identified Issues
 
-Clear events and draw events need specific sequencing
-Current time adjustments may not be sufficient to ensure proper order
+After analyzing the code, I've identified several issues that likely contribute to the annotation playback problems:
 
+### 1. Inconsistent Visibility State Management
 
+The `AnnotationCanvas` component has a visibility system for annotations with `visible` flag and `hiddenAt` timestamp, but there are issues in how this state is managed:
 
-Detailed Analysis of Key Issues
-Issue 1: Clear Event Detection Problems
-In AnnotationCanvas.tsx, the code attempts to identify clear events using various formats:
-javascriptCopy// Multiple detection approaches
-const isClearEvent = annotation.isClearEvent === true;
-const clearDetails = (annotation as any).details?.clear === true;
-const isExplicitClear = annotation.points?.length === 0 && annotation.hiddenAt;
+```typescript
+// In AnnotationCanvas.tsx
+// During replay, annotations are filtered like this:
+const visibleAnnotations = replayAnnotations.filter(annotation => {
+  // First check for explicit visibility flag if available
+  if (annotation.visible === false) return false;
+  
+  // If the annotation has a hiddenAt timestamp and it's before current time, hide it
+  if (annotation.hiddenAt && annotation.hiddenAt <= videoTimeMs) return false;
+  
+  // Get annotation timestamp (using multiple possible properties)
+  const annotationTime = (annotation as any).timeOffset || annotation.videoTime || annotation.timestamp;
+  
+  // Only show annotations that happened after the most recent clear event
+  const isAfterClear = annotationTime > mostRecentClearTime;
+  const isBeforeCurrentTime = annotationTime <= videoTimeMs;
+  
+  return isAfterClear && isBeforeCurrentTime;
+});
+```
 
-// Multiple timestamp extraction approaches
-if (annotation.clearVideoTime) {
-  clearTime = annotation.clearVideoTime;
-}
-else if ((annotation as any).details?.clearVideoTime) {
-  clearTime = (annotation as any).details.clearVideoTime;
-}
-// ...and several other fallbacks
-This creates inconsistency in which clear events are detected and when they're executed.
-Issue 2: State Reset Inconsistency
-The clearCanvasDrawings function handles recording and replay modes differently:
-javascriptCopyif (isReplaying) {
-  // During replay, mark drawings as hidden but keep them in the array
-  setAllDrawings(prevDrawings => 
-    prevDrawings.map(drawing => ({
+The issue is that the `clearCanvasDrawings` function has different behavior in recording vs. replay mode:
+
+```typescript
+// In AnnotationCanvas.tsx
+const clearCanvasDrawings = () => {
+  // Visual clearing happens here
+  const ctx = getContext();
+  if (ctx) {
+    ctx.clearRect(0, 0, width, height);
+  }
+  
+  // Mark all existing drawings as hidden with current timestamp
+  const currentVideoTime = currentTime * 1000;
+  const now = Date.now();
+  
+  if (isReplaying) {
+    // During replay, mark drawings as hidden but keep them in the array
+    setAllDrawings(prevDrawings => 
+      prevDrawings.map(drawing => ({
+        ...drawing,
+        visible: false,
+        hiddenAt: currentVideoTime || now
+      }))
+    );
+  } else {
+    // In recording mode, record hidden state but actually clear the array
+    const hiddenDrawings = allDrawings.map(drawing => ({
       ...drawing,
       visible: false,
       hiddenAt: currentVideoTime || now
-    }))
-  );
-} else {
-  // In recording mode, store hidden annotations globally then clear array
-  window.__hiddenAnnotations = window.__hiddenAnnotations || [];
-  window.__hiddenAnnotations.push(...hiddenDrawings);
-  setAllDrawings([]);
-}
-This difference means annotations are tracked differently between modes.
-Issue 3: Timing Problems in Orchestrator
-In FeedbackOrchestrator.tsx, the timing adjustments for clear and draw events may not be sufficient:
-javascriptCopy// For clear events
-const adjustedClearTime = clearVideoTime - 10; // 10ms earlier
+    }));
+    console.log(`Marked ${hiddenDrawings.length} drawings as hidden at ${currentVideoTime}ms`);
+    
+    // Then clear the visible drawings
+    setAllDrawings([]);
+  }
+  
+  return {
+    clearTime: currentVideoTime || now,
+    clearedCount: allDrawings.length
+  };
+};
+```
 
-// For draw events
-const adjustedTimeOffset = event.timeOffset + 5; // 5ms later
-When events are grouped closely together, these small adjustments might not maintain proper ordering.
-Recommended Solutions
-1. Standardize Annotation Visibility State
-javascriptCopy// In AnnotationCanvas.tsx - clearCanvasDrawings
-// Updated function to standardize clear behavior
+The problem is that when recording, it empties the `allDrawings` array, but during replay, the hidden drawings remain in the array. This makes the clear behavior inconsistent between modes.
+
+### 2. Clear Event Timing Information Loss
+
+Clear events need precise timing information to work correctly during replay, but there are inconsistencies in how this timing is captured and propagated:
+
+```typescript
+// In VideoPlayer.tsx
+const clearAnnotations = () => {
+  setShouldClearCanvas(true);
+  
+  // Record the clear action if recording
+  if (isRecording && recordingStartTimeRef.current && onRecordAction) {
+    // Create a special clear action with current time information
+    const clearTimestamp = Date.now() - recordingStartTimeRef.current;
+    const clearTime = currentTime * 1000; // Convert to ms
+    
+    console.log(`Creating clear event at video time: ${clearTime}ms, timestamp: ${clearTimestamp}ms`);
+    
+    const action: RecordedAction = {
+      type: 'annotation',
+      timestamp: clearTimestamp,
+      videoTime: currentTime,
+      details: { 
+        clear: true,
+        clearTimestamp: clearTimestamp,
+        clearVideoTime: clearTime
+      }
+    };
+    onRecordAction(action);
+  }
+};
+```
+
+While the `clearVideoTime` and `clearTimestamp` are captured, they may not be correctly used during replay, or there may be inconsistency in the time units (seconds vs. milliseconds).
+
+### 3. Disconnected State Between Components
+
+The annotation state is managed in multiple places, which can lead to inconsistencies:
+
+1. `AnnotationCanvas` has its own `allDrawings` state
+2. `VideoPlayerWrapper` passes `replayAnnotations` to the `VideoPlayer`
+3. `FeedbackOrchestrator` processes events and calls `drawAnnotation` and `clearAnnotations`
+
+If these components get out of sync in terms of which annotations should be visible, it can cause annotations to appear incorrectly during replay.
+
+### 4. Detection and Processing of Clear Events
+
+In the `AnnotationCanvas`, clear events are detected and tracked separately:
+
+```typescript
+// Process replay annotations to track clear events
+useEffect(() => {
+  if (!isReplaying || replayAnnotations.length === 0) return;
+  
+  // Find all clear events by their timestamps or isClearEvent flag
+  const clearTimestamps: number[] = [];
+  
+  // First look for any clear actions that might be in the annotations array
+  replayAnnotations.forEach((annotation, index) => {
+    // Various formats to detect clear events
+    const isClearEvent = (annotation as any).isClearEvent === true;
+    const clearDetails = (annotation as any).details?.clear === true;
+    
+    if (isClearEvent || clearDetails) {
+      // Try to extract timestamp from various properties
+      let timeStamp = 0;
+      
+      // Use clearVideoTime from details if available (most accurate)
+      if ((annotation as any).details?.clearVideoTime) {
+        timeStamp = (annotation as any).details.clearVideoTime;
+      }
+      // Other timestamp extraction logic...
+      
+      if (timeStamp) {
+        clearTimestamps.push(timeStamp);
+      }
+    }
+  });
+  
+  // Sort by time
+  clearTimestamps.sort((a, b) => a - b);
+  
+  // Update state only if there's a change
+  if (clearTimestamps.length !== clearEvents.length || 
+      clearTimestamps.some((t, i) => t !== clearEvents[i])) {
+    setClearEvents(clearTimestamps);
+  }
+}, [isReplaying, replayAnnotations, clearEvents]);
+```
+
+But there could be issues with the annotations array not properly containing clear events, or the events having inconsistent formats.
+
+## Root Cause Analysis
+
+After analyzing the code and observed behavior, here are the likely root causes of the annotation clearing issues:
+
+1. **Clear Event Loss During Serialization**: When recording sessions are saved and loaded, the visibility flags may not be properly serialized, causing clear events to be ineffective during replay.
+
+2. **State Duplication with Inconsistent Updates**: The annotation state exists in multiple components (AnnotationCanvas, VideoPlayerWrapper, FeedbackOrchestrator), and they may get out of sync during complex operations like clearing.
+
+3. **Timing Inconsistencies**: Clear events need precise timing to work correctly, but there are multiple timestamp formats (video time, recording offset time, wall clock time) that may be inconsistently used.
+
+4. **Ineffective Visibility State Management**: While there's a mechanism for marking annotations as hidden, the code may not be consistently using these flags during replay filtering.
+
+5. **Modifying the Original Annotation Arrays**: The code sometimes modifies the original annotation arrays, which can cause unintended side effects when those arrays are used in multiple places.
+
+## Proposed Solutions
+
+### Approach 1: Enhance Visibility State Management
+
+This approach focuses on improving the visibility state tracking and usage:
+
+1. **Consistent Handling of Visibility State**:
+   - Ensure all annotations have `visible` and `hiddenAt` properties set correctly
+   - Make the `clearCanvasDrawings` function consistent between recording and replay modes
+   - During replay, prioritize visibility state over clear event timestamps
+
+```typescript
+// Example implementation for AnnotationCanvas:
 const clearCanvasDrawings = () => {
   const ctx = getContext();
   if (ctx) {
@@ -93,227 +274,132 @@ const clearCanvasDrawings = () => {
   const currentVideoTime = currentTime * 1000;
   const now = Date.now();
   
-  // Create standardized clear marker
+  // Create a clear marker with precise timing
   const clearMark = {
-    id: `clear-${now}`,
     timestamp: now,
-    videoTime: currentVideoTime,
-    clearVideoTime: currentVideoTime,
-    clearTimestamp: now,
-    isClearEvent: true,
-    points: [],
-    color: 'transparent',
-    width: 0,
-    visible: false,
-    hiddenAt: currentVideoTime
+    videoTime: currentVideoTime, 
+    id: `clear-${now}`,
+    isClearEvent: true
   };
   
-  // Always mark drawings as hidden with consistent metadata
+  // Make a copy of current drawings with visibility set to false
   const hiddenDrawings = allDrawings.map(drawing => ({
     ...drawing,
     visible: false,
-    hiddenAt: currentVideoTime
+    hiddenAt: currentVideoTime || now
   }));
   
-  // Store hidden drawings in window storage regardless of mode
-  if (typeof window !== 'undefined') {
-    window.__hiddenAnnotations = window.__hiddenAnnotations || [];
-    window.__hiddenAnnotations.push(...hiddenDrawings);
-    
-    // Also track clear event
-    window.__clearEvents = window.__clearEvents || [];
-    window.__clearEvents.push({
-      timestamp: now,
-      videoTime: currentVideoTime,
-      absoluteTime: now
-    });
-  }
-  
-  // Behavior now more consistent between modes
-  if (isReplaying) {
-    // In replay, update visibility state but keep annotations for history
-    setAllDrawings(hiddenDrawings);
-  } else {
-    // In recording, still clear array for performance
+  // For recording, reset the array but keep track of what was hidden
+  if (!isReplaying) {
+    // Store hidden state in window.__hiddenAnnotations for replay
+    if (typeof window !== 'undefined') {
+      window.__hiddenAnnotations = window.__hiddenAnnotations || [];
+      window.__hiddenAnnotations.push(...hiddenDrawings);
+    }
     setAllDrawings([]);
+  } else {
+    // During replay, just update visibility
+    setAllDrawings(hiddenDrawings);
   }
   
   return clearMark;
 };
-2. Improve Clear Event Handling in the Orchestrator
-javascriptCopy// In FeedbackOrchestrator.tsx - executeEvent (annotation clear case)
-case 'clear':
-  try {
-    const clearVideoTime = payload.clearVideoTime || 
-      (videoElementRef.current ? videoElementRef.current.currentTime * 1000 : event.timeOffset);
-    
-    // Apply a more significant adjustment to ensure clear events happen first
-    const adjustedClearTime = clearVideoTime - 50; // 50ms earlier instead of 10ms
-    
-    console.log(`Executing clear event at timeOffset: ${event.timeOffset}ms, ` +
-      `videoTime: ${adjustedClearTime}ms (adjusted from ${clearVideoTime}ms)`);
-    
-    // Create more comprehensive clear event
-    const clearEvent = {
-      id: `clear-${event.id || Date.now()}`,
-      points: [],
-      color: 'transparent',
-      width: 0,
-      timestamp: Date.now(),
-      videoTime: adjustedClearTime,
-      timeOffset: event.timeOffset - 50,
-      isClearEvent: true,
-      visible: false,
-      hiddenAt: adjustedClearTime
-    };
-    
-    // First add to timeline for tracking
-    drawAnnotation(clearEvent);
-    
-    // Then execute the clear with a small delay
-    setTimeout(() => {
-      clearAnnotations();
-    }, 10);
-  } catch (error) {
-    console.error('Error during annotation clearing:', error);
-  }
-  break;
-3. Enhance Event Processing in the Orchestrator
-javascriptCopy// In FeedbackOrchestrator.tsx - processPendingEvents
-const processPendingEvents = useCallback((currentTimeMs: number) => {
-  if (pendingEventsRef.current.length === 0) return;
+```
+
+2. **Improved Replay Filtering**:
+   - Add additional checks for the visibility state
+   - Ensure clear events are properly tracked and have priority in determining visibility
+
+```typescript
+// Example improved filtering in AnnotationCanvas:
+const visibleAnnotations = replayAnnotations.filter(annotation => {
+  // Skip any special markers
+  if ((annotation as any).isClearEvent) return false;
   
-  const processingTime = currentTimeMs + 50; // 50ms lookahead
+  // Priority 1: Check explicit visibility flag
+  if (annotation.visible === false) return false;
   
-  const eventsToExecute = [];
-  const remainingEvents = [];
+  // Priority 2: Check if this was hidden at a past time
+  if (annotation.hiddenAt && annotation.hiddenAt <= videoTimeMs) return false;
   
-  pendingEventsRef.current.forEach(event => {
-    if (event.timeOffset <= processingTime) {
-      eventsToExecute.push(event);
-    } else {
-      remainingEvents.push(event);
-    }
+  // Priority 3: Check against clear events
+  const annotationTime = annotation.videoTime || annotation.timestamp;
+  if (mostRecentClearTime > 0 && annotationTime <= mostRecentClearTime) return false;
+  
+  // Finally, ensure the annotation should be visible at current time
+  return annotationTime <= videoTimeMs;
+});
+```
+
+### Approach 2: Centralize Annotation State Management
+
+This approach focuses on centralizing the annotation state to avoid inconsistencies:
+
+1. **Single Source of Truth**:
+   - Move all annotation state management to the `FeedbackOrchestrator`
+   - Provide read-only views of the annotation state to other components
+   - Make clearing an explicit operation that updates this central state
+
+2. **Enhanced Clear Event**:
+   - Create a more robust clear event type with precise timing info
+   - Ensure clear events are properly serialized and deserialized
+
+```typescript
+// Example clear event in the FeedbackOrchestrator:
+interface ClearEvent {
+  id: string;
+  type: 'clear';
+  timeOffset: number;     // Time from session start
+  videoTime: number;      // Video position when cleared
+  wallClockTime: number;  // Actual time when cleared
+}
+
+// During recording:
+const recordClearEvent = () => {
+  const now = Date.now();
+  const timeOffset = now - recordingStartTimeRef.current;
+  const videoTime = videoElementRef.current ? videoElementRef.current.currentTime * 1000 : 0;
+  
+  const clearEvent: ClearEvent = {
+    id: generateId(),
+    type: 'clear',
+    timeOffset,
+    videoTime,
+    wallClockTime: now
+  };
+  
+  // Add to events list
+  eventsRef.current.push({
+    id: clearEvent.id,
+    type: 'annotation',
+    timeOffset,
+    payload: { action: 'clear', ...clearEvent }
   });
   
-  // Update pending events immediately to prevent double processing
-  pendingEventsRef.current = remainingEvents;
+  // Apply to annotations state
+  annotationsRef.current = annotationsRef.current.map(a => ({
+    ...a,
+    visible: false,
+    hiddenAt: videoTime
+  }));
   
-  if (eventsToExecute.length === 0) return;
+  // Actually clear visible annotations from canvas
+  drawingCanvasRef.current.clearVisual();
   
-  // Sort events by timeOffset
-  eventsToExecute.sort((a, b) => a.timeOffset - b.timeOffset);
-  
-  // Split by type with clear events having highest priority
-  const clearEvents = eventsToExecute.filter(e => 
-    e.type === 'annotation' && e.payload.action === 'clear');
-  
-  const drawEvents = eventsToExecute.filter(e => 
-    e.type === 'annotation' && e.payload.action === 'draw');
-  
-  const otherEvents = eventsToExecute.filter(e => 
-    !(e.type === 'annotation' && (e.payload.action === 'clear' || e.payload.action === 'draw')));
-  
-  // Execute with significant delays between different event types
-  
-  // 1. Clear events first
-  clearEvents.forEach((event, index) => {
-    setTimeout(() => {
-      if (executeEventRef.current) {
-        executeEventRef.current(event);
-      }
-    }, index * 20); // 20ms between clear events
-  });
-  
-  // 2. Draw events after all clears
-  const clearDelay = clearEvents.length * 20 + 50; // 50ms buffer after last clear
-  
-  drawEvents.forEach((event, index) => {
-    setTimeout(() => {
-      if (executeEventRef.current) {
-        executeEventRef.current(event);
-      }
-    }, clearDelay + index * 10); // 10ms between draw events
-  });
-  
-  // 3. Other events last
-  const totalDelay = clearDelay + drawEvents.length * 10 + 30;
-  
-  otherEvents.forEach(event => {
-    setTimeout(() => {
-      if (executeEventRef.current) {
-        executeEventRef.current(event);
-      }
-    }, totalDelay);
-  });
-}, []);
-4. Simplify Annotation Visibility Filtering
-javascriptCopy// In AnnotationCanvas.tsx - useEffect for filtering and displaying annotations
-// Replace the complex filtering logic with this clearer approach
-const getVisibleAnnotations = (annotations, videoTimeMs, clearEvents) => {
-  // Find most recent clear event
-  const mostRecentClearTime = clearEvents.length > 0 
-    ? Math.max(0, ...clearEvents.filter(time => time <= videoTimeMs)) 
-    : 0;
-  
-  return annotations.filter(annotation => {
-    // Skip clear events and non-drawings
-    if (annotation.isClearEvent || !annotation.points || annotation.points.length === 0) {
-      return false;
-    }
-    
-    // Skip explicitly hidden annotations
-    if (annotation.visible === false) {
-      return false;
-    }
-    
-    // Skip annotations hidden at an earlier time
-    if (annotation.hiddenAt && annotation.hiddenAt <= videoTimeMs) {
-      return false;
-    }
-    
-    // Get the creation time with fallbacks
-    const annotationTime = annotation.videoTime || 
-                         (annotation as any).timeOffset || 
-                         annotation.timestamp || 
-                         0;
-    
-    // Check against the most recent clear event
-    if (mostRecentClearTime > 0 && annotationTime <= mostRecentClearTime) {
-      return false;
-    }
-    
-    // Only show annotations created before current time
-    return annotationTime <= videoTimeMs;
-  });
+  return clearEvent;
 };
-Implementation Plan
+```
 
-Start with AnnotationCanvas.tsx:
+## Recommended Solution
 
-Standardize the clearCanvasDrawings function first
-Simplify the annotation filtering logic
-Improve clear event detection
+I recommend implementing a hybrid of both approaches:
 
+1. **Enhance Visibility State**: Make the visibility properties (`visible` and `hiddenAt`) a central part of the annotation system, ensuring they're properly serialized, tracked, and respected during replay.
 
-Then update FeedbackOrchestrator.tsx:
+2. **Improve Clear Event Processing**: Ensure clear events have precise timing information and properly mark all annotations as hidden rather than removing them from arrays.
 
-Enhance the processPendingEvents function
-Improve timing in executeEvent for clear and draw events
+3. **Consistent State Handling**: Establish clear responsibilities for each component regarding annotation state, and ensure they work consistently in both recording and replay modes.
 
+4. **Advanced Debugging Tools**: Add more comprehensive logging for the annotation lifecycle, especially during replay, to identify exactly when and why annotations may be incorrectly shown or hidden.
 
-Finally, update VideoPlayerWrapper.tsx:
-
-Ensure consistent metadata in drawAnnotation and clearAnnotations
-Improve session serialization and deserialization
-
-
-Add improved debugging:
-
-More comprehensive logging around clear events
-Visualization of annotation lifecycle would be helpful
-
-
-
-This systematic approach addresses the root causes while minimizing disruption to the existing architecture. The focus is on consistent state management and proper execution timing, which should fix the drawing playback and clearing issues.
-Would you like me to provide more specific code changes for any particular component?
+The root issue is likely a combination of inconsistent state management and timing problems. By addressing both aspects, the annotation clearing functionality should work correctly during both recording and replay.
