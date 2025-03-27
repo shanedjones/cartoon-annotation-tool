@@ -198,7 +198,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
 
   // Event handlers for drawing
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isEnabled || isReplaying) return;
+    if (isReplaying) return; // Drawing is always enabled, only check for replay mode
     
     setIsDrawing(true);
     setCurrentPath([]);
@@ -226,7 +226,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !isEnabled || isReplaying) return;
+    if (!isDrawing || isReplaying) return; // Drawing is always enabled
     
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -266,7 +266,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   };
 
   const endDrawing = () => {
-    if (!isDrawing || !isEnabled || isReplaying) return;
+    if (!isDrawing || isReplaying) return; // Drawing is always enabled
     
     setIsDrawing(false);
     
@@ -318,7 +318,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute top-0 left-0 z-10 ${isEnabled ? 'cursor-crosshair' : 'pointer-events-none'}`}
+      className="absolute top-0 left-0 z-10 cursor-crosshair"
       width={width}
       height={height}
       onMouseDown={startDrawing}

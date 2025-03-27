@@ -55,7 +55,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(false);
+  const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
   const [annotationColor, setAnnotationColor] = useState('#ff0000'); // Default red
   const [annotationWidth, setAnnotationWidth] = useState(3);
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
@@ -147,10 +147,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     }
   };
   
-  // Toggle annotation mode
-  const toggleAnnotationMode = () => {
-    setIsAnnotationEnabled(!isAnnotationEnabled);
-  };
+  // Toggle annotation mode - removed as drawing is always enabled
   
   // Clear annotations
   const clearAnnotations = () => {
@@ -354,11 +351,6 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
             <span className="animate-pulse mr-1">●</span> Recording
           </div>
         )}
-        {isAnnotationEnabled && (
-          <div className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-blue-500 text-white rounded-md text-sm">
-            <span className="mr-1">✏️</span> Annotation Mode
-          </div>
-        )}
         <video
           ref={videoRef}
           className="w-full aspect-video"
@@ -440,62 +432,44 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
         {/* Annotation controls */}
         <div className="flex flex-wrap items-center justify-between pt-2 border-t border-gray-200">
           <div className="flex items-center space-x-2">
+            
+            <div className="flex items-center space-x-1">
+              <label className="text-xs text-gray-600">Color:</label>
+              <select
+                value={annotationColor}
+                onChange={(e) => setAnnotationColor(e.target.value)}
+                className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+              >
+                <option value="#ff0000">Red</option>
+                <option value="#0000ff">Blue</option>
+                <option value="#00ff00">Green</option>
+                <option value="#ffff00">Yellow</option>
+                <option value="#000000">Black</option>
+                <option value="#ffffff">White</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center space-x-1">
+              <label className="text-xs text-gray-600">Width:</label>
+              <select
+                value={annotationWidth}
+                onChange={(e) => setAnnotationWidth(parseInt(e.target.value))}
+                className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+              >
+                <option value="1">Thin</option>
+                <option value="3">Medium</option>
+                <option value="5">Thick</option>
+                <option value="8">Very Thick</option>
+              </select>
+            </div>
+            
             <button
-              onClick={toggleAnnotationMode}
-              className={`flex items-center space-x-1 py-1 px-3 rounded-md transition-colors ${
-                isAnnotationEnabled 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-              }`}
+              onClick={clearAnnotations}
+              className="py-1 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
               disabled={isReplaying}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32L19.513 8.2Z" />
-              </svg>
-              <span>{isAnnotationEnabled ? 'Disable Drawing' : 'Enable Drawing'}</span>
+              Clear
             </button>
-            
-            {isAnnotationEnabled && (
-              <>
-                <div className="flex items-center space-x-1">
-                  <label className="text-xs text-gray-600">Color:</label>
-                  <select
-                    value={annotationColor}
-                    onChange={(e) => setAnnotationColor(e.target.value)}
-                    className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
-                  >
-                    <option value="#ff0000">Red</option>
-                    <option value="#0000ff">Blue</option>
-                    <option value="#00ff00">Green</option>
-                    <option value="#ffff00">Yellow</option>
-                    <option value="#000000">Black</option>
-                    <option value="#ffffff">White</option>
-                  </select>
-                </div>
-                
-                <div className="flex items-center space-x-1">
-                  <label className="text-xs text-gray-600">Width:</label>
-                  <select
-                    value={annotationWidth}
-                    onChange={(e) => setAnnotationWidth(parseInt(e.target.value))}
-                    className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
-                  >
-                    <option value="1">Thin</option>
-                    <option value="3">Medium</option>
-                    <option value="5">Thick</option>
-                    <option value="8">Very Thick</option>
-                  </select>
-                </div>
-                
-                <button
-                  onClick={clearAnnotations}
-                  className="py-1 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
-                  disabled={isReplaying}
-                >
-                  Clear
-                </button>
-              </>
-            )}
           </div>
         </div>
       </div>
