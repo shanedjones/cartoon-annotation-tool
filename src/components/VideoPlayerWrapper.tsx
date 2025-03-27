@@ -602,28 +602,9 @@ export default function VideoPlayerWrapper({
       console.log('Clearing annotations via clearCanvasDrawings');
       
       try {
-        // Get precise timing information for the clear event
-        const now = Date.now();
-        const currentVideoTime = videoRef.current ? videoRef.current.currentTime * 1000 : now;
-        
         // Use the clearCanvasDrawings method exposed by the AnnotationCanvas
         if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
-          // The clear method now returns a clear marker with timing info
-          const clearResult = annotationCanvasComponentRef.current.clearCanvasDrawings();
-          
-          // Log that the clear was successful
-          console.log('Successfully cleared annotations with result:', clearResult);
-          
-          // Return enhanced metadata for the clear event
-          return {
-            id: `clear-${now}`,
-            clearVideoTime: currentVideoTime, // Video playback position in ms
-            clearTimestamp: now, // Absolute timestamp of the clear action
-            timeOffset: now - (mode === 'record' && orchestratorRef.current?.recordingStartTime || now),
-            timestamp: now,
-            vidTime: videoRef.current?.currentTime,
-            result: clearResult
-          };
+          annotationCanvasComponentRef.current.clearCanvasDrawings();
         } else {
           console.warn('clearCanvasDrawings method not found on annotationCanvas');
         }
@@ -633,9 +614,7 @@ export default function VideoPlayerWrapper({
     } else {
       console.warn('Could not clear annotations: annotation canvas ref is not available');
     }
-    
-    return null;
-  }, [mode, videoRef]);
+  }, []);
   
   // Download session data as JSON
   const downloadSessionData = useCallback(async () => {
@@ -937,21 +916,9 @@ export default function VideoPlayerWrapper({
                   break;
                 case 'annotation':
                   if (action.details?.clear) {
-                    // Pass the entire action to preserve timing details
-                    const clearMetadata = {
-                      clearVideoTime: videoRef.current?.currentTime ? videoRef.current.currentTime * 1000 : undefined,
-                      clearTimestamp: Date.now(),
-                      ...action.details
-                    };
-                    orchestratorRef.current.handleAnnotationEvent('clear', { ...action, details: clearMetadata });
+                    orchestratorRef.current.handleAnnotationEvent('clear');
                   } else if (action.details?.path) {
-                    // Make sure path has visibility properties
-                    const pathWithVisibility = {
-                      ...action.details.path,
-                      visible: true,
-                      id: action.details.path.id || `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-                    };
-                    orchestratorRef.current.handleAnnotationEvent('draw', pathWithVisibility);
+                    orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
                   }
                   break;
               }

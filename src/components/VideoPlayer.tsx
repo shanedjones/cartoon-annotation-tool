@@ -3,17 +3,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 // Define the types of events we want to record
-// Add window global definitions
-declare global {
-  interface Window {
-    __clearEvents?: Array<{
-      timestamp: number;
-      videoTime: number;
-      absoluteTime: number;
-    }>;
-  }
-}
-
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
 
 // Define the structure of a recorded action
@@ -135,14 +124,9 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   
   // Handle annotation being added
   const handleAnnotationAdded = (path: DrawingPath) => {
-    // Generate a unique ID for the annotation if it doesn't have one
-    const id = path.id || `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Update the annotation with the video currentTime and make it visible
+    // Update the annotation with the video currentTime (in ms)
     const annotationWithVideoTime = {
       ...path,
-      id,
-      visible: true,
       // Store both the original timestamp (relative to the recording start)
       // and update the timestamp to match the video's current playback position
       videoTime: currentTime * 1000
@@ -173,40 +157,13 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     
     // Record the clear action if recording
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
-      // Get precise timing information
-      const now = Date.now();
-      const clearTimestamp = now - recordingStartTimeRef.current;
-      const clearVideoTime = currentTime * 1000; // Convert to ms
-      
-      console.log(`Creating clear event at video time: ${clearVideoTime}ms, timestamp: ${clearTimestamp}ms`);
-      
-      // Create a more comprehensive clear action with multiple timestamps
       const action: RecordedAction = {
         type: 'annotation',
-        timestamp: clearTimestamp,
+        timestamp: Date.now() - recordingStartTimeRef.current,
         videoTime: currentTime,
-        details: { 
-          clear: true,
-          clearTimestamp: clearTimestamp,
-          clearVideoTime: clearVideoTime,
-          absoluteTimestamp: now,
-          id: `clear-${now}`
-        }
+        details: { clear: true }
       };
-      
-      // Send the clear action to be recorded
       onRecordAction(action);
-      
-      // Store the clear event in window for cross-component access
-      if (typeof window !== 'undefined') {
-        window.__clearEvents = window.__clearEvents || [];
-        window.__clearEvents.push({
-          timestamp: clearTimestamp,
-          videoTime: clearVideoTime,
-          absoluteTime: now
-        });
-        console.log(`Stored clear event in window.__clearEvents, total: ${window.__clearEvents.length}`);
-      }
     }
   };
   
