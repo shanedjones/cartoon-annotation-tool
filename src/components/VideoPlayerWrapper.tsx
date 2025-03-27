@@ -903,7 +903,6 @@ export default function VideoPlayerWrapper({
                 case 'play':
                 case 'pause':
                 case 'seek':
-                case 'volume':
                 case 'playbackRate':
                 case 'keyboardShortcut':
                   orchestratorRef.current.handleVideoEvent(action.type, action.details);

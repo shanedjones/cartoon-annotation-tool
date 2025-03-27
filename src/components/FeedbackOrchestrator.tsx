@@ -540,11 +540,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                 video.currentTime = payload.to;
               }
               break;
-            case 'volume':
-              if (payload.to !== undefined) {
-                video.volume = payload.to;
-              }
-              break;
             case 'playbackRate':
               if (payload.to !== undefined) {
                 video.playbackRate = payload.to;

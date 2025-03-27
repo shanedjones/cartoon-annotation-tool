@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 // Define the types of events we want to record
-export type ActionType = 'play' | 'pause' | 'seek' | 'volume' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
+export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
 
 // Define the structure of a recorded action
 export interface RecordedAction {
@@ -54,7 +54,6 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(false);
   const [annotationColor, setAnnotationColor] = useState('#ff0000'); // Default red
@@ -222,15 +221,6 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     }
   };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    if (videoRef.current) {
-      const previousVolume = videoRef.current.volume;
-      videoRef.current.volume = newVolume;
-      setVolume(newVolume);
-      recordAction('volume', { from: previousVolume, to: newVolume });
-    }
-  };
 
   const handlePlaybackRateChange = (rate: number) => {
     if (videoRef.current) {
@@ -277,15 +267,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
             to: videoRef.current.currentTime
           });
         }
-      } else if (e.key === 'm') {
-        if (videoRef.current) {
-          const wasMuted = videoRef.current.muted;
-          videoRef.current.muted = !wasMuted;
-          recordAction('keyboardShortcut', { 
-            key: e.key, 
-            action: wasMuted ? 'unmute' : 'mute' 
-          });
-        }
+      // 'm' shortcut removed
       }
     };
 
@@ -384,6 +366,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
           onLoadedMetadata={handleLoadedMetadata}
           src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
           playsInline
+          muted
         />
         
         {videoDimensions.width > 0 && videoDimensions.height > 0 && (
@@ -434,21 +417,6 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
               }
             </button>
             
-            <div className="flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 0 0 1 15c0 1.614.332 3.151.927 4.55.35 1.256 1.518 1.95 2.661 1.95h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06ZM18.584 5.106a.75.75 0 0 1 1.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 0 1-1.06-1.06 8.25 8.25 0 0 0 0-11.668.75.75 0 0 1 0-1.06Z" />
-              </svg>
-              
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={handleVolumeChange}
-                className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
             
             <span className="text-sm text-gray-600">
               {formatTime(currentTime)} / {formatTime(duration)}
