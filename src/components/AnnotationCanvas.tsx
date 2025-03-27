@@ -7,12 +7,23 @@ export interface Point {
   y: number;
 }
 
+// Add type for window global storage
+declare global {
+  interface Window {
+    __hiddenAnnotations?: DrawingPath[];
+  }
+}
+
 export interface DrawingPath {
   points: Point[];
   color: string;
   width: number;
   timestamp: number;
   videoTime?: number; // Time in the video when this annotation was created (in ms)
+  id: string; // Unique identifier for the drawing - now required
+  visible: boolean; // Whether the drawing should be visible - now required
+  hiddenAt?: number; // Time when the drawing was hidden (cleared)
+  isClearEvent?: boolean; // Flag to identify clear events
 }
 
 interface AnnotationCanvasProps {
@@ -49,6 +60,19 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
   const [allDrawings, setAllDrawings] = useState<DrawingPath[]>([]);
   
+  // Reference to track recording start time for consistent relative timestamps
+  const recordingStartTimeRef = useRef<number | null>(null);
+  
+  // Set recording start time when recording is enabled
+  useEffect(() => {
+    if (isRecording && !recordingStartTimeRef.current) {
+      recordingStartTimeRef.current = Date.now();
+      console.log('Recording started at:', recordingStartTimeRef.current);
+    } else if (!isRecording) {
+      recordingStartTimeRef.current = null;
+    }
+  }, [isRecording]);
+  
   // Get canvas context in a memoized way
   const getContext = () => {
     const canvas = canvasRef.current;
@@ -60,22 +84,95 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
 
   // Clear the canvas
   const clearCanvasDrawings = () => {
+    // First, clear the visual canvas
     const ctx = getContext();
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
     }
-    setAllDrawings([]);
+    
+    // Get precise timestamps for this clear operation
+    const currentVideoTime = currentTime * 1000; // Convert to milliseconds
+    const now = Date.now();
+    
+    // Create a clear marker with precise timing information
+    const clearMark = {
+      id: `clear-${now}`,
+      timestamp: now,
+      videoTime: currentVideoTime,
+      clearTimestamp: now,
+      clearVideoTime: currentVideoTime,
+      isClearEvent: true
+    };
+    
+    // Make a copy of current drawings with visibility explicitly set to false
+    const hiddenDrawings = allDrawings.map(drawing => ({
+      ...drawing,
+      visible: false,
+      hiddenAt: currentVideoTime || now
+    }));
+    
+    if (isReplaying) {
+      // In replay mode, we mark drawings as hidden but keep them in the array
+      // for proper timeline tracking and history
+      setAllDrawings(prevDrawings => 
+        prevDrawings.map(drawing => ({
+          ...drawing,
+          visible: false,
+          hiddenAt: currentVideoTime || now
+        }))
+      );
+      console.log(`REPLAY: Marked ${hiddenDrawings.length} drawings as hidden at ${currentVideoTime}ms`);
+    } else {
+      // In recording mode, we need to:
+      // 1. Keep track of which drawings were hidden and when
+      // 2. Clear the drawings array for immediate visual effect
+      
+      if (typeof window !== 'undefined') {
+        // Store hidden drawings in window for later retrieval during playback
+        window.__hiddenAnnotations = window.__hiddenAnnotations || [];
+        window.__hiddenAnnotations.push(...hiddenDrawings);
+        console.log(`RECORD: Stored ${hiddenDrawings.length} hidden drawings in window.__hiddenAnnotations`);
+      }
+      
+      // Then clear the visible drawings for immediate visual effect
+      setAllDrawings([]);
+      console.log(`RECORD: Cleared ${hiddenDrawings.length} drawings from display at ${currentVideoTime}ms`);
+    }
+    
+    // Return clear marker with precise timing for the orchestrator
+    return clearMark;
   };
 
   // Listen for external clear command
   useEffect(() => {
     if (clearCanvas) {
-      clearCanvasDrawings();
+      // Execute the clear canvas operation and get the result
+      const result = clearCanvasDrawings();
+      
+      console.log('Clear canvas command received, cleared drawings with result:', result);
+      
+      // Store clear event information globally for cross-component access
+      if (typeof window !== 'undefined') {
+        const now = Date.now();
+        const videoTimeMs = currentTime * 1000;
+        
+        // Add to window.__clearEvents array (used by annotation filtering)
+        window.__clearEvents = window.__clearEvents || [];
+        window.__clearEvents.push({
+          timestamp: now,
+          videoTime: videoTimeMs,
+          absoluteTime: now
+        });
+        
+        console.log(`Added clear event to window.__clearEvents, video time: ${videoTimeMs}ms`);
+      }
+      
+      // Notify parent component that clearing is complete
       if (onClearComplete) {
         onClearComplete();
       }
     }
-  }, [clearCanvas, onClearComplete]);
+  }, [clearCanvas, onClearComplete, currentTime]);
 
   // Initialize canvas
   useEffect(() => {
@@ -109,6 +206,122 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     ctx.stroke();
   };
 
+  // Track clear events during replay
+  const [clearEvents, setClearEvents] = useState<number[]>([]);
+  
+  // Reference to all clear events including from window storage
+  const allClearEventsRef = useRef<number[]>([]);
+  
+  // Process replay annotations to track clear events
+  useEffect(() => {
+    if (!isReplaying || replayAnnotations.length === 0) return;
+    
+    // Find all clear events by their timestamps or isClearEvent flag
+    const clearTimestamps: number[] = [];
+    const clearEvents: Record<number, any> = {};
+    
+    console.log('Examining all annotations for clear events:', replayAnnotations.length);
+    
+    // First look for any clear actions that might be in the annotations array
+    replayAnnotations.forEach((annotation, index) => {
+      // Standardized detection of clear events using multiple possible formats
+      const isClearEvent = annotation.isClearEvent === true;
+      const clearDetails = (annotation as any).details?.clear === true;
+      const isExplicitClear = annotation.points?.length === 0 && annotation.hiddenAt;
+      
+      if (isClearEvent || clearDetails || isExplicitClear) {
+        // Log only the first few events to avoid console spam
+        if (index < 5) {
+          console.log(`Found clear event candidate in annotation ${index}:`, annotation);
+        }
+        
+        // Try to extract timestamp from various properties in order of reliability
+        let clearTime = 0;
+        
+        // 1. Use clearVideoTime from various locations (most reliable)
+        if (annotation.clearVideoTime) {
+          clearTime = annotation.clearVideoTime;
+        }
+        else if ((annotation as any).details?.clearVideoTime) {
+          clearTime = (annotation as any).details.clearVideoTime;
+        }
+        // 2. Try hiddenAt timestamp (for explicitly hidden annotations)
+        else if (annotation.hiddenAt) {
+          clearTime = annotation.hiddenAt;
+        }
+        // 3. Use various timestamp properties
+        else if (annotation.clearTimestamp) {
+          clearTime = annotation.clearTimestamp;
+        }
+        else if ((annotation as any).details?.clearTimestamp) {
+          clearTime = (annotation as any).details.clearTimestamp;
+        }
+        // 4. Fall back to standard timing properties as last resort
+        else {
+          clearTime = (annotation as any).timeOffset 
+            || annotation.videoTime 
+            || annotation.timestamp;
+        }
+        
+        if (clearTime) {
+          // Apply a small negative offset to ensure clear events happen
+          // slightly before the next annotation in the timeline
+          // This helps fix the "one event behind" playback issue
+          const adjustedClearTime = clearTime - 10; // 10ms earlier
+          
+          // Round to nearest 10ms to handle slight timing differences
+          const roundedClearTime = Math.round(adjustedClearTime / 10) * 10;
+          clearTimestamps.push(roundedClearTime);
+          
+          // Store the full clear event for reference
+          clearEvents[roundedClearTime] = annotation;
+          
+          if (index < 5) {
+            console.log(`Found clear event at timestamp: ${roundedClearTime}ms (adjusted from ${clearTime}ms)`);
+          }
+        }
+      }
+    });
+    
+    // Also check for hidden annotations from window storage (recording mode)
+    if (typeof window !== 'undefined' && window.__hiddenAnnotations?.length > 0) {
+      console.log(`Found ${window.__hiddenAnnotations.length} hidden annotations in window storage`);
+      
+      window.__hiddenAnnotations.forEach(annotation => {
+        if (annotation.hiddenAt) {
+          // Apply the same adjustment as above to ensure consistency
+          const adjustedClearTime = annotation.hiddenAt - 10; // 10ms earlier
+          const clearTime = Math.round(adjustedClearTime / 10) * 10;
+          
+          if (!clearTimestamps.includes(clearTime)) {
+            clearTimestamps.push(clearTime);
+            console.log(`Added clear event from window storage at ${clearTime}ms (adjusted from ${annotation.hiddenAt}ms)`);
+          }
+        }
+      });
+    }
+    
+    // Log summary of what we found
+    if (clearTimestamps.length > 0) {
+      console.log(`Found ${clearTimestamps.length} clear events`);
+    } else {
+      console.warn('No clear events found in replay annotations!');
+    }
+    
+    // Sort by time
+    clearTimestamps.sort((a, b) => a - b);
+    
+    if (clearTimestamps.length > 0) {
+      console.log(`Clear events detected at: ${clearTimestamps.slice(0, 5).join(', ')}${clearTimestamps.length > 5 ? '...' : ''}`);
+    }
+    
+    // Update state only if there's a change to avoid extra renders
+    if (clearTimestamps.length !== clearEvents.length || 
+        clearTimestamps.some((t, i) => t !== clearEvents[i])) {
+      setClearEvents(clearTimestamps);
+    }
+  }, [isReplaying, replayAnnotations]);
+  
   // Draw annotations during replay
   useEffect(() => {
     if (!isReplaying || replayAnnotations.length === 0) return;
@@ -123,41 +336,116 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     // Use the video's currentTime (in seconds) to determine which annotations to show
     const videoTimeMs = currentTime * 1000; // Convert to milliseconds
     
-    // More comprehensive logic for determining which annotations to show
-    const visibleAnnotations = replayAnnotations.filter(annotation => {
-      // Check for explicit timeOffset (added by FeedbackOrchestrator)
-      if ((annotation as any).timeOffset !== undefined) {
-        const timeOffset = (annotation as any).timeOffset;
-        console.log(`Annotation with timeOffset: ${timeOffset}ms, current: ${videoTimeMs}ms`, {
-          visible: timeOffset <= videoTimeMs,
-          difference: videoTimeMs - timeOffset
-        });
-        return timeOffset <= videoTimeMs;
-      }
-      
-      // Next check videoTime (relative to video timeline)
-      if (annotation.videoTime !== undefined) {
-        console.log(`Annotation with videoTime: ${annotation.videoTime}ms, current: ${videoTimeMs}ms`, {
-          visible: annotation.videoTime <= videoTimeMs
-        });
-        return annotation.videoTime <= videoTimeMs;
-      }
-      
-      // Fallback to timestamp (original recording time)
-      console.log(`Annotation with timestamp: ${annotation.timestamp}ms, current: ${videoTimeMs}ms`, {
-        visible: annotation.timestamp <= videoTimeMs
-      });
-      return annotation.timestamp <= videoTimeMs;
-    });
+    // Find the most recent clear event before current time
+    // Initial most recent clear time calculation
+    const initialMostRecentClearTime = clearEvents.length > 0 
+      ? Math.max(0, ...clearEvents.filter(clearTime => clearTime <= videoTimeMs)) 
+      : 0;
     
-    if (visibleAnnotations.length > 0) {
-      console.log(`Showing ${visibleAnnotations.length} of ${replayAnnotations.length} annotations at ${videoTimeMs}ms`);
+    if (videoTimeMs % 1000 === 0) { // Log only once per second to reduce spam
+      console.log(`Initial check - Current: ${videoTimeMs}ms, Last clear: ${initialMostRecentClearTime}ms`);
     }
     
+    // Also check window storage for clear events
+    if (typeof window !== 'undefined' && window.__clearEvents?.length > 0) {
+      // Add any clear events from window storage that aren't already in clearEvents
+      const windowClearTimes = window.__clearEvents.map(e => e.videoTime);
+      
+      // Update allClearEventsRef with combined clear events
+      const combinedClearEvents = [...clearEvents];
+      
+      windowClearTimes.forEach(clearTime => {
+        if (!combinedClearEvents.includes(clearTime)) {
+          combinedClearEvents.push(clearTime);
+        }
+      });
+      
+      // Sort and update the reference
+      combinedClearEvents.sort((a, b) => a - b);
+      allClearEventsRef.current = combinedClearEvents;
+      
+      if (combinedClearEvents.length !== clearEvents.length) {
+        console.log(`Using ${combinedClearEvents.length} clear events (${clearEvents.length} from state + ${windowClearTimes.length} from window storage)`);
+      }
+    } else {
+      // Just use the state-based clear events
+      allClearEventsRef.current = [...clearEvents];
+    }
+    
+    // Find the most recent clear event using our enhanced combined list
+    const mostRecentClearTime = allClearEventsRef.current.length > 0 
+      ? Math.max(0, ...allClearEventsRef.current.filter(clearTime => clearTime <= videoTimeMs)) 
+      : 0;
+    
+    // Combine replay annotations with any hidden annotations from recording
+    let combinedAnnotations = [...replayAnnotations];
+    
+    // Include hidden annotations from window storage if available
+    if (typeof window !== 'undefined' && window.__hiddenAnnotations?.length > 0) {
+      combinedAnnotations = [...combinedAnnotations, ...window.__hiddenAnnotations];
+    }
+    
+    // Enhanced multi-step filtering for annotations
+    // 1. First filter clear events and explicit invisible annotations 
+    const filteredAnnotations = combinedAnnotations.filter(annotation => {
+      // Skip clear events markers (they're not visible drawings)
+      if (annotation.isClearEvent || (annotation as any).details?.clear) {
+        return false;
+      }
+      
+      // Skip annotations with points length of 0 (these are likely clear markers)
+      if (!annotation.points || annotation.points.length === 0) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    // 2. Apply visibility rules
+    const visibleAnnotations = filteredAnnotations.filter(annotation => {
+      // Priority 1: Check explicit visibility flag
+      if (annotation.visible === false) {
+        return false;
+      }
+      
+      // Priority 2: Check hiddenAt timestamp (direct clearing)
+      if (annotation.hiddenAt && annotation.hiddenAt <= videoTimeMs) {
+        return false;
+      }
+      
+      // Get annotation timestamp using various possible properties
+      const annotationTime = (annotation as any).timeOffset || 
+                            annotation.videoTime || 
+                            annotation.timestamp;
+      
+      if (!annotationTime) {
+        console.warn('Annotation has no timing information:', annotation);
+        return false;
+      }
+      
+      // Priority 3: Check against global clear events
+      if (mostRecentClearTime > 0 && annotationTime <= mostRecentClearTime) {
+        return false;
+      }
+      
+      // Priority 4: Check timing - annotation must be before current time
+      return annotationTime <= videoTimeMs;
+    });
+    
+    // Log some stats about what we're showing (only once per second)
+    if (videoTimeMs % 1000 === 0) {
+      if (visibleAnnotations.length > 0) {
+        console.log(`Showing ${visibleAnnotations.length} of ${filteredAnnotations.length} annotations at ${videoTimeMs}ms`);
+      } else {
+        console.log(`No annotations to show at ${videoTimeMs}ms (${filteredAnnotations.length} total annotations)`);
+      }
+    }
+    
+    // Draw the visible annotations
     visibleAnnotations.forEach(path => {
       drawPath(ctx, path);
     });
-  }, [isReplaying, replayAnnotations, currentTime, width, height]);
+  }, [isReplaying, replayAnnotations, currentTime, width, height, clearEvents]);
 
   // Draw all stored paths
   useEffect(() => {
@@ -177,23 +465,46 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
 
   // Method to handle an annotation that was generated programmatically
   const handleManualAnnotation = (path: DrawingPath) => {
+    // Ensure the annotation has a unique ID
+    const id = path.id || `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Get precise timing information
+    const now = Date.now();
+    const videoTimeMs = path.videoTime || (currentTime * 1000);
+    
     // Log additional timing information for debugging
     console.log('Handling manual annotation:', {
-      path: path,
+      id,
       points: path.points?.length || 0,
-      videoTime: path.videoTime || 'not set',
-      timestamp: path.timestamp || 'not set',
-      timeOffset: (path as any).timeOffset || 'not set',
+      videoTime: videoTimeMs,
+      timestamp: path.timestamp || now,
+      timeOffset: (path as any).timeOffset,
       currentVideoTime: currentTime * 1000
     });
     
-    // Add to local drawings - preserve the original path with all timing information
-    setAllDrawings(prev => [...prev, path]);
+    // Ensure annotation has complete and consistent metadata
+    const enhancedAnnotation: DrawingPath = {
+      ...path,
+      id,
+      visible: true, // Explicitly set to visible
+      timestamp: path.timestamp || now,
+      videoTime: videoTimeMs,
+      // Add any missing required properties based on interface
+      points: path.points || [],
+      color: path.color || toolColor,
+      width: path.width || toolWidth
+    };
+    
+    // Add annotation to local state
+    setAllDrawings(prev => [...prev, enhancedAnnotation]);
     
     // Report the annotation if we're recording
     if (isRecording && onAnnotationAdded) {
-      onAnnotationAdded(path);
+      // Pass the fully enhanced annotation with all metadata
+      onAnnotationAdded(enhancedAnnotation);
     }
+    
+    return enhancedAnnotation;
   };
 
   // Event handlers for drawing
@@ -271,18 +582,35 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     setIsDrawing(false);
     
     if (currentPath.length > 1) {
+      // Generate a unique ID for this annotation
+      const id = `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const now = Date.now();
+      const videoTimeMs = currentTime * 1000;
+      
+      // Create a new annotation with complete metadata
       const newPath: DrawingPath = {
         points: [...currentPath],
         color: toolColor,
         width: toolWidth,
-        timestamp: Date.now()
+        timestamp: now,
+        id,
+        visible: true,
+        videoTime: videoTimeMs
       };
       
+      // Add to local drawings for immediate display
       setAllDrawings(prev => [...prev, newPath]);
       
       // Report the annotation if we're recording
       if (isRecording && onAnnotationAdded) {
-        onAnnotationAdded(newPath);
+        // Include complete metadata
+        const annotationWithMetadata = {
+          ...newPath,
+          timeOffset: now - (recordingStartTimeRef.current || now)
+        };
+        onAnnotationAdded(annotationWithMetadata);
+        
+        console.log(`Created annotation with ID ${id} at video time ${videoTimeMs}ms`);
       }
     }
     
