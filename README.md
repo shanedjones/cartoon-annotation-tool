@@ -63,7 +63,7 @@ This tool allows users to:
 
 ### VideoPlayer
 - Customized video player with annotation capabilities
-- Provides controls for play, pause, seek, volume, etc.
+- Provides controls for play, pause, seek, etc.
 - Exposes imperative methods for controlling playback
 - Forwards references to the annotation canvas
 
@@ -72,6 +72,7 @@ This tool allows users to:
 - Supports real-time drawing with color and width controls
 - Handles both user-created and replayed annotations
 - Carefully synchronizes with video timeline
+- Available throughout the entire video viewing experience
 
 ### AudioRecorder
 - Handles audio recording and playback
@@ -128,8 +129,8 @@ The application uses two main data structures:
    ```typescript
    // Video event payload
    interface VideoEventPayload {
-     action: 'play' | 'pause' | 'seek' | 'volume' | 'playbackRate';
-     to?: number; // For seek, volume, and playbackRate events
+     action: 'play' | 'pause' | 'seek' | 'playbackRate';
+     to?: number; // For seek and playbackRate events
    }
    
    // Annotation event payload
@@ -190,7 +191,7 @@ The application uses two main data structures:
 ## Project Structure
 
 ```
-cartoon-annotation/
+cartoon-annotation-tool/
 ├── app/                  # Next.js app directory
 │   ├── page.tsx          # Main application page
 │   └── layout.tsx        # App layout
@@ -207,11 +208,11 @@ cartoon-annotation/
 
 ## Technical Details
 
-- **Built with**: Next.js, React, TypeScript
+- **Built with**: Next.js 15.2, React 19, TypeScript 5
 - **Audio**: Uses MediaRecorder API with format detection
 - **Drawing**: HTML5 Canvas for vector drawing
 - **State Management**: React's Context and Refs for cross-component communication
-- **Styling**: Tailwind CSS for responsive design
+- **Styling**: Tailwind CSS 4 for responsive design
 
 ## Browser Compatibility
 
