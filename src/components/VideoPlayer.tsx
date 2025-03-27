@@ -36,6 +36,7 @@ interface VideoPlayerProps {
   setVideoRef?: (ref: HTMLVideoElement | null) => void;
   replayAnnotations?: DrawingPath[];
   onAnnotationAdded?: (annotation: DrawingPath) => void;
+  videoUrl?: string;
 }
 
 interface VideoPlayerImperativeHandle {
@@ -49,7 +50,8 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   onRecordAction,
   setVideoRef,
   replayAnnotations = [],
-  onAnnotationAdded
+  onAnnotationAdded,
+  videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 }: VideoPlayerProps, ref) => {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -356,7 +358,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
           className="w-full aspect-video"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
-          src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+          src={videoUrl}
           playsInline
           muted
         />

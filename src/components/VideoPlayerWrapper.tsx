@@ -348,13 +348,19 @@ interface VideoPlayerWrapperProps {
   onCategoriesCleared?: () => void;
   onCategoriesLoaded?: (categories: Record<string, boolean>) => void;
   onReplayModeChange?: (isReplay: boolean) => void;
+  videoUrl?: string;
+  videoId?: string;
+  contentToReview?: any; // Allow passing the full content object for display
 }
 
 export default function VideoPlayerWrapper({ 
   categories = {}, 
   onCategoriesCleared,
   onCategoriesLoaded,
-  onReplayModeChange
+  onReplayModeChange,
+  videoUrl,
+  videoId = 'sample-video',
+  contentToReview
 }: VideoPlayerWrapperProps) {
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
@@ -363,7 +369,7 @@ export default function VideoPlayerWrapper({
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(null);
   const [feedbackData, setFeedbackData] = useState<FeedbackData>({
     sessionId: '',
-    videoId: 'sample-big-buck-bunny',
+    videoId: videoId,
     actions: [],
     startTime: 0,
     annotations: [],
@@ -408,6 +414,8 @@ export default function VideoPlayerWrapper({
   // Stop recording
   const stopRecording = useCallback(() => {
     if (orchestratorRef.current) {
+      console.log('Stopping recording session');
+      
       // End recording session
       orchestratorRef.current.endRecordingSession();
       setIsActive(false);
@@ -435,8 +443,17 @@ export default function VideoPlayerWrapper({
       if (onCategoriesCleared) {
         onCategoriesCleared();
       }
+      
+      // Make sure session availability is updated immediately
+      if (typeof window !== 'undefined') {
+        window.__hasRecordedSession = true;
+        console.log('Session available flag set to true after stopping recording');
+        
+        // Dispatch a custom event to notify about session availability
+        window.dispatchEvent(new Event('session-available'));
+      }
     }
-  }, [onCategoriesCleared]);
+  }, [onCategoriesCleared, currentSession]);
   
   // Start replaying the recorded session
   const startReplay = useCallback(() => {
@@ -529,6 +546,15 @@ export default function VideoPlayerWrapper({
     // Also update legacy feedbackData for compatibility
     const legacyData = convertSessionToLegacyData(sessionWithCategories);
     setFeedbackData(legacyData);
+    
+    // Update session availability flag immediately
+    if (typeof window !== 'undefined') {
+      window.__hasRecordedSession = true;
+      console.log('Session available flag set to true');
+      
+      // Dispatch a custom event to notify about session availability
+      window.dispatchEvent(new Event('session-available'));
+    }
     
     console.log('Session completed with categories:', sessionWithCategories);
   }, [categories]);
@@ -797,6 +823,9 @@ export default function VideoPlayerWrapper({
         recordCategoryChange,
         isRecording: mode === 'record' && isActive
       };
+      
+      // Update session availability flag
+      window.__hasRecordedSession = currentSession !== null;
     }
     
     // Notify parent component about replay mode changes
@@ -812,80 +841,57 @@ export default function VideoPlayerWrapper({
         delete window.__videoPlayerWrapper;
       }
     };
-  }, [recordCategoryChange, mode, isActive, onReplayModeChange]);
+  }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
   
   return (
     <div className="w-full">
-      <div className="flex flex-col gap-2 mb-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Video Player</h2>
-          
-          <div className="flex space-x-2">
-            {!isActive ? (
-              <>
-                <button
-                  onClick={startRecording}
-                  className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md transition-colors"
-                >
-                  <span className="h-2 w-2 rounded-full bg-white"></span>
-                  Start Recording
-                </button>
-                
-                <button
-                  onClick={startReplay}
-                  disabled={!currentSession}
-                  className={`flex items-center gap-1 py-2 px-4 rounded-md transition-colors ${
-                    currentSession 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286l-11.54 6.347c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
-                  </svg>
-                  Replay Session
-                  {!currentSession && (
-                    <span className="text-xs ml-1">(No recordings)</span>
-                  )}
-                </button>
-                
-                <button
-                  onClick={downloadSessionData}
-                  disabled={!currentSession}
-                  className={`bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition-colors ${
-                    !currentSession ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  Download Data
-                </button>
-                
-                <label className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-md transition-colors cursor-pointer">
-                  <input 
-                    type="file" 
-                    accept=".json" 
-                    onChange={handleFileUpload} 
-                    className="hidden" 
-                  />
-                  Load Data
-                </label>
-              </>
-            ) : (
-              <button
-                onClick={mode === 'record' ? stopRecording : stopReplay}
-                className={`flex items-center gap-1 ${
-                  mode === 'record' 
-                    ? 'bg-gray-700 hover:bg-gray-800' 
-                    : 'bg-yellow-500 hover:bg-yellow-600'
-                } text-white py-2 px-4 rounded-md transition-colors`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clipRule="evenodd" />
-                </svg>
-                {mode === 'record' ? 'Stop Recording' : 'Stop Replay'}
-              </button>
-            )}
-          </div>
-        </div>
+      {/* Hidden buttons that will be triggered by parent */}
+      <div className="hidden">
+        <button
+          id="startRecordingButton"
+          onClick={startRecording}
+        >
+          Start Recording
+        </button>
+        
+        <button
+          id="startReplayButton"
+          onClick={startReplay}
+          disabled={!currentSession}
+        >
+          Replay Session
+        </button>
+        
+        <button
+          id="downloadDataButton"
+          onClick={downloadSessionData}
+          disabled={!currentSession}
+        >
+          Download Data
+        </button>
+        
+        <label>
+          <input 
+            id="fileUploadInput"
+            type="file" 
+            accept=".json" 
+            onChange={handleFileUpload} 
+          />
+          Load Data
+        </label>
+        
+        <button
+          id="stopButton"
+          onClick={mode === 'record' ? stopRecording : stopReplay}
+        >
+          Stop
+        </button>
+      </div>
+      
+      {/* Video metadata section */}
+      <div className="mb-4">
+        {videoId && <h2 className="text-lg font-medium">{videoId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h2>}
+        {videoUrl && <p className="text-sm text-gray-600">Source: {videoUrl}</p>}
       </div>
       
       {/* Feedback Orchestrator handles all coordination */}
@@ -896,6 +902,7 @@ export default function VideoPlayerWrapper({
           isReplaying={mode === 'replay' && isActive}
           setVideoRef={setVideoElementRef}
           replayAnnotations={feedbackData.annotations || []}
+          videoUrl={videoUrl}
           onRecordAction={(action) => {
             // Forward video actions to the orchestrator
             if (orchestratorRef.current && mode === 'record' && isActive) {
