@@ -596,7 +596,7 @@ export default function VideoPlayerWrapper({
     }
   }, []);
   
-  // Clear annotations
+  // Clear annotations with enhanced metadata handling
   const clearAnnotations = useCallback(() => {
     if (annotationCanvasComponentRef.current) {
       console.log('Clearing annotations via clearCanvasDrawings');
@@ -614,6 +614,18 @@ export default function VideoPlayerWrapper({
           // Log that the clear was successful
           console.log('Successfully cleared annotations with result:', clearResult);
           
+          // Store clear event in window for consistent cross-component access
+          if (typeof window !== 'undefined') {
+            window.__clearEvents = window.__clearEvents || [];
+            window.__clearEvents.push({
+              timestamp: now,
+              videoTime: currentVideoTime,
+              absoluteTime: now
+            });
+            
+            console.log(`VideoPlayerWrapper: Registered clear event at video time: ${currentVideoTime}ms`);
+          }
+          
           // Return enhanced metadata for the clear event
           return {
             id: `clear-${now}`,
@@ -622,6 +634,12 @@ export default function VideoPlayerWrapper({
             timeOffset: now - (mode === 'record' && orchestratorRef.current?.recordingStartTime || now),
             timestamp: now,
             vidTime: videoRef.current?.currentTime,
+            isClearEvent: true, // Explicitly mark as clear event
+            points: [], // Empty points array for clear events
+            color: 'transparent',
+            width: 0,
+            visible: false,
+            hiddenAt: currentVideoTime,
             result: clearResult
           };
         } else {

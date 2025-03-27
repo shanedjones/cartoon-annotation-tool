@@ -518,16 +518,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Process pending events based on current timeline position
    */
   const processPendingEvents = useCallback((currentTimeMs: number) => {
-    // Nothing to process
     if (pendingEventsRef.current.length === 0) return;
     
-    // Find all events that should be executed by now using a small lookahead buffer
-    // This ensures we process events slightly before they're needed to prevent the delay
-    const lookaheadBuffer = 50; // ms - process events slightly ahead of time
-    const processingTime = currentTimeMs + lookaheadBuffer;
+    const processingTime = currentTimeMs + 50; // 50ms lookahead
     
-    const eventsToExecute: TimelineEvent[] = [];
-    const remainingEvents: TimelineEvent[] = [];
+    const eventsToExecute = [];
+    const remainingEvents = [];
     
     pendingEventsRef.current.forEach(event => {
       if (event.timeOffset <= processingTime) {
@@ -537,110 +533,82 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       }
     });
     
-    // Skip logging unless we have events to execute
-    if (eventsToExecute.length > 0) {
-      // Pre-sort events by timeOffset to ensure proper execution order
-      eventsToExecute.sort((a, b) => a.timeOffset - b.timeOffset);
-      
-      // Split events by type and identify clear events first (they need priority)
-      const clearEvents = eventsToExecute.filter(e => 
-        e.type === 'annotation' && e.payload.action === 'clear'
-      );
-      
-      const drawEvents = eventsToExecute.filter(e => 
-        e.type === 'annotation' && e.payload.action === 'draw'
-      );
-      
-      const otherEvents = eventsToExecute.filter(e => 
-        !(e.type === 'annotation' && (e.payload.action === 'clear' || e.payload.action === 'draw'))
-      );
-      
-      // Log summary of events being executed
-      console.log(`Processing ${eventsToExecute.length} events at time ${currentTimeMs}ms:`, {
-        clearEvents: clearEvents.length,
-        drawEvents: drawEvents.length,
-        otherEvents: otherEvents.length,
-        remainingCount: remainingEvents.length,
-        nextEventAt: remainingEvents.length > 0 ? remainingEvents[0].timeOffset : 'none'
-      });
-      
-      // Update the pending events reference immediately to prevent double-processing
-      pendingEventsRef.current = remainingEvents;
-      
-      // Execute in the specific order: clear events first, then draw events, then others
-      // This ensures that clear operations happen before any drawing in the same time window
-      
-      // 1. Execute clear events first, adjusting their timing if needed
-      clearEvents.forEach(event => {
-        // Update timing diagnostics before execution
-        const lastEvent = lastExecutedEventRef.current;
-        const timingDetails = lastEvent ? ` (${currentTimeMs - lastEvent.time}ms after ${lastEvent.type}${lastEvent.action ? ' ' + lastEvent.action : ''})` : '';
-        
-        console.log(`Executing CLEAR event at ${event.timeOffset}ms${timingDetails}`);
-        
+    // Update pending events immediately to prevent double processing
+    pendingEventsRef.current = remainingEvents;
+    
+    if (eventsToExecute.length === 0) return;
+    
+    // Sort events by timeOffset
+    eventsToExecute.sort((a, b) => a.timeOffset - b.timeOffset);
+    
+    // Split by type with clear events having highest priority
+    const clearEvents = eventsToExecute.filter(e => 
+      e.type === 'annotation' && e.payload.action === 'clear');
+    
+    const drawEvents = eventsToExecute.filter(e => 
+      e.type === 'annotation' && e.payload.action === 'draw');
+    
+    const otherEvents = eventsToExecute.filter(e => 
+      !(e.type === 'annotation' && (e.payload.action === 'clear' || e.payload.action === 'draw')));
+    
+    // Log summary
+    console.log(`Processing ${eventsToExecute.length} events at time ${currentTimeMs}ms:`, {
+      clearEvents: clearEvents.length,
+      drawEvents: drawEvents.length,
+      otherEvents: otherEvents.length,
+      remainingCount: remainingEvents.length,
+      nextEventAt: remainingEvents.length > 0 ? remainingEvents[0].timeOffset : 'none'
+    });
+    
+    // Execute with significant delays between different event types
+    
+    // 1. Clear events first
+    clearEvents.forEach((event, index) => {
+      setTimeout(() => {
         if (executeEventRef.current) {
-          // Execute the event
+          console.log(`Executing CLEAR event at ${event.timeOffset}ms (index ${index})`);
           executeEventRef.current(event);
           
           // Record this execution
           lastExecutedEventRef.current = {
             type: 'annotation',
             action: 'clear',
-            time: currentTimeMs
+            time: currentTimeMs + (index * 20)
           };
         }
-      });
-      
-      // 2. Execute draw events with forced delay after any clear events
-      // This creates a small gap between clear and draw operations
+      }, index * 20); // 20ms between clear events
+    });
+    
+    // 2. Draw events after all clears
+    const clearDelay = clearEvents.length * 20 + 50; // 50ms buffer after last clear
+    
+    drawEvents.forEach((event, index) => {
       setTimeout(() => {
-        drawEvents.forEach(event => {
-          // Update timing diagnostics before execution
-          const lastEvent = lastExecutedEventRef.current;
-          const timingDetails = lastEvent ? ` (${currentTimeMs - lastEvent.time}ms after ${lastEvent.type}${lastEvent.action ? ' ' + lastEvent.action : ''})` : '';
-          
-          console.log(`Executing DRAW event at ${event.timeOffset}ms${timingDetails}`);
-          
-          if (executeEventRef.current) {
-            // Execute the draw event
-            executeEventRef.current(event);
-            
-            // Record this execution
-            lastExecutedEventRef.current = {
-              type: 'annotation',
-              action: 'draw',
-              time: currentTimeMs
-            };
-          }
-        });
-      }, clearEvents.length > 0 ? 15 : 0); // Add a 15ms delay if we had clear events
-      
-      // 3. Execute other non-category events
-      const otherNonCategoryEvents = otherEvents.filter(e => e.type !== 'category');
-      otherNonCategoryEvents.forEach(event => {
         if (executeEventRef.current) {
+          console.log(`Executing DRAW event at ${event.timeOffset}ms (after clear delay ${clearDelay}ms)`);
+          executeEventRef.current(event);
+          
+          // Record this execution
+          lastExecutedEventRef.current = {
+            type: 'annotation',
+            action: 'draw',
+            time: currentTimeMs + clearDelay + (index * 10)
+          };
+        }
+      }, clearDelay + index * 10); // 10ms between draw events
+    });
+    
+    // 3. Other events last
+    const totalDelay = clearDelay + drawEvents.length * 10 + 30;
+    
+    otherEvents.forEach((event, index) => {
+      setTimeout(() => {
+        if (executeEventRef.current) {
+          console.log(`Executing OTHER event (${event.type}) at ${event.timeOffset}ms`);
           executeEventRef.current(event);
         }
-      });
-      
-      // 4. Handle category events separately with delays to avoid state batching
-      const categoryEvents = eventsToExecute.filter(e => e.type === 'category');
-      if (categoryEvents.length > 0) {
-        console.log(`Processing ${categoryEvents.length} category events with delays`);
-        
-        // Process category events with a delay between each one
-        categoryEvents.forEach((event, index) => {
-          setTimeout(() => {
-            if (executeEventRef.current) {
-              executeEventRef.current(event);
-            }
-          }, index * 50); // 50ms between each category event
-        });
-      }
-    } else {
-      // Still update the pending events reference
-      pendingEventsRef.current = remainingEvents;
-    }
+      }, totalDelay + (index * 10));
+    });
   }, []);
   
   /**
@@ -683,10 +651,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
             case 'draw':
               if (payload.path) {
                 try {
-                  // Apply a very small positive offset to ensure draw events happen
-                  // slightly after clear events in the same time window
-                  // This ensures proper sequencing of clear->draw operations
-                  const adjustedTimeOffset = event.timeOffset + 5; // 5ms later
+                  // Apply a slightly larger positive offset to ensure better separation
+                  // between clear and draw events
+                  const adjustedTimeOffset = event.timeOffset + 20; // 20ms later (was 5ms)
                   
                   // Create a copy of the path with enhanced timing information
                   const pathWithTiming = { 
@@ -699,11 +666,18 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                     // Always ensure visibility is set
                     visible: true,
                     // Add or preserve ID
-                    id: payload.path.id || `draw-${event.id || Date.now()}`
+                    id: payload.path.id || `draw-${event.id || Date.now()}`,
+                    // Make sure we have a timestamp
+                    timestamp: payload.path.timestamp || Date.now()
                   };
                   
                   console.log(`Drawing annotation at adjusted time ${adjustedTimeOffset}ms (original: ${event.timeOffset}ms)`);
-                  drawAnnotation(pathWithTiming);
+                  
+                  // Execute with small timeout to ensure draw happens after any clear
+                  // operations that might be happening at the same time
+                  setTimeout(() => {
+                    drawAnnotation(pathWithTiming);
+                  }, 5);
                 } catch (error) {
                   console.error('Error during annotation drawing:', error);
                 }
@@ -711,45 +685,36 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
               break;
             case 'clear':
               try {
-                // Extract clearing info from event payload if available
                 const clearVideoTime = payload.clearVideoTime || 
                   (videoElementRef.current ? videoElementRef.current.currentTime * 1000 : event.timeOffset);
                 
-                // Apply a small negative offset to ensure clear events happen
-                // before any draw events that might have the same timeOffset
-                const adjustedClearTime = clearVideoTime - 10; // 10ms earlier
+                // Apply a more significant adjustment to ensure clear events happen first
+                const adjustedClearTime = clearVideoTime - 50; // 50ms earlier instead of 10ms
                 
                 console.log(`Executing clear event at timeOffset: ${event.timeOffset}ms, ` +
                   `videoTime: ${adjustedClearTime}ms (adjusted from ${clearVideoTime}ms)`);
                 
-                // Create a complete clear event object with consistent metadata
+                // Create more comprehensive clear event
                 const clearEvent: DrawingPath = {
                   id: `clear-${event.id || Date.now()}`,
-                  points: [], // Empty points array
+                  points: [],
                   color: 'transparent',
                   width: 0,
                   timestamp: Date.now(),
-                  videoTime: adjustedClearTime, // Use adjusted time in ms
-                  timeOffset: event.timeOffset - 10, // Also adjust the time offset
+                  videoTime: adjustedClearTime,
+                  timeOffset: event.timeOffset - 50,
                   isClearEvent: true,
-                  visible: false, // Not a visible annotation itself
+                  visible: false,
                   hiddenAt: adjustedClearTime
                 };
                 
-                // Add the clear event to be tracked in the annotation timeline
-                // This ensures it will be found during clear event detection
+                // First add to timeline for tracking
                 drawAnnotation(clearEvent);
                 
-                // Immediately clear the canvas with the exact timestamp from the event
-                // This ensures it uses the original recording time for accuracy
-                const clearResult = clearAnnotations();
-                
-                console.log(`Clear event executed successfully:`, {
-                  id: clearEvent.id,
-                  videoTime: clearVideoTime,
-                  timeOffset: event.timeOffset,
-                  result: clearResult
-                });
+                // Then execute the clear with a small delay
+                setTimeout(() => {
+                  clearAnnotations();
+                }, 10);
               } catch (error) {
                 console.error('Error during annotation clearing:', error);
               }
