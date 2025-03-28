@@ -35,14 +35,9 @@ export default function Home() {
     labelProperties: [
       { id: "artisticStyle", label: "Artistic Style" },
       { id: "characterDesign", label: "Character Design" },
-      { id: "backgroundSettings", label: "Background Settings" },
       { id: "motionDynamics", label: "Motion Dynamics" },
       { id: "colorPalette", label: "Color Palette" },
-      { id: "soundEffects", label: "Sound Effects" },
-      { id: "visualEffects", label: "Visual Effects" },
       { id: "narrativeTechniques", label: "Narrative Techniques" },
-      { id: "perspectiveView", label: "Perspective View" },
-      { id: "lightingShadows", label: "Lighting & Shadows" },
     ],
     keyMetricsTitle: "Production Metrics",
     keyMetrics: [
@@ -59,11 +54,11 @@ export default function Home() {
   
   // Generate initial categories state from labelProperties
   const initialCategories = contentToReview.labelProperties.reduce((acc, prop) => {
-    acc[prop.id] = false;
+    acc[prop.id] = null; // null means no rating
     return acc;
-  }, {} as Record<string, boolean>);
+  }, {} as Record<string, number | null>);
   
-  // State for checkboxes during recording
+  // State for star ratings during recording
   const [categories, setCategories] = useState(initialCategories);
   
   // State to track if we're in replay mode
@@ -72,14 +67,14 @@ export default function Home() {
   // State to track active recording
   const [isRecording, setIsRecording] = useState(false);
   
-  // State for category list that will be shown during replay
-  const [categoryList, setCategoryList] = useState<string[]>([]);
+  // State for category list with ratings that will be shown during replay
+  const [categoryList, setCategoryList] = useState<{name: string, rating: number}[]>([]);
   
   // Define window type with our custom properties
   declare global {
     interface Window {
       __videoPlayerWrapper?: {
-        recordCategoryChange: (category: string, checked: boolean) => void;
+        recordCategoryChange: (category: string, rating: number) => void;
         isRecording: boolean;
       };
       __hasRecordedSession?: boolean;
@@ -94,13 +89,12 @@ export default function Home() {
     return category.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
   };
   
-  const handleCategoryChange = (category: string) => {
-    const newValue = !categories[category as keyof typeof categories];
-    console.log(`RECORDING: Changing category ${category} to ${newValue}`);
+  const handleCategoryChange = (category: string, rating: number) => {
+    console.log(`RECORDING: Changing category ${category} to rating ${rating}`);
     
     const newCategories = {
       ...categories,
-      [category]: newValue,
+      [category]: rating,
     };
     
     console.log('RECORDING: New categories state:', newCategories);
@@ -108,10 +102,10 @@ export default function Home() {
     
     // Record the category change event in the orchestrator if we're recording
     if (typeof window !== 'undefined' && window.__videoPlayerWrapper?.isRecording) {
-      console.log(`RECORDING: Sending category event to orchestrator: ${category}=${newValue}`);
+      console.log(`RECORDING: Sending category event to orchestrator: ${category}=${rating}`);
       
       try {
-        window.__videoPlayerWrapper.recordCategoryChange(category, newValue);
+        window.__videoPlayerWrapper.recordCategoryChange(category, rating);
         console.log('RECORDING: Category event sent successfully');
       } catch (error) {
         console.error('RECORDING: Error sending category event:', error);
@@ -125,11 +119,11 @@ export default function Home() {
   
   // Function to clear all categories (called when recording stops)
   const clearCategories = useCallback(() => {
-    // Reset all categories to false
+    // Reset all categories to null (no rating)
     const resetCategories = Object.keys(categories).reduce((acc, key) => {
-      acc[key] = false;
+      acc[key] = null;
       return acc;
-    }, {} as Record<string, boolean>);
+    }, {} as Record<string, number | null>);
     
     setCategories(resetCategories);
     
@@ -138,7 +132,7 @@ export default function Home() {
   }, []);
   
   // Function to handle categories during replay
-  const handleCategoryAddedDuringReplay = useCallback((categoryChanges: Record<string, boolean>) => {
+  const handleCategoryAddedDuringReplay = useCallback((categoryChanges: Record<string, number>) => {
     console.log('PARENT: Received categories for replay:', categoryChanges);
     
     // Debug log all entries
@@ -146,20 +140,23 @@ export default function Home() {
       console.log(`PARENT: Category ${key} = ${value}`);
     });
     
-    // Convert all checked categories to formatted labels
-    const checkedCategories = Object.entries(categoryChanges)
-      .filter(([_, isChecked]) => isChecked)
-      .map(([categoryName, _]) => {
+    // Convert all rated categories to formatted objects with name and rating
+    const ratedCategories = Object.entries(categoryChanges)
+      .filter(([_, rating]) => rating !== null && rating > 0)
+      .map(([categoryName, rating]) => {
         const label = getCategoryLabel(categoryName);
-        console.log(`PARENT: Formatting category ${categoryName} to ${label}`);
-        return label;
+        console.log(`PARENT: Formatting category ${categoryName} to ${label} with rating ${rating}`);
+        return {
+          name: label,
+          rating: rating as number
+        };
       });
     
-    if (checkedCategories.length > 0) {
-      console.log(`PARENT: Adding ${checkedCategories.length} categories to replay list:`, checkedCategories);
+    if (ratedCategories.length > 0) {
+      console.log(`PARENT: Adding ${ratedCategories.length} categories to replay list:`, ratedCategories);
       
       // Force state update with a deep copy and force render with a callback
-      const newList = [...checkedCategories];
+      const newList = [...ratedCategories];
       console.log('PARENT: Setting category list to:', newList);
       
       // Ensure we're in replay mode
@@ -181,7 +178,7 @@ export default function Home() {
         }, 100);
       }, 50);
     } else {
-      console.log('PARENT: No checked categories found');
+      console.log('PARENT: No rated categories found');
       setCategoryList([]);
     }
   }, []);
@@ -350,38 +347,54 @@ export default function Home() {
             <div className="p-4 border rounded-lg bg-gray-50 h-full">
               <h2 className="text-xl font-semibold mb-3">{contentToReview.dataLabelingTitle}</h2>
               
-              {/* Show checkboxes during recording mode */}
+              {/* Show rating stars during recording mode */}
               {!isReplayMode ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {contentToReview.labelProperties.map((property) => (
-                    <div key={property.id} className="flex items-center">
-                      <input 
-                        type="checkbox" 
-                        id={property.id} 
-                        checked={categories[property.id] || false}
-                        onChange={() => handleCategoryChange(property.id)}
-                        className="h-4 w-4 mr-2"
-                      />
-                      <label htmlFor={property.id}>{property.label}</label>
+                    <div key={property.id}>
+                      <div className="mb-1">{property.label}</div>
+                      <div className="flex items-center">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => handleCategoryChange(property.id, star)}
+                            className={`text-xl px-1 focus:outline-none ${
+                              categories[property.id] >= star 
+                                ? 'text-yellow-400' 
+                                : 'text-gray-300'
+                            }`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                // Show a simple list during replay mode
+                // Show ratings during replay mode
                 <div className="replay-categories">
                   {categoryList.length === 0 ? (
-                    <p className="text-gray-500 italic">Categories will appear here when session loads.</p>
+                    <p className="text-gray-500 italic">Category ratings will appear here when session loads.</p>
                   ) : (
                     <>
-                      <p className="text-sm font-medium mb-2">Selected animation categories:</p>
-                      <ul className="list-disc pl-5 space-y-1">
+                      <p className="text-sm font-medium mb-2">Animation category ratings:</p>
+                      <ul className="pl-0 space-y-3">
                         {categoryList.map((category, index) => (
-                          <li key={index} className="text-green-600 font-medium">
-                            {category}
+                          <li key={index}>
+                            <div className="font-medium">{category.name}</div>
+                            <div className="flex text-yellow-400 mt-1 text-base">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <span key={star} className={star <= category.rating ? 'text-yellow-400' : 'text-gray-300'}>
+                                  ★
+                                </span>
+                              ))}
+                            </div>
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-gray-500 mt-2">{categoryList.length} categories selected</p>
+                      <p className="text-xs text-gray-500 mt-2">{categoryList.length} categories rated</p>
                     </>
                   )}
                 </div>

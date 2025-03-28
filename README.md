@@ -92,7 +92,7 @@ The application uses two main data structures:
      endTime?: number;
      audioTrack: AudioTrack;
      events: TimelineEvent[];
-     categories?: Record<string, boolean>; // Added to store selected categories
+     categories?: Record<string, number | null>; // Added to store category ratings (1-5 stars or null)
    }
    
    // Audio track containing all audio recording data
@@ -141,7 +141,7 @@ The application uses two main data structures:
    // Category event payload
    interface CategoryEventPayload {
      category: string; // The category name (e.g., "artisticStyle")
-     checked: boolean; // Whether the category was checked or unchecked
+     rating: number; // The star rating (1-5) or 0 to clear
    }
    
    // Marker event payload
@@ -167,20 +167,15 @@ The application uses two main data structures:
 5. All components reset properly when replay completes
 
 ### Animation Categories
-1. Ten predefined categories for animation analysis:
+1. Five key categories for animation analysis:
    - Artistic Style
    - Character Design
-   - Background Settings
    - Motion Dynamics
    - Color Palette
-   - Sound Effects
-   - Visual Effects
    - Narrative Techniques
-   - Perspective View
-   - Lighting & Shadows
-2. Categories can be toggled on/off during recording
-3. Selected categories are visible during replay
-4. Categories are included in saved session data
+2. Each category can be rated with 1-5 stars during recording
+3. Category ratings are visible during replay with star display
+4. Category ratings are included in saved session data
 
 ### Serialization
 - Sessions can be saved as JSON files

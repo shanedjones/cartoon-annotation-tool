@@ -320,9 +320,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   /**
    * Record a category change
    */
-  const handleCategoryEvent = useCallback((category: string, checked: boolean) => {
-    console.log(`Recording category change: ${category} = ${checked}`);
-    return recordEvent('category', { category, checked });
+  const handleCategoryEvent = useCallback((category: string, rating: number) => {
+    console.log(`Recording category change: ${category} = ${rating}`);
+    return recordEvent('category', { category, rating });
   }, [recordEvent]);
   
   /**
@@ -702,27 +702,27 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Fallback to category events if no direct categories property
     console.log('No direct categories property, looking for category events...');
     
-    // Find all category events, regardless of checked status first
+    // Find all category events, regardless of rating status first
     const allCategoryEvents = session.events.filter(event => event.type === 'category');
     console.log(`Found ${allCategoryEvents.length} total category events in session`);
     
-    // Use the most recent state of each category (last event for each category determines if it's checked)
-    const categoriesState: Record<string, boolean> = {};
+    // Use the most recent state of each category (last event for each category determines its rating)
+    const categoriesState: Record<string, number> = {};
     
     // Process events in chronological order so we end up with the final state
     allCategoryEvents.forEach(event => {
       if (event.payload?.category) {
-        categoriesState[event.payload.category] = !!event.payload.checked;
-        console.log(`Category ${event.payload.category} = ${event.payload.checked}`);
+        categoriesState[event.payload.category] = event.payload.rating || 0;
+        console.log(`Category ${event.payload.category} = ${event.payload.rating}`);
       }
     });
     
-    // Find which categories are checked in the final state
-    const checkedCategories = Object.entries(categoriesState)
-      .filter(([_, isChecked]) => isChecked)
+    // Find which categories have ratings in the final state
+    const ratedCategories = Object.entries(categoriesState)
+      .filter(([_, rating]) => rating > 0)
       .map(([category]) => category);
     
-    console.log(`Final state has ${checkedCategories.length} checked categories:`, checkedCategories);
+    console.log(`Final state has ${ratedCategories.length} rated categories:`, ratedCategories);
     
     // If we have categories and a callback, send all the categories at once
     if (Object.keys(categoriesState).length > 0 && onCategoriesLoaded) {

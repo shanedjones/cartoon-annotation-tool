@@ -344,9 +344,9 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
 };
 
 interface VideoPlayerWrapperProps {
-  categories?: Record<string, boolean>;
+  categories?: Record<string, number | null>;
   onCategoriesCleared?: () => void;
-  onCategoriesLoaded?: (categories: Record<string, boolean>) => void;
+  onCategoriesLoaded?: (categories: Record<string, number>) => void;
   onReplayModeChange?: (isReplay: boolean) => void;
   videoUrl?: string;
   videoId?: string;
@@ -736,10 +736,10 @@ export default function VideoPlayerWrapper({
   }, []);
   
   // Method to record a category change
-  const recordCategoryChange = useCallback((category: string, checked: boolean) => {
+  const recordCategoryChange = useCallback((category: string, rating: number) => {
     if (orchestratorRef.current && mode === 'record' && isActive) {
-      console.log(`Recording category change in orchestrator: ${category} = ${checked}`);
-      orchestratorRef.current.handleCategoryEvent(category, checked);
+      console.log(`Recording category change in orchestrator: ${category} = ${rating}`);
+      orchestratorRef.current.handleCategoryEvent(category, rating);
     } else {
       console.warn('Unable to record category change - not in recording mode or not active');
     }
@@ -808,7 +808,7 @@ export default function VideoPlayerWrapper({
   declare global {
     interface Window {
       __videoPlayerWrapper?: {
-        recordCategoryChange: (category: string, checked: boolean) => void;
+        recordCategoryChange: (category: string, rating: number) => void;
         isRecording: boolean;
       };
     }
@@ -987,13 +987,22 @@ export default function VideoPlayerWrapper({
             
             {currentSession.categories && Object.keys(currentSession.categories).length > 0 && (
               <div className="mt-2">
-                <p><strong>Categories:</strong></p>
-                <ul className="list-disc ml-5">
+                <p><strong>Category Ratings:</strong></p>
+                <ul className="list-none space-y-2">
                   {Object.entries(currentSession.categories)
-                    .filter(([_, isSelected]) => isSelected)
-                    .map(([category]) => (
+                    .filter(([_, rating]) => rating !== null && rating > 0)
+                    .map(([category, rating]) => (
                       <li key={category}>
-                        {category.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}
+                        <div>
+                          {category.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}
+                        </div>
+                        <div className="text-yellow-500 flex text-sm">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star} className={star <= (rating as number) ? 'text-yellow-500' : 'text-gray-300'}>
+                              ★
+                            </span>
+                          ))}
+                        </div>
                       </li>
                     ))}
                 </ul>
@@ -1028,7 +1037,7 @@ export default function VideoPlayerWrapper({
                   )}
                   {event.type === 'category' && (
                     <span className="block text-gray-600">
-                      Category: {getCategoryLabel(event.payload.category)} {event.payload.checked ? '(added)' : '(removed)'}
+                      Category: {getCategoryLabel(event.payload.category)} {event.payload.rating > 0 ? `(rated ${event.payload.rating}★)` : '(cleared)'}
                     </span>
                   )}
                 </li>
