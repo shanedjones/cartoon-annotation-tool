@@ -36,6 +36,7 @@ export interface TimelineEvent {
   timeOffset: number; // milliseconds from audio start
   duration?: number; // for events with duration
   payload: any; // specific data based on type
+  priority?: number; // priority level for sorting when timestamps match
 }
 
 /**
@@ -93,6 +94,218 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const streamRef = useRef<MediaStream | null>(null);
   const pendingEventsRef = useRef<TimelineEvent[]>([]);
   const replayTimeoutIdsRef = useRef<number[]>([]);
+  
+  // Create a stable event execution function using useState first
+  // This ensures it's defined before other functions that depend on it
+  const [executeEvent] = useState(() => (event: TimelineEvent) => {
+    console.log(`Executing ${event.type} event:`, event.payload);
+    
+    switch (event.type) {
+      case 'video':
+        if (videoElementRef.current) {
+          const video = videoElementRef.current;
+          const payload = event.payload;
+          
+          // Log the global timeline position for this video event
+          console.log(`Executing video ${payload.action} at global time ${event.timeOffset}ms`, {
+            videoCurrentTime: video.currentTime,
+            eventDetails: payload
+          });
+          
+          switch (payload.action) {
+            case 'play':
+              video.play().catch(err => console.warn('Failed to play video:', err));
+              break;
+            case 'pause':
+              video.pause();
+              break;
+            case 'seek':
+              if (payload.to !== undefined) {
+                // Seek to the target time in the video
+                const prevTime = video.currentTime;
+                video.currentTime = payload.to;
+                console.log(`Replayed seek: ${prevTime.toFixed(2)}s → ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+              }
+              break;
+            case 'playbackRate':
+              if (payload.to !== undefined) {
+                const prevRate = video.playbackRate;
+                video.playbackRate = payload.to;
+                console.log(`Replayed rate change: ${prevRate}x → ${payload.to}x (at global time ${event.timeOffset}ms)`);
+              }
+              break;
+            // Handle keyboard shortcuts too
+            case 'keyboardShortcut':
+              if (payload.action === 'forward' && payload.to !== undefined) {
+                video.currentTime = payload.to;
+                console.log(`Replayed forward: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+              } else if (payload.action === 'rewind' && payload.to !== undefined) {
+                video.currentTime = payload.to;
+                console.log(`Replayed rewind: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+              } else if (payload.action === 'play') {
+                video.play().catch(err => console.warn('Failed to play video:', err));
+              } else if (payload.action === 'pause') {
+                video.pause();
+              }
+              break;
+          }
+        }
+        break;
+      case 'annotation':
+        if (drawAnnotation && clearAnnotations) {
+          const payload = event.payload;
+          
+          switch (payload.action) {
+            case 'draw':
+              if (payload.path) {
+                try {
+                  // Create a copy of the path to preserve original properties
+                  const pathWithTiming = { 
+                    ...payload.path,
+                    // Ensure the timeOffset from the event is used for replay timing
+                    // This ensures the annotation appears at the correct time during replay
+                    timeOffset: event.timeOffset,
+                    // Always prefer the global timeline (event.timeOffset) for synchronization
+                    // This ensures annotations are synchronized to the global timeline, not video time
+                    globalTimeOffset: event.timeOffset,
+                    // Keep videoTime for backward compatibility
+                    videoTime: event.timeOffset
+                  };
+                  
+                  console.log(`Executing drawing at global time ${event.timeOffset}ms`);
+                  drawAnnotation(pathWithTiming);
+                } catch (error) {
+                  console.error('Error during annotation drawing:', error);
+                }
+              }
+              break;
+            case 'clear':
+              try {
+                console.log(`Executing canvas clear at global time ${event.timeOffset}ms`);
+                // Record the global time when the clear happened in context
+                updateClearTime(event.timeOffset);
+                clearAnnotations();
+              } catch (error) {
+                console.error('Error during annotation clearing:', error);
+              }
+              break;
+          }
+        }
+        break;
+      case 'marker':
+        // Could display a marker UI
+        console.log('Marker:', event.payload.text);
+        break;
+      case 'category':
+        // We're now handling all categories at the start of replay instead of during timeline events
+        console.log(`Processing category event during replay: ${event.payload?.category} = ${event.payload?.rating}`);
+        break;
+    }
+  });
+  
+  /**
+   * Assign priorities to events based on their type
+   */
+  const assignEventPriority = useCallback((event: TimelineEvent): number => {
+    if (event.priority !== undefined) return event.priority;
+    
+    // Default priority order: video (highest) -> annotation -> marker -> category (lowest)
+    switch (event.type) {
+      case 'video': return 1;
+      case 'annotation': return 2;
+      case 'marker': return 3;
+      case 'category': return 4;
+      default: return 10; // Fallback for any new event types
+    }
+  }, []);
+
+  /**
+   * Process pending events based on current timeline position
+   */
+  const processPendingEvents = useCallback((currentTimeMs: number) => {
+    // Nothing to process
+    if (pendingEventsRef.current.length === 0) return;
+    
+    // Find all events that should be executed by now
+    const eventsToExecute: TimelineEvent[] = [];
+    const remainingEvents: TimelineEvent[] = [];
+    
+    // Log current timeline position periodically (every second)
+    if (Math.floor(currentTimeMs / 1000) !== Math.floor((currentTimeMs - 100) / 1000)) {
+      console.log(`Global timeline position: ${(currentTimeMs / 1000).toFixed(1)}s`);
+      
+      // Also log how many events are still pending
+      if (pendingEventsRef.current.length > 0) {
+        const nextEvent = pendingEventsRef.current[0];
+        console.log(`Next event: ${nextEvent.type} at ${(nextEvent.timeOffset / 1000).toFixed(1)}s (in ${((nextEvent.timeOffset - currentTimeMs) / 1000).toFixed(1)}s)`);
+      }
+    }
+    
+    pendingEventsRef.current.forEach(event => {
+      if (event.timeOffset <= currentTimeMs) {
+        eventsToExecute.push(event);
+      } else {
+        remainingEvents.push(event);
+      }
+    });
+    
+    // Update the pending events
+    pendingEventsRef.current = remainingEvents;
+    
+    // If no events to execute, return early
+    if (eventsToExecute.length === 0) return;
+    
+    // Sort events by timestamp first, then by priority
+    eventsToExecute.sort((a, b) => {
+      // First sort by timeOffset
+      if (a.timeOffset !== b.timeOffset) {
+        return a.timeOffset - b.timeOffset;
+      }
+      
+      // If same timeOffset, sort by priority
+      return assignEventPriority(a) - assignEventPriority(b);
+    });
+    
+    // Log processing information
+    console.log(`Processing ${eventsToExecute.length} events at global timeline ${currentTimeMs}ms`, {
+      eventsToExecute: eventsToExecute.map(e => ({
+        id: e.id, 
+        type: e.type, 
+        timeOffset: e.timeOffset,
+        priority: assignEventPriority(e),
+        action: e.type === 'annotation' ? e.payload.action : 
+              (e.type === 'video' ? e.payload.action : 'none'),
+        // Add more detailed information about video events
+        details: e.type === 'video' ? {
+          action: e.payload.action,
+          from: e.payload.from,
+          to: e.payload.to,
+          globalTimeOffset: e.payload.globalTimeOffset
+        } : undefined
+      })),
+      remainingCount: pendingEventsRef.current.length
+    });
+    
+    // Use requestAnimationFrame for smooth event execution
+    // This ensures all events are executed within a single frame
+    requestAnimationFrame(() => {
+      // Execute all events in proper order
+      // Use Promise.resolve().then to ensure position updates complete before event processing
+      Promise.resolve().then(() => {
+        eventsToExecute.forEach(event => {
+          // For category events, use requestAnimationFrame to ensure UI updates properly
+          if (event.type === 'category') {
+            requestAnimationFrame(() => {
+              executeEvent(event);
+            });
+          } else {
+            // Execute other events immediately
+            executeEvent(event);
+          }
+        });
+      });
+    });
+  }, [assignEventPriority, executeEvent]);
   
   /**
    * Generate a unique ID
@@ -267,12 +480,22 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     const now = Date.now();
     const timeOffset = now - recordingStartTimeRef.current;
     
+    // Assign default priority based on event type
+    let priority: number;
+    switch (type) {
+      case 'video': priority = 1; break;
+      case 'annotation': priority = 2; break;
+      case 'marker': priority = 3; break;
+      default: priority = 10; break;
+    }
+    
     const event: TimelineEvent = {
       id: generateId(),
       type,
       timeOffset,
       duration,
-      payload
+      payload,
+      priority
     };
     
     eventsRef.current.push(event);
@@ -327,8 +550,89 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    */
   const handleCategoryEvent = useCallback((category: string, rating: number) => {
     console.log(`Recording category change: ${category} = ${rating}`);
-    return recordEvent('category', { category, rating });
-  }, [recordEvent]);
+    
+    // Create event with lower priority for category events
+    if (!isActive || !recordingStartTimeRef.current) return;
+    
+    const now = Date.now();
+    const timeOffset = now - recordingStartTimeRef.current;
+    
+    const event: TimelineEvent = {
+      id: generateId(),
+      type: 'category',
+      timeOffset,
+      payload: { category, rating },
+      priority: 4  // Lowest priority for category events
+    };
+    
+    eventsRef.current.push(event);
+    console.log(`Recorded category event at ${timeOffset}ms:`, { category, rating });
+    
+    return event;
+  }, [isActive, generateId]);
+  
+  /**
+   * Complete the replay process
+   */
+  const completeReplay = useCallback(() => {
+    // Reset global timeline position and last clear time when replay completes
+    resetTimelinePosition();
+    console.log('Timeline position and lastClearTime reset to 0ms via context at completion');
+    
+    // Clean up audio player
+    if (audioPlayer) {
+      audioPlayer.pause();
+      if (audioPlayer.src.startsWith('blob:')) {
+        URL.revokeObjectURL(audioPlayer.src);
+      }
+      setAudioPlayer(null);
+    }
+    
+    // Clear any timeouts
+    replayTimeoutIdsRef.current.forEach(id => window.clearTimeout(id));
+    replayTimeoutIdsRef.current = [];
+    
+    // Reset video position to the beginning
+    if (videoElementRef.current) {
+      console.log('Replay complete: resetting video position to start');
+      videoElementRef.current.currentTime = 0;
+      
+      // If it's playing, pause it
+      if (!videoElementRef.current.paused) {
+        videoElementRef.current.pause();
+      }
+    }
+    
+    // Clear all annotations when replay is done using the new state-based reset
+    try {
+      console.log('Replay complete: performing state-based canvas reset');
+      // Try the new resetCanvas method first
+      if (canvasRef.current && canvasRef.current.resetCanvas) {
+        canvasRef.current.resetCanvas();
+      } else {
+        // Fall back to the original clear method if resetCanvas isn't available
+        console.log('Replay complete: falling back to standard clear annotations');
+        clearAnnotations();
+      }
+    } catch (error) {
+      console.error('Error clearing annotations on replay completion:', error);
+    }
+    
+    // Ensure any pending events are cleared
+    pendingEventsRef.current = [];
+    
+    // Update state to indicate replay is complete but maintain the 100% progress
+    setIsActive(false);
+    setReplayProgress(100);
+    
+    // Use setTimeout to reset progress to 0 after a brief delay
+    // This gives users visual feedback that replay completed successfully
+    setTimeout(() => {
+      setReplayProgress(0);
+      console.log('Replay progress reset to 0');
+    }, 1500);
+    
+  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);
   
   /**
    * Start replay of a feedback session
@@ -350,8 +654,26 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Clear any pending events
     pendingEventsRef.current = [];
     
-    // Create a copy of events to process
-    pendingEventsRef.current = [...currentSession.events].sort((a, b) => a.timeOffset - b.timeOffset);
+    // Create a copy of events to process and sort them by timestamp first, then by type priority
+    pendingEventsRef.current = [...currentSession.events].sort((a, b) => {
+      // First sort by timeOffset
+      if (a.timeOffset !== b.timeOffset) {
+        return a.timeOffset - b.timeOffset;
+      }
+      
+      // If same timeOffset, sort by priority (add priorities if they don't exist)
+      const priorityA = a.priority ?? (a.type === 'video' ? 1 : 
+                        a.type === 'annotation' ? 2 : 
+                        a.type === 'marker' ? 3 : 
+                        a.type === 'category' ? 4 : 10);
+                        
+      const priorityB = b.priority ?? (b.type === 'video' ? 1 : 
+                        b.type === 'annotation' ? 2 : 
+                        b.type === 'marker' ? 3 : 
+                        b.type === 'category' ? 4 : 10);
+      
+      return priorityA - priorityB;
+    });
     
     // Create audio player for the main timeline
     if (currentSession.audioTrack.chunks.length > 0) {
@@ -404,15 +726,22 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           const totalDuration = currentSession.audioTrack.totalDuration;
           setReplayProgress((currentTime / totalDuration) * 100);
           
-          // Update global timeline position via context
-          updatePosition(currentTime);
-          // Log global time position every 250ms (to avoid flooding logs)
-          if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
-            console.log(`Timeline position updated via context: ${currentTime}ms`);
-          }
-          
-          // Process any pending events that should occur by this time
-          processPendingEvents(currentTime);
+          // Use requestAnimationFrame for smoother updates
+          requestAnimationFrame(() => {
+            // Update global timeline position via context
+            updatePosition(currentTime);
+            
+            // Log global time position every 250ms (to avoid flooding logs)
+            if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
+              console.log(`Timeline position updated via context: ${currentTime}ms`);
+            }
+            
+            // Use Promise.resolve().then to ensure position updates complete before event processing
+            Promise.resolve().then(() => {
+              // Process any pending events that should occur by this time
+              processPendingEvents(currentTime);
+            });
+          });
         };
         
         audio.onended = () => {
@@ -451,269 +780,34 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         elapsed += interval;
         setReplayProgress((elapsed / totalDuration) * 100);
         
-        // Update global timeline position via context
-        updatePosition(elapsed);
-        // Log global time position every second to avoid flooding logs
-        if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
-          console.log(`Timeline position updated via context (simulated): ${elapsed}ms`);
-        }
-        
-        processPendingEvents(elapsed);
-        
-        if (elapsed >= totalDuration) {
-          clearInterval(timelineInterval);
-          console.log('Simulated timeline complete, cleaning up and resetting...');
-          completeReplay();
-          // Ensure the active state is updated
-          setIsActive(false);
-        }
+        // Use requestAnimationFrame for smoother updates
+        requestAnimationFrame(() => {
+          // Update global timeline position via context
+          updatePosition(elapsed);
+          
+          // Log global time position every second to avoid flooding logs
+          if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
+            console.log(`Timeline position updated via context (simulated): ${elapsed}ms`);
+          }
+          
+          // Use Promise.resolve().then to ensure position updates complete before event processing
+          Promise.resolve().then(() => {
+            processPendingEvents(elapsed);
+          });
+          
+          if (elapsed >= totalDuration) {
+            clearInterval(timelineInterval);
+            console.log('Simulated timeline complete, cleaning up and resetting...');
+            completeReplay();
+            // Ensure the active state is updated
+            setIsActive(false);
+          }
+        });
       }, interval);
       
       replayTimeoutIdsRef.current.push(timelineInterval as unknown as number);
     }
-  }, [currentSession, isActive, resetTimelinePosition, updatePosition]);
-  
-  // Forward declaration of executeEvent to avoid reference-before-initialization error
-  const executeEventRef = useRef<(event: TimelineEvent) => void>();
-  
-  /**
-   * Process pending events based on current timeline position
-   */
-  const processPendingEvents = useCallback((currentTimeMs: number) => {
-    // Nothing to process
-    if (pendingEventsRef.current.length === 0) return;
-    
-    // Find all events that should be executed by now
-    const eventsToExecute: TimelineEvent[] = [];
-    const remainingEvents: TimelineEvent[] = [];
-    
-    // Log current timeline position periodically (every second)
-    if (Math.floor(currentTimeMs / 1000) !== Math.floor((currentTimeMs - 100) / 1000)) {
-      console.log(`Global timeline position: ${(currentTimeMs / 1000).toFixed(1)}s`);
-      
-      // Also log how many events are still pending
-      if (pendingEventsRef.current.length > 0) {
-        const nextEvent = pendingEventsRef.current[0];
-        console.log(`Next event: ${nextEvent.type} at ${(nextEvent.timeOffset / 1000).toFixed(1)}s (in ${((nextEvent.timeOffset - currentTimeMs) / 1000).toFixed(1)}s)`);
-      }
-    }
-    
-    pendingEventsRef.current.forEach(event => {
-      if (event.timeOffset <= currentTimeMs) {
-        eventsToExecute.push(event);
-      } else {
-        remainingEvents.push(event);
-      }
-    });
-    
-    // Log processing information if we found events to execute
-    if (eventsToExecute.length > 0) {
-      console.log(`Processing ${eventsToExecute.length} events at global timeline ${currentTimeMs}ms`, {
-        eventsToExecute: eventsToExecute.map(e => ({
-          id: e.id, 
-          type: e.type, 
-          timeOffset: e.timeOffset,
-          action: e.type === 'annotation' ? e.payload.action : 
-                (e.type === 'video' ? e.payload.action : 'none'),
-          // Add more detailed information about video events
-          details: e.type === 'video' ? {
-            action: e.payload.action,
-            from: e.payload.from,
-            to: e.payload.to,
-            globalTimeOffset: e.payload.globalTimeOffset
-          } : undefined
-        })),
-        remainingCount: remainingEvents.length
-      });
-    }
-    
-    // Update the pending events
-    pendingEventsRef.current = remainingEvents;
-    
-    // Execute the events with special handling for category events
-    const categoryEvents = eventsToExecute.filter(e => e.type === 'category');
-    const nonCategoryEvents = eventsToExecute.filter(e => e.type !== 'category');
-    
-    // Execute non-category events immediately
-    nonCategoryEvents.forEach(event => {
-      if (executeEventRef.current) {
-        executeEventRef.current(event);
-      }
-    });
-    
-    // Execute category events with a small delay between them to avoid state batching
-    if (categoryEvents.length > 0) {
-      console.log(`Processing ${categoryEvents.length} category events with delays`);
-      
-      // Process category events with a delay between each one
-      categoryEvents.forEach((event, index) => {
-        setTimeout(() => {
-          console.log(`Delayed execution of category event ${index + 1}/${categoryEvents.length}`);
-          if (executeEventRef.current) {
-            executeEventRef.current(event);
-          }
-        }, index * 50); // 50ms between each category event
-      });
-    }
-  }, []);
-  
-  /**
-   * Execute a timeline event
-   */
-  const executeEvent = useCallback((event: TimelineEvent) => {
-    console.log(`Executing ${event.type} event:`, event.payload);
-    
-    switch (event.type) {
-      case 'video':
-        if (videoElementRef.current) {
-          const video = videoElementRef.current;
-          const payload = event.payload;
-          
-          // Log the global timeline position for this video event
-          console.log(`Executing video ${payload.action} at global time ${event.timeOffset}ms`, {
-            videoCurrentTime: video.currentTime,
-            eventDetails: payload
-          });
-          
-          switch (payload.action) {
-            case 'play':
-              video.play().catch(err => console.warn('Failed to play video:', err));
-              break;
-            case 'pause':
-              video.pause();
-              break;
-            case 'seek':
-              if (payload.to !== undefined) {
-                // Seek to the target time in the video
-                const prevTime = video.currentTime;
-                video.currentTime = payload.to;
-                console.log(`Replayed seek: ${prevTime.toFixed(2)}s → ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
-              }
-              break;
-            case 'playbackRate':
-              if (payload.to !== undefined) {
-                const prevRate = video.playbackRate;
-                video.playbackRate = payload.to;
-                console.log(`Replayed rate change: ${prevRate}x → ${payload.to}x (at global time ${event.timeOffset}ms)`);
-              }
-              break;
-            // Handle keyboard shortcuts too
-            case 'keyboardShortcut':
-              if (payload.action === 'forward' && payload.to !== undefined) {
-                video.currentTime = payload.to;
-                console.log(`Replayed forward: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
-              } else if (payload.action === 'rewind' && payload.to !== undefined) {
-                video.currentTime = payload.to;
-                console.log(`Replayed rewind: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
-              } else if (payload.action === 'play') {
-                video.play().catch(err => console.warn('Failed to play video:', err));
-              } else if (payload.action === 'pause') {
-                video.pause();
-              }
-              break;
-          }
-        }
-        break;
-      case 'annotation':
-        if (drawAnnotation && clearAnnotations) {
-          const payload = event.payload;
-          
-          switch (payload.action) {
-            case 'draw':
-              if (payload.path) {
-                try {
-                  // Create a copy of the path to preserve original properties
-                  const pathWithTiming = { 
-                    ...payload.path,
-                    // Ensure the timeOffset from the event is used for replay timing
-                    // This ensures the annotation appears at the correct time during replay
-                    timeOffset: event.timeOffset,
-                    // Always prefer the global timeline (event.timeOffset) for synchronization
-                    // This ensures annotations are synchronized to the global timeline, not video time
-                    globalTimeOffset: event.timeOffset,
-                    // Keep videoTime for backward compatibility
-                    videoTime: event.timeOffset
-                  };
-                  
-                  console.log(`Executing drawing at global time ${event.timeOffset}ms`);
-                  drawAnnotation(pathWithTiming);
-                } catch (error) {
-                  console.error('Error during annotation drawing:', error);
-                }
-              }
-              break;
-            case 'clear':
-              try {
-                console.log(`Executing canvas clear at global time ${event.timeOffset}ms`);
-                // Record the global time when the clear happened in context
-                updateClearTime(event.timeOffset);
-                clearAnnotations();
-              } catch (error) {
-                console.error('Error during annotation clearing:', error);
-              }
-              break;
-          }
-        }
-        break;
-      case 'marker':
-        // Could display a marker UI
-        console.log('Marker:', event.payload.text);
-        break;
-      case 'category':
-        // We're now handling all categories at the start of replay instead of during timeline events
-        console.log(`Skipping category event during replay: ${event.payload?.category} = ${event.payload?.checked}`);
-        break;
-    }
-  }, [videoElementRef, drawAnnotation, clearAnnotations, onCategoriesLoaded, updateClearTime]);
-  
-  // Update the executeEventRef whenever executeEvent changes
-  useEffect(() => {
-    executeEventRef.current = executeEvent;
-  }, [executeEvent]);
-  
-  /**
-   * Complete the replay process
-   */
-  const completeReplay = useCallback(() => {
-    // Reset global timeline position and last clear time when replay completes
-    resetTimelinePosition();
-    console.log('Timeline position and lastClearTime reset to 0ms via context at completion');
-    
-    // Clean up audio player
-    if (audioPlayer) {
-      audioPlayer.pause();
-      if (audioPlayer.src.startsWith('blob:')) {
-        URL.revokeObjectURL(audioPlayer.src);
-      }
-      setAudioPlayer(null);
-    }
-    
-    // Clear any timeouts
-    replayTimeoutIdsRef.current.forEach(id => window.clearTimeout(id));
-    replayTimeoutIdsRef.current = [];
-    
-    // Reset video position to the beginning
-    if (videoElementRef.current) {
-      console.log('Replay complete: resetting video position to start');
-      videoElementRef.current.currentTime = 0;
-      
-      // If it's playing, pause it
-      if (!videoElementRef.current.paused) {
-        videoElementRef.current.pause();
-      }
-    }
-    
-    // Clear all annotations when replay is done
-    try {
-      console.log('Replay complete: clearing annotations');
-      clearAnnotations();
-    } catch (error) {
-      console.error('Error clearing annotations on replay completion:', error);
-    }
-    
-    setIsActive(false);
-    setReplayProgress(100);
-  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);
+  }, [currentSession, isActive, resetTimelinePosition, updatePosition, processPendingEvents, completeReplay]);
   
   /**
    * Stop the current replay
@@ -740,12 +834,39 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     replayTimeoutIdsRef.current.forEach(id => window.clearTimeout(id));
     replayTimeoutIdsRef.current = [];
     
+    // Reset video position to the beginning
+    if (videoElementRef.current) {
+      console.log('Replay stopped: resetting video position to start');
+      videoElementRef.current.currentTime = 0;
+      
+      // If it's playing, pause it
+      if (!videoElementRef.current.paused) {
+        videoElementRef.current.pause();
+      }
+    }
+    
+    // Clear all annotations when replay is stopped using the new state-based reset
+    try {
+      console.log('Replay stopped: performing state-based canvas reset');
+      // Try the new resetCanvas method first
+      if (canvasRef.current && canvasRef.current.resetCanvas) {
+        canvasRef.current.resetCanvas();
+      } else {
+        // Fall back to the original clear method if resetCanvas isn't available
+        console.log('Replay stopped: falling back to standard clear annotations');
+        clearAnnotations();
+      }
+    } catch (error) {
+      console.error('Error clearing annotations when stopping replay:', error);
+    }
+    
+    // Ensure any pending events are cleared
+    pendingEventsRef.current = [];
+    
     // Reset replay state
     setIsActive(false);
     setReplayProgress(0);
-    
-    // Note: Video reset and annotation clearing are now handled by VideoPlayerWrapper
-  }, [isActive, audioPlayer, resetTimelinePosition]);
+  }, [isActive, audioPlayer, resetTimelinePosition, videoElementRef, clearAnnotations]);
   
   /**
    * Load a session for replay

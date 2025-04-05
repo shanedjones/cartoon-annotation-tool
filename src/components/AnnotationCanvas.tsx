@@ -335,6 +335,30 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       clearCanvasDrawings();
     },
     
+    // New state-based reset method that bypasses the timeline completely
+    resetCanvas: () => {
+      console.log('AnnotationCanvas: Complete state-based canvas reset');
+      
+      // Clear the physical canvas
+      const ctx = getContext();
+      if (ctx) {
+        ctx.clearRect(0, 0, width, height);
+      }
+      
+      // Reset all internal state
+      setAllDrawings([]);
+      setCurrentPath([]);
+      setIsDrawing(false);
+      
+      // Force a redraw
+      requestAnimationFrame(() => {
+        const ctx = getContext();
+        if (ctx) {
+          ctx.clearRect(0, 0, width, height);
+        }
+      });
+    },
+    
     handleManualAnnotation: (path: DrawingPath) => {
       console.log('AnnotationCanvas: Handling manual annotation:', {
         pointsCount: path.points?.length || 0,
