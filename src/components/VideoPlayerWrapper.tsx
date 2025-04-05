@@ -7,6 +7,7 @@ import type { RecordedAction, FeedbackData } from './VideoPlayer';
 import type { DrawingPath } from './AnnotationCanvas';
 import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
+import { AppProviders } from '../contexts/AppProviders';
 
 // Import the AudioChunk type from the AudioRecorder component
 import type { AudioChunk } from './AudioRecorder';
@@ -847,7 +848,8 @@ export default function VideoPlayerWrapper({
   }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
   
   return (
-    <div className="w-full">
+    <AppProviders>
+      <div className="w-full">
       {/* Hidden buttons that will be triggered by parent */}
       <div className="hidden">
         <button
@@ -1050,5 +1052,6 @@ export default function VideoPlayerWrapper({
         </div>
       )}
     </div>
+    </AppProviders>
   );
 }

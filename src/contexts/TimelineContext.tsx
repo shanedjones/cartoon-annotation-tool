@@ -23,6 +23,8 @@ interface TimelineState {
   recordingStartTime: number | null;
   // Progress percentage (0-100) for replay
   replayProgress: number;
+  // Last time annotations were cleared (in ms)
+  lastClearTime: TimelinePosition;
 }
 
 /**
@@ -37,6 +39,8 @@ type TimelineActionType =
   | { type: 'UPDATE_PROGRESS'; payload: { progress: number } }
   | { type: 'ADD_EVENT'; payload: { event: TimelineEvent } }
   | { type: 'LOAD_SESSION'; payload: { session: FeedbackSession } }
+  | { type: 'UPDATE_CLEAR_TIME'; payload: { clearTime: TimelinePosition } }
+  | { type: 'RESET_TIMELINE_POSITION' }
   | { type: 'RESET' };
 
 /**
@@ -54,6 +58,8 @@ interface TimelineContextType {
   updateProgress: (progress: number) => void;
   addEvent: (event: TimelineEvent) => void;
   loadSession: (session: FeedbackSession) => void;
+  updateClearTime: (clearTime: TimelinePosition) => void;
+  resetTimelinePosition: () => void;
   reset: () => void;
 }
 
@@ -67,6 +73,7 @@ const initialState: TimelineState = {
   sessionId: null,
   recordingStartTime: null,
   replayProgress: 0,
+  lastClearTime: 0,
 };
 
 // Timeline reducer
@@ -82,6 +89,7 @@ function timelineReducer(state: TimelineState, action: TimelineActionType): Time
         events: [],
         sessionId: `session-${Date.now()}`,
         replayProgress: 0,
+        lastClearTime: 0,
       };
 
     case 'STOP_RECORDING':
@@ -101,6 +109,7 @@ function timelineReducer(state: TimelineState, action: TimelineActionType): Time
         events: action.payload.events,
         totalDuration: action.payload.totalDuration,
         replayProgress: 0,
+        lastClearTime: 0,
       };
 
     case 'STOP_REPLAY':
@@ -136,6 +145,19 @@ function timelineReducer(state: TimelineState, action: TimelineActionType): Time
         events: action.payload.session.events,
         sessionId: action.payload.session.id,
         totalDuration: action.payload.session.audioTrack.totalDuration,
+      };
+      
+    case 'UPDATE_CLEAR_TIME':
+      return {
+        ...state,
+        lastClearTime: action.payload.clearTime,
+      };
+      
+    case 'RESET_TIMELINE_POSITION':
+      return {
+        ...state,
+        currentPosition: 0,
+        lastClearTime: 0,
       };
 
     case 'RESET':
@@ -177,6 +199,10 @@ export function TimelineProvider({ children }: TimelineProviderProps) {
       dispatch({ type: 'ADD_EVENT', payload: { event } }),
     loadSession: (session: FeedbackSession) => 
       dispatch({ type: 'LOAD_SESSION', payload: { session } }),
+    updateClearTime: (clearTime: TimelinePosition) => 
+      dispatch({ type: 'UPDATE_CLEAR_TIME', payload: { clearTime } }),
+    resetTimelinePosition: () => 
+      dispatch({ type: 'RESET_TIMELINE_POSITION' }),
     reset: () => dispatch({ type: 'RESET' }),
   }), []);
 
@@ -186,6 +212,18 @@ export function TimelineProvider({ children }: TimelineProviderProps) {
       window.__globalTimePosition = state.currentPosition;
     }
   }, [state.currentPosition]);
+  
+  // Synchronize lastClearTime with window global
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__lastClearTime = state.lastClearTime;
+      
+      // Add development-only logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Syncing lastClearTime to window.__lastClearTime: ${state.lastClearTime}ms`);
+      }
+    }
+  }, [state.lastClearTime]);
 
   // Provide the context value
   const contextValue = useMemo(() => ({
@@ -240,5 +278,16 @@ export function useTimelineEvents() {
   return {
     events: state.events,
     addEvent,
+  };
+}
+
+/**
+ * Custom hook to access and update lastClearTime
+ */
+export function useLastClearTime() {
+  const { state, updateClearTime } = useTimeline();
+  return {
+    lastClearTime: state.lastClearTime,
+    updateClearTime,
   };
 }

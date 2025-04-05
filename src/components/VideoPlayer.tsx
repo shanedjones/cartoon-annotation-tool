@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 
 // Define the types of events we want to record
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
@@ -62,6 +63,10 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   const [annotationWidth, setAnnotationWidth] = useState(3);
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [shouldClearCanvas, setShouldClearCanvas] = useState(false);
+  
+  // Use timeline context
+  const { updatePosition } = useTimeline();
+  const { updateClearTime } = useLastClearTime();
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -195,11 +200,9 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
       
       console.log(`Recording canvas clear at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
       
-      // Update last clear time in window for immediate effect
-      if (typeof window !== 'undefined') {
-        window.__lastClearTime = globalTimeOffset;
-        console.log(`Set window.__lastClearTime to ${globalTimeOffset}ms`);
-      }
+      // Update last clear time using context
+      updateClearTime(globalTimeOffset);
+      console.log(`Updated lastClearTime via context to ${globalTimeOffset}ms`);
       
       const action: RecordedAction = {
         type: 'annotation',
@@ -430,11 +433,9 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
           
           console.log(`Recording canvas clear via clearAllAnnotations at global time ${globalTimeOffset}ms`);
           
-          // Update last clear time in window for immediate effect
-          if (typeof window !== 'undefined') {
-            window.__lastClearTime = globalTimeOffset;
-            console.log(`Set window.__lastClearTime to ${globalTimeOffset}ms`);
-          }
+          // Update last clear time using context
+          updateClearTime(globalTimeOffset);
+          console.log(`Updated lastClearTime via context to ${globalTimeOffset}ms`);
           
           const action: RecordedAction = {
             type: 'annotation',

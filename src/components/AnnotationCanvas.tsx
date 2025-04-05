@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 
 export interface Point {
   x: number;
@@ -48,6 +49,10 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
   const [allDrawings, setAllDrawings] = useState<DrawingPath[]>([]);
+  
+  // Get timeline context
+  const { state: { currentPosition: globalTimePosition } } = useTimeline();
+  const { lastClearTime } = useLastClearTime();
   
   // Get canvas context in a memoized way
   const getContext = () => {
@@ -119,10 +124,6 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     // Clear canvas before drawing
     ctx.clearRect(0, 0, width, height);
     
-    // Get current global timeline position from window if available
-    const globalTimePosition = window.__globalTimePosition || 0;
-    // Get the last time the canvas was cleared
-    const lastClearTime = window.__lastClearTime || 0;
     // Also track video time for debugging
     const videoTimeMs = currentTime * 1000; // Convert to milliseconds
     
@@ -187,7 +188,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     visibleAnnotations.forEach(path => {
       drawPath(ctx, path);
     });
-  }, [isReplaying, replayAnnotations, currentTime, width, height]);
+  }, [isReplaying, replayAnnotations, currentTime, width, height, globalTimePosition, lastClearTime]);
 
   // Draw all stored paths
   useEffect(() => {

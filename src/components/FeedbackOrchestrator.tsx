@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 import type { AudioChunk } from './AudioRecorder';
 import type { DrawingPath } from './AnnotationCanvas';
 import type { RecordedAction } from './VideoPlayer';
@@ -79,6 +80,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
   const [replayProgress, setReplayProgress] = useState(0);
   const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null);
+  
+  // Use timeline context
+  const { updatePosition, resetTimelinePosition } = useTimeline();
+  const { updateClearTime } = useLastClearTime();
   
   // Refs for tracking internal state
   const recordingStartTimeRef = useRef<number | null>(null);
@@ -332,11 +337,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     if (!currentSession || isActive) return;
     
     // Reset global timeline position and last clear time at the start of replay
-    if (typeof window !== 'undefined') {
-      window.__globalTimePosition = 0;
-      window.__lastClearTime = 0; // Reset last clear time
-      console.log('Global timeline position and last clear time reset to 0ms');
-    }
+    resetTimelinePosition();
+    console.log('Timeline position and lastClearTime reset to 0ms via context');
     
     setIsActive(true);
     setReplayProgress(0);
@@ -402,13 +404,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           const totalDuration = currentSession.audioTrack.totalDuration;
           setReplayProgress((currentTime / totalDuration) * 100);
           
-          // Update global timeline position in window object for other components
-          if (typeof window !== 'undefined') {
-            window.__globalTimePosition = currentTime;
-            // Log global time position every 250ms (to avoid flooding logs)
-            if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
-              console.log(`Global timeline position updated: ${currentTime}ms`);
-            }
+          // Update global timeline position via context
+          updatePosition(currentTime);
+          // Log global time position every 250ms (to avoid flooding logs)
+          if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
+            console.log(`Timeline position updated via context: ${currentTime}ms`);
           }
           
           // Process any pending events that should occur by this time
@@ -451,13 +451,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         elapsed += interval;
         setReplayProgress((elapsed / totalDuration) * 100);
         
-        // Update global timeline position for simulated timeline
-        if (typeof window !== 'undefined') {
-          window.__globalTimePosition = elapsed;
-          // Log global time position every second to avoid flooding logs
-          if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
-            console.log(`Global timeline position (simulated): ${elapsed}ms`);
-          }
+        // Update global timeline position via context
+        updatePosition(elapsed);
+        // Log global time position every second to avoid flooding logs
+        if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
+          console.log(`Timeline position updated via context (simulated): ${elapsed}ms`);
         }
         
         processPendingEvents(elapsed);
@@ -473,7 +471,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       
       replayTimeoutIdsRef.current.push(timelineInterval as unknown as number);
     }
-  }, [currentSession, isActive]);
+  }, [currentSession, isActive, resetTimelinePosition, updatePosition]);
   
   // Forward declaration of executeEvent to avoid reference-before-initialization error
   const executeEventRef = useRef<(event: TimelineEvent) => void>();
@@ -647,10 +645,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
             case 'clear':
               try {
                 console.log(`Executing canvas clear at global time ${event.timeOffset}ms`);
-                // Record the global time when the clear happened
-                if (typeof window !== 'undefined') {
-                  window.__lastClearTime = event.timeOffset;
-                }
+                // Record the global time when the clear happened in context
+                updateClearTime(event.timeOffset);
                 clearAnnotations();
               } catch (error) {
                 console.error('Error during annotation clearing:', error);
@@ -668,7 +664,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         console.log(`Skipping category event during replay: ${event.payload?.category} = ${event.payload?.checked}`);
         break;
     }
-  }, [videoElementRef, drawAnnotation, clearAnnotations, onCategoriesLoaded]);
+  }, [videoElementRef, drawAnnotation, clearAnnotations, onCategoriesLoaded, updateClearTime]);
   
   // Update the executeEventRef whenever executeEvent changes
   useEffect(() => {
@@ -680,11 +676,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    */
   const completeReplay = useCallback(() => {
     // Reset global timeline position and last clear time when replay completes
-    if (typeof window !== 'undefined') {
-      window.__globalTimePosition = 0;
-      window.__lastClearTime = 0;
-      console.log('Global timeline position and last clear time reset to 0ms at completion');
-    }
+    resetTimelinePosition();
+    console.log('Timeline position and lastClearTime reset to 0ms via context at completion');
     
     // Clean up audio player
     if (audioPlayer) {
@@ -720,7 +713,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     setIsActive(false);
     setReplayProgress(100);
-  }, [audioPlayer, videoElementRef, clearAnnotations]);
+  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);
   
   /**
    * Stop the current replay
@@ -731,11 +724,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     console.log('Stopping replay session');
     
     // Reset global timeline position and last clear time when stopping replay
-    if (typeof window !== 'undefined') {
-      window.__globalTimePosition = 0;
-      window.__lastClearTime = 0;
-      console.log('Global timeline position and last clear time reset to 0ms');
-    }
+    resetTimelinePosition();
+    console.log('Timeline position and lastClearTime reset to 0ms via context');
     
     // Clean up audio player
     if (audioPlayer) {
@@ -755,7 +745,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     setReplayProgress(0);
     
     // Note: Video reset and annotation clearing are now handled by VideoPlayerWrapper
-  }, [isActive, audioPlayer]);
+  }, [isActive, audioPlayer, resetTimelinePosition]);
   
   /**
    * Load a session for replay
