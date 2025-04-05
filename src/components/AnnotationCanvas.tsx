@@ -65,20 +65,49 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
 
   // Clear the canvas
   const clearCanvasDrawings = () => {
+    console.log('AnnotationCanvas: Starting canvas clear operation');
     const ctx = getContext();
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
+      console.log('AnnotationCanvas: Canvas context cleared');
     }
     setAllDrawings([]);
+    
+    // Return a promise that resolves when the state update is likely complete
+    return new Promise<void>(resolve => {
+      // Use requestAnimationFrame to wait for the next frame after state update
+      requestAnimationFrame(() => {
+        console.log('AnnotationCanvas: Canvas clear state update processed');
+        resolve();
+      });
+    });
   };
 
   // Listen for external clear command
   useEffect(() => {
     if (clearCanvas) {
-      clearCanvasDrawings();
-      if (onClearComplete) {
-        onClearComplete();
-      }
+      // Use requestAnimationFrame to ensure we're in a proper animation frame
+      requestAnimationFrame(() => {
+        // Clear the canvas and wait for completion
+        clearCanvasDrawings()
+          .then(() => {
+            // Use another requestAnimationFrame to ensure the clearing has been rendered
+            requestAnimationFrame(() => {
+              // Now that the canvas is definitely cleared, notify the parent
+              if (onClearComplete) {
+                console.log('AnnotationCanvas: Canvas clearing complete, notifying parent');
+                onClearComplete();
+              }
+            });
+          })
+          .catch(err => {
+            console.error('Error during canvas clearing:', err);
+            // Still call the completion handler even if there was an error
+            if (onClearComplete) {
+              onClearComplete();
+            }
+          });
+      });
     }
   }, [clearCanvas, onClearComplete]);
 
@@ -339,23 +368,27 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     resetCanvas: () => {
       console.log('AnnotationCanvas: Complete state-based canvas reset');
       
-      // Clear the physical canvas
-      const ctx = getContext();
-      if (ctx) {
-        ctx.clearRect(0, 0, width, height);
-      }
-      
-      // Reset all internal state
-      setAllDrawings([]);
-      setCurrentPath([]);
-      setIsDrawing(false);
-      
-      // Force a redraw
+      // Use double requestAnimationFrame for reliable clearing
       requestAnimationFrame(() => {
+        // Clear the physical canvas
         const ctx = getContext();
         if (ctx) {
           ctx.clearRect(0, 0, width, height);
         }
+        
+        // Reset all internal state
+        setAllDrawings([]);
+        setCurrentPath([]);
+        setIsDrawing(false);
+        
+        // Force a second redraw in the next animation frame to ensure rendering
+        requestAnimationFrame(() => {
+          const ctx = getContext();
+          if (ctx) {
+            ctx.clearRect(0, 0, width, height);
+            console.log('AnnotationCanvas: Second clearing pass complete');
+          }
+        });
       });
     },
     
