@@ -811,6 +811,9 @@ export default function VideoPlayerWrapper({
         recordCategoryChange: (category: string, rating: number) => void;
         isRecording: boolean;
       };
+      __globalTimePosition?: number; // Global timeline position in milliseconds
+      __lastClearTime?: number; // When the canvas was last cleared (global timeline time)
+      __hasRecordedSession?: boolean;
     }
   }
   

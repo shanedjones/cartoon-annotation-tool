@@ -77,6 +77,34 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     }
   }, [isRecording]);
   
+  // Force update duration when video is loaded
+  useEffect(() => {
+    if (videoRef.current) {
+      if (videoRef.current.readyState >= 2) {
+        console.log('Video ready, setting duration from useEffect:', videoRef.current.duration);
+        setDuration(videoRef.current.duration);
+      }
+      
+      // Add extra event listener for duration availability
+      const onDurationAvailable = () => {
+        console.log('Duration available event triggered:', videoRef.current?.duration);
+        if (videoRef.current) {
+          setDuration(videoRef.current.duration);
+        }
+      };
+      
+      videoRef.current.addEventListener('loadeddata', onDurationAvailable);
+      videoRef.current.addEventListener('canplay', onDurationAvailable);
+      
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('loadeddata', onDurationAvailable);
+          videoRef.current.removeEventListener('canplay', onDurationAvailable);
+        }
+      };
+    }
+  }, [videoRef.current]);
+  
   // Pass video element reference to parent component
   useEffect(() => {
     if (setVideoRef && videoRef.current) {
@@ -124,26 +152,31 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   
   // Handle annotation being added
   const handleAnnotationAdded = (path: DrawingPath) => {
-    // Update the annotation with the video currentTime (in ms)
-    const annotationWithVideoTime = {
+    // Calculate the global timeline offset
+    const globalTimeOffset = isRecording && recordingStartTimeRef.current ? 
+      Date.now() - recordingStartTimeRef.current : 0;
+    
+    // Update the annotation with both global time and video time
+    const annotationWithTiming = {
       ...path,
       // Store both the original timestamp (relative to the recording start)
-      // and update the timestamp to match the video's current playback position
-      videoTime: currentTime * 1000
+      videoTime: currentTime * 1000,
+      // Add global timeline offset for proper replay synchronization
+      globalTimeOffset: globalTimeOffset
     };
     
     // If recording, pass the annotation to the parent
     if (isRecording && onAnnotationAdded) {
-      onAnnotationAdded(annotationWithVideoTime);
+      onAnnotationAdded(annotationWithTiming);
     }
     
     // Record the annotation action
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
       const action: RecordedAction = {
         type: 'annotation',
-        timestamp: Date.now() - recordingStartTimeRef.current,
+        timestamp: globalTimeOffset,
         videoTime: currentTime,
-        details: { path: annotationWithVideoTime }
+        details: { path: annotationWithTiming }
       };
       onRecordAction(action);
     }
@@ -157,11 +190,26 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     
     // Record the clear action if recording
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
+      // Calculate global timeline offset
+      const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
+      
+      console.log(`Recording canvas clear at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
+      
+      // Update last clear time in window for immediate effect
+      if (typeof window !== 'undefined') {
+        window.__lastClearTime = globalTimeOffset;
+        console.log(`Set window.__lastClearTime to ${globalTimeOffset}ms`);
+      }
+      
       const action: RecordedAction = {
         type: 'annotation',
-        timestamp: Date.now() - recordingStartTimeRef.current,
+        timestamp: globalTimeOffset,
         videoTime: currentTime,
-        details: { clear: true }
+        details: { 
+          action: 'clear', // Ensure consistent action name
+          clear: true,
+          globalTimeOffset: globalTimeOffset // Add global timeline information
+        }
       };
       onRecordAction(action);
     }
@@ -175,12 +223,21 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   // Function to record an action if recording is enabled
   const recordAction = (type: ActionType, details?: {[key: string]: any}) => {
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
+      // Calculate the global timeline offset
+      const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
+      
       const action: RecordedAction = {
         type,
-        timestamp: Date.now() - recordingStartTimeRef.current,
+        timestamp: globalTimeOffset,
         videoTime: currentTime,
-        details
+        // Add global timeline information to all actions
+        details: {
+          ...details,
+          globalTimeOffset: globalTimeOffset
+        }
       };
+      
+      console.log(`Recording ${type} action at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
       onRecordAction(action);
     }
   };
@@ -200,23 +257,45 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
+      // Update the component state to reflect the current video time
       setCurrentTime(videoRef.current.currentTime);
     }
   };
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
+      console.log('Video metadata loaded, duration:', videoRef.current.duration);
+      setDuration(videoRef.current.duration);
+    }
+  };
+  
+  // Add additional event handler for duration change
+  const handleDurationChange = () => {
+    if (videoRef.current) {
+      console.log('Video duration changed:', videoRef.current.duration);
       setDuration(videoRef.current.duration);
     }
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
-    if (videoRef.current) {
-      const previousTime = videoRef.current.currentTime;
-      videoRef.current.currentTime = time;
-      setCurrentTime(time);
-      recordAction('seek', { from: previousTime, to: time });
+    const result = seekToTime(time);
+    if (result) {
+      recordAction('seek', { from: result.previousTime, to: result.newTime });
+    }
+  };
+  
+  // Add a separate function for direct seeking when clicking on the slider
+  const handleSliderClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    const element = e.target as HTMLInputElement;
+    const rect = element.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const percentage = offsetX / rect.width;
+    const time = percentage * duration;
+    
+    const result = seekToTime(time);
+    if (result) {
+      recordAction('seek', { from: result.previousTime, to: result.newTime });
     }
   };
 
@@ -231,9 +310,24 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   };
 
   const formatTime = (time: number) => {
+    if (!time || isNaN(time) || time < 0) {
+      return '0:00';
+    }
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  // Helper function to seek to a specific time
+  const seekToTime = (time: number) => {
+    if (videoRef.current) {
+      const previousTime = videoRef.current.currentTime;
+      const newTime = Math.max(0, Math.min(duration, time));
+      videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+      return { previousTime, newTime };
+    }
+    return null;
   };
 
   // Add keyboard shortcuts
@@ -244,27 +338,27 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
         recordAction('keyboardShortcut', { key: e.key, action: playing ? 'pause' : 'play' });
       } else if (e.key === 'ArrowLeft') {
         if (videoRef.current) {
-          const previousTime = videoRef.current.currentTime;
-          videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5);
-          setCurrentTime(videoRef.current.currentTime);
-          recordAction('keyboardShortcut', { 
-            key: e.key, 
-            action: 'rewind',
-            from: previousTime,
-            to: videoRef.current.currentTime 
-          });
+          const result = seekToTime(videoRef.current.currentTime - 5);
+          if (result) {
+            recordAction('keyboardShortcut', { 
+              key: e.key, 
+              action: 'rewind',
+              from: result.previousTime,
+              to: result.newTime 
+            });
+          }
         }
       } else if (e.key === 'ArrowRight') {
         if (videoRef.current) {
-          const previousTime = videoRef.current.currentTime;
-          videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 5);
-          setCurrentTime(videoRef.current.currentTime);
-          recordAction('keyboardShortcut', { 
-            key: e.key, 
-            action: 'forward',
-            from: previousTime,
-            to: videoRef.current.currentTime
-          });
+          const result = seekToTime(videoRef.current.currentTime + 5);
+          if (result) {
+            recordAction('keyboardShortcut', { 
+              key: e.key, 
+              action: 'forward',
+              from: result.previousTime,
+              to: result.newTime
+            });
+          }
         }
       // 'm' shortcut removed
       }
@@ -331,11 +425,26 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
         
         // If recording is active, also record this event
         if (isRecording && onRecordAction) {
+          // Calculate global timeline offset
+          const globalTimeOffset = Date.now() - (recordingStartTimeRef.current || 0);
+          
+          console.log(`Recording canvas clear via clearAllAnnotations at global time ${globalTimeOffset}ms`);
+          
+          // Update last clear time in window for immediate effect
+          if (typeof window !== 'undefined') {
+            window.__lastClearTime = globalTimeOffset;
+            console.log(`Set window.__lastClearTime to ${globalTimeOffset}ms`);
+          }
+          
           const action: RecordedAction = {
             type: 'annotation',
-            timestamp: Date.now() - (recordingStartTimeRef.current || 0),
+            timestamp: globalTimeOffset,
             videoTime: currentTime,
-            details: { clear: true }
+            details: { 
+              action: 'clear', // Ensure consistent action name
+              clear: true,
+              globalTimeOffset: globalTimeOffset
+            }
           };
           onRecordAction(action);
         }
@@ -358,8 +467,10 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
           className="w-full aspect-video"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onDurationChange={handleDurationChange}
           src={videoUrl}
           playsInline
+          preload="metadata"
           muted
         />
         
@@ -383,14 +494,27 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
       </div>
       
       <div className="p-4 bg-white">
-        <div className="flex items-center mb-2">
+        <div className="flex items-center mb-2 relative">
           <input
             type="range"
             min="0"
             max={duration || 0}
             value={currentTime}
             onChange={handleSeek}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            onClick={handleSliderClick}
+            className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer relative z-10
+                      focus:outline-none focus:ring-2 focus:ring-blue-300
+                      [&::-webkit-slider-thumb]:appearance-none
+                      [&::-webkit-slider-thumb]:bg-blue-500
+                      [&::-webkit-slider-thumb]:h-4
+                      [&::-webkit-slider-thumb]:w-4
+                      [&::-webkit-slider-thumb]:rounded-full
+                      [&::-webkit-slider-thumb]:border-0
+                      [&::-webkit-slider-thumb]:shadow
+                      [&::-webkit-slider-thumb]:cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb 100%)`
+            }}
           />
         </div>
         
@@ -413,7 +537,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
             
             
             <span className="text-sm text-gray-600">
-              {formatTime(currentTime)} / {formatTime(duration)}
+              {formatTime(currentTime)} / {duration ? formatTime(duration) : '0:00'}
             </span>
           </div>
           

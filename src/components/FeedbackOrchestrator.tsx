@@ -331,6 +331,13 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const startReplay = useCallback(() => {
     if (!currentSession || isActive) return;
     
+    // Reset global timeline position and last clear time at the start of replay
+    if (typeof window !== 'undefined') {
+      window.__globalTimePosition = 0;
+      window.__lastClearTime = 0; // Reset last clear time
+      console.log('Global timeline position and last clear time reset to 0ms');
+    }
+    
     setIsActive(true);
     setReplayProgress(0);
     
@@ -395,6 +402,15 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           const totalDuration = currentSession.audioTrack.totalDuration;
           setReplayProgress((currentTime / totalDuration) * 100);
           
+          // Update global timeline position in window object for other components
+          if (typeof window !== 'undefined') {
+            window.__globalTimePosition = currentTime;
+            // Log global time position every 250ms (to avoid flooding logs)
+            if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
+              console.log(`Global timeline position updated: ${currentTime}ms`);
+            }
+          }
+          
           // Process any pending events that should occur by this time
           processPendingEvents(currentTime);
         };
@@ -435,6 +451,15 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         elapsed += interval;
         setReplayProgress((elapsed / totalDuration) * 100);
         
+        // Update global timeline position for simulated timeline
+        if (typeof window !== 'undefined') {
+          window.__globalTimePosition = elapsed;
+          // Log global time position every second to avoid flooding logs
+          if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
+            console.log(`Global timeline position (simulated): ${elapsed}ms`);
+          }
+        }
+        
         processPendingEvents(elapsed);
         
         if (elapsed >= totalDuration) {
@@ -464,6 +489,17 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     const eventsToExecute: TimelineEvent[] = [];
     const remainingEvents: TimelineEvent[] = [];
     
+    // Log current timeline position periodically (every second)
+    if (Math.floor(currentTimeMs / 1000) !== Math.floor((currentTimeMs - 100) / 1000)) {
+      console.log(`Global timeline position: ${(currentTimeMs / 1000).toFixed(1)}s`);
+      
+      // Also log how many events are still pending
+      if (pendingEventsRef.current.length > 0) {
+        const nextEvent = pendingEventsRef.current[0];
+        console.log(`Next event: ${nextEvent.type} at ${(nextEvent.timeOffset / 1000).toFixed(1)}s (in ${((nextEvent.timeOffset - currentTimeMs) / 1000).toFixed(1)}s)`);
+      }
+    }
+    
     pendingEventsRef.current.forEach(event => {
       if (event.timeOffset <= currentTimeMs) {
         eventsToExecute.push(event);
@@ -474,13 +510,20 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Log processing information if we found events to execute
     if (eventsToExecute.length > 0) {
-      console.log(`Processing ${eventsToExecute.length} events at time ${currentTimeMs}ms`, {
+      console.log(`Processing ${eventsToExecute.length} events at global timeline ${currentTimeMs}ms`, {
         eventsToExecute: eventsToExecute.map(e => ({
           id: e.id, 
           type: e.type, 
           timeOffset: e.timeOffset,
           action: e.type === 'annotation' ? e.payload.action : 
-                (e.type === 'video' ? e.payload.action : 'none')
+                (e.type === 'video' ? e.payload.action : 'none'),
+          // Add more detailed information about video events
+          details: e.type === 'video' ? {
+            action: e.payload.action,
+            from: e.payload.from,
+            to: e.payload.to,
+            globalTimeOffset: e.payload.globalTimeOffset
+          } : undefined
         })),
         remainingCount: remainingEvents.length
       });
@@ -528,6 +571,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           const video = videoElementRef.current;
           const payload = event.payload;
           
+          // Log the global timeline position for this video event
+          console.log(`Executing video ${payload.action} at global time ${event.timeOffset}ms`, {
+            videoCurrentTime: video.currentTime,
+            eventDetails: payload
+          });
+          
           switch (payload.action) {
             case 'play':
               video.play().catch(err => console.warn('Failed to play video:', err));
@@ -537,12 +586,31 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
               break;
             case 'seek':
               if (payload.to !== undefined) {
+                // Seek to the target time in the video
+                const prevTime = video.currentTime;
                 video.currentTime = payload.to;
+                console.log(`Replayed seek: ${prevTime.toFixed(2)}s → ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
               }
               break;
             case 'playbackRate':
               if (payload.to !== undefined) {
+                const prevRate = video.playbackRate;
                 video.playbackRate = payload.to;
+                console.log(`Replayed rate change: ${prevRate}x → ${payload.to}x (at global time ${event.timeOffset}ms)`);
+              }
+              break;
+            // Handle keyboard shortcuts too
+            case 'keyboardShortcut':
+              if (payload.action === 'forward' && payload.to !== undefined) {
+                video.currentTime = payload.to;
+                console.log(`Replayed forward: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+              } else if (payload.action === 'rewind' && payload.to !== undefined) {
+                video.currentTime = payload.to;
+                console.log(`Replayed rewind: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+              } else if (payload.action === 'play') {
+                video.play().catch(err => console.warn('Failed to play video:', err));
+              } else if (payload.action === 'pause') {
+                video.pause();
               }
               break;
           }
@@ -562,11 +630,14 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                     // Ensure the timeOffset from the event is used for replay timing
                     // This ensures the annotation appears at the correct time during replay
                     timeOffset: event.timeOffset,
-                    // If videoTime isn't already set, set it to the event's timeOffset
-                    // This helps with filtering in the AnnotationCanvas component
-                    videoTime: payload.path.videoTime || event.timeOffset
+                    // Always prefer the global timeline (event.timeOffset) for synchronization
+                    // This ensures annotations are synchronized to the global timeline, not video time
+                    globalTimeOffset: event.timeOffset,
+                    // Keep videoTime for backward compatibility
+                    videoTime: event.timeOffset
                   };
                   
+                  console.log(`Executing drawing at global time ${event.timeOffset}ms`);
                   drawAnnotation(pathWithTiming);
                 } catch (error) {
                   console.error('Error during annotation drawing:', error);
@@ -575,6 +646,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
               break;
             case 'clear':
               try {
+                console.log(`Executing canvas clear at global time ${event.timeOffset}ms`);
+                // Record the global time when the clear happened
+                if (typeof window !== 'undefined') {
+                  window.__lastClearTime = event.timeOffset;
+                }
                 clearAnnotations();
               } catch (error) {
                 console.error('Error during annotation clearing:', error);
@@ -603,6 +679,13 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Complete the replay process
    */
   const completeReplay = useCallback(() => {
+    // Reset global timeline position and last clear time when replay completes
+    if (typeof window !== 'undefined') {
+      window.__globalTimePosition = 0;
+      window.__lastClearTime = 0;
+      console.log('Global timeline position and last clear time reset to 0ms at completion');
+    }
+    
     // Clean up audio player
     if (audioPlayer) {
       audioPlayer.pause();
@@ -646,6 +729,13 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     if (!isActive) return;
     
     console.log('Stopping replay session');
+    
+    // Reset global timeline position and last clear time when stopping replay
+    if (typeof window !== 'undefined') {
+      window.__globalTimePosition = 0;
+      window.__lastClearTime = 0;
+      console.log('Global timeline position and last clear time reset to 0ms');
+    }
     
     // Clean up audio player
     if (audioPlayer) {

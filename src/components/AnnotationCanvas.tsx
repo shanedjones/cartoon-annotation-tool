@@ -119,39 +119,69 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     // Clear canvas before drawing
     ctx.clearRect(0, 0, width, height);
     
-    // Draw all annotations that should be visible at the current time
-    // Use the video's currentTime (in seconds) to determine which annotations to show
+    // Get current global timeline position from window if available
+    const globalTimePosition = window.__globalTimePosition || 0;
+    // Get the last time the canvas was cleared
+    const lastClearTime = window.__lastClearTime || 0;
+    // Also track video time for debugging
     const videoTimeMs = currentTime * 1000; // Convert to milliseconds
     
-    // More comprehensive logic for determining which annotations to show
+    // Log global timeline information periodically
+    if (Math.floor(globalTimePosition / 1000) !== Math.floor((globalTimePosition - 100) / 1000)) {
+      console.log(`Annotation replay: Global time: ${globalTimePosition}ms, Last clear: ${lastClearTime}ms`);
+    }
+    
+    // First, filter annotations to only include those created after the last clear
+    // This ensures "clear" actions are properly respected during replay
     const visibleAnnotations = replayAnnotations.filter(annotation => {
-      // Check for explicit timeOffset (added by FeedbackOrchestrator)
-      if ((annotation as any).timeOffset !== undefined) {
-        const timeOffset = (annotation as any).timeOffset;
-        console.log(`Annotation with timeOffset: ${timeOffset}ms, current: ${videoTimeMs}ms`, {
-          visible: timeOffset <= videoTimeMs,
-          difference: videoTimeMs - timeOffset
-        });
-        return timeOffset <= videoTimeMs;
+      // First, check if this annotation has globalTimeOffset and if it came after the last clear
+      if ((annotation as any).globalTimeOffset !== undefined) {
+        const globalTimeOffset = (annotation as any).globalTimeOffset;
+        
+        // Skip annotations that were drawn before the last clear
+        if (globalTimeOffset <= lastClearTime) {
+          return false;
+        }
+        
+        // Now check if this annotation should be visible at the current timeline position
+        const isVisible = globalTimeOffset <= globalTimePosition;
+        
+        if (Math.random() < 0.05) { // Only log a small percentage to reduce console spam
+          console.log(`Annotation with globalTimeOffset: ${globalTimeOffset}ms at time: ${globalTimePosition}ms, lastClear: ${lastClearTime}ms`, {
+            visible: isVisible,
+            afterClear: globalTimeOffset > lastClearTime,
+            videoTime: videoTimeMs
+          });
+        }
+        
+        return isVisible;
       }
       
-      // Next check videoTime (relative to video timeline)
+      // Next check for explicit timeOffset (added by FeedbackOrchestrator)
+      if ((annotation as any).timeOffset !== undefined) {
+        const timeOffset = (annotation as any).timeOffset;
+        
+        // Skip annotations drawn before the last clear
+        if (timeOffset <= lastClearTime) {
+          return false;
+        }
+        
+        const isVisible = timeOffset <= globalTimePosition;
+        return isVisible;
+      }
+      
+      // For legacy annotations without proper global timing, use video time
+      // This is just a fallback for backward compatibility
       if (annotation.videoTime !== undefined) {
-        console.log(`Annotation with videoTime: ${annotation.videoTime}ms, current: ${videoTimeMs}ms`, {
-          visible: annotation.videoTime <= videoTimeMs
-        });
         return annotation.videoTime <= videoTimeMs;
       }
       
-      // Fallback to timestamp (original recording time)
-      console.log(`Annotation with timestamp: ${annotation.timestamp}ms, current: ${videoTimeMs}ms`, {
-        visible: annotation.timestamp <= videoTimeMs
-      });
+      // Last fallback to timestamp (original recording time)
       return annotation.timestamp <= videoTimeMs;
     });
     
-    if (visibleAnnotations.length > 0) {
-      console.log(`Showing ${visibleAnnotations.length} of ${replayAnnotations.length} annotations at ${videoTimeMs}ms`);
+    if (visibleAnnotations.length > 0 && Math.random() < 0.1) { // Reduce logging frequency
+      console.log(`Showing ${visibleAnnotations.length} of ${replayAnnotations.length} annotations at global time ${globalTimePosition}ms`);
     }
     
     visibleAnnotations.forEach(path => {
