@@ -131,7 +131,7 @@ export default function InboxPage() {
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Cartoon Review Inbox</h1>
+        <h1 className="text-3xl font-bold">Session Review Inbox</h1>
       </div>
 
       {/* Filters and search */}
@@ -139,7 +139,7 @@ export default function InboxPage() {
         <div className="flex-1">
           <input
             type="text"
-            placeholder="Search cartoons..."
+            placeholder="Search sessions..."
             className="w-full px-4 py-2 border rounded-md"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -162,70 +162,94 @@ export default function InboxPage() {
       {/* Cartoons list */}
       {filteredCartoons.length === 0 ? (
         <div className="bg-gray-100 rounded-lg p-8 text-center">
-          <p className="text-lg text-gray-600">No cartoons found matching your filters.</p>
+          <p className="text-lg text-gray-600">No sessions found matching your filters.</p>
         </div>
       ) : (
-        <div className="grid gap-6">
-          {filteredCartoons.map((cartoon) => (
-            <div key={cartoon.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="flex flex-col md:flex-row">
-                {/* Thumbnail */}
-                <div className="md:w-1/4 h-48 md:h-auto relative">
-                  <img 
-                    src={cartoon.thumbnailUrl} 
-                    alt={cartoon.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                
-                {/* Content */}
-                <div className="p-6 md:w-3/4 flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <h2 className="text-xl font-bold">{cartoon.title}</h2>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(cartoon.status)}`}>
-                        {cartoon.status}
-                      </span>
+        <div className="overflow-x-auto bg-white rounded-lg shadow-md">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Title
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date Added
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Duration
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Categories
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredCartoons.map((cartoon) => (
+                <tr key={cartoon.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <img className="h-10 w-10 rounded-full object-cover" src={cartoon.thumbnailUrl} alt={cartoon.title} />
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">{cartoon.title}</div>
+                        <div className="text-sm text-gray-500 truncate max-w-xs">{cartoon.description}</div>
+                      </div>
                     </div>
-                    
-                    <p className="text-gray-600 mb-4">{cartoon.description}</p>
-                    
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {cartoon.categories.map((category, index) => (
-                        <span key={index} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(cartoon.dateAdded)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {cartoon.duration}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(cartoon.status)}`}>
+                      {cartoon.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex flex-wrap gap-1">
+                      {cartoon.categories.slice(0, 2).map((category, index) => (
+                        <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                           {category}
                         </span>
                       ))}
+                      {cartoon.categories.length > 2 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                          +{cartoon.categories.length - 2} more
+                        </span>
+                      )}
                     </div>
-                    
-                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{cartoon.duration}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>Added: {formatDate(cartoon.dateAdded)}</span>
-                      </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex space-x-3 justify-end">
+                      <Link
+                        href={`/?cartoonId=${cartoon.id}`}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Review
+                      </Link>
+                      {cartoon.status === 'Completed' && (
+                        <Link
+                          href={`/?cartoonId=${cartoon.id}&replay=true`}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          Replay
+                        </Link>
+                      )}
                     </div>
-                  </div>
-                  
-                  <div className="mt-4 flex justify-end">
-                    <Link
-                      href={`/?cartoonId=${cartoon.id}`}
-                      className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition-colors"
-                    >
-                      Review Cartoon
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       
