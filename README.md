@@ -1,4 +1,4 @@
-# Cartoon Annotation Tool
+# Session Annotation Tool
 
 A Next.js application for recording, annotating, and replaying video sessions with synchronized audio, video, drawing capabilities, and animation category tagging.
 

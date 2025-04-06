@@ -402,7 +402,7 @@ export default function Home() {
     <div className="min-h-screen p-4">
       <main className="max-w-4xl mx-auto">
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
-          <h1 className="text-2xl font-bold">Cartoon Annotation Tool</h1>
+          <h1 className="text-2xl font-bold">Session Annotation Tool</h1>
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
             <Link href="/inbox" className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-md">
               Review Inbox
