@@ -352,6 +352,8 @@ interface VideoPlayerWrapperProps {
   videoUrl?: string;
   videoId?: string;
   contentToReview?: any; // Allow passing the full content object for display
+  initialSession?: any; // Allow passing an initial session from Cosmos DB
+  onSessionComplete?: (session: FeedbackSession) => void; // Callback when session is complete
 }
 
 export default function VideoPlayerWrapper({ 
@@ -361,13 +363,15 @@ export default function VideoPlayerWrapper({
   onReplayModeChange,
   videoUrl,
   videoId = 'sample-video',
-  contentToReview
+  contentToReview,
+  initialSession,
+  onSessionComplete
 }: VideoPlayerWrapperProps) {
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
-  const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(null);
+  const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
   const [feedbackData, setFeedbackData] = useState<FeedbackData>({
     sessionId: '',
     videoId: videoId,
@@ -558,7 +562,12 @@ export default function VideoPlayerWrapper({
     }
     
     console.log('Session completed with categories:', sessionWithCategories);
-  }, [categories]);
+    
+    // Call the parent's onSessionComplete callback if provided
+    if (onSessionComplete) {
+      onSessionComplete(sessionWithCategories);
+    }
+  }, [categories, onSessionComplete]);
   
   // Handle audio recording completed
   const handleAudioRecorded = useCallback((audioTrack: AudioTrack) => {
@@ -846,6 +855,29 @@ export default function VideoPlayerWrapper({
       }
     };
   }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
+  
+  // Auto-start replay if we have an initial session provided
+  useEffect(() => {
+    if (initialSession && !isActive && mode === 'record') {
+      console.log("Auto-starting replay of provided session");
+      
+      // Set a small delay to ensure everything is properly initialized
+      setTimeout(() => {
+        if (orchestratorRef.current) {
+          // Set the current session
+          setCurrentSession(initialSession);
+          
+          // Switch to replay mode
+          setMode('replay');
+          
+          // Load and start the replay
+          orchestratorRef.current.loadSession(initialSession);
+          orchestratorRef.current.startReplay();
+          setIsActive(true);
+        }
+      }, 1500);
+    }
+  }, [initialSession]);
   
   return (
     <AppProviders>

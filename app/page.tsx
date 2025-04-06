@@ -94,22 +94,20 @@ export default function Home() {
             keyMetrics: metricsArray
           });
           
-          // Update cartoon status to "Completed" when reviewed
-          if (selectedCartoon.status === "Not Started") {
-            try {
-              await fetch('/api/cartoons', {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  ...selectedCartoon,
-                  status: "Completed"
-                })
-              });
-              console.log("Updated cartoon status to Completed");
-            } catch (updateError) {
-              console.error("Error updating cartoon status:", updateError);
+          // Check if this cartoon has a saved review session
+          if (selectedCartoon.reviewSession) {
+            console.log("Found saved review session:", selectedCartoon.reviewSession);
+            setSavedReviewSession(selectedCartoon.reviewSession);
+            
+            // If status is "Completed", automatically start replay after a short delay
+            if (selectedCartoon.status === "Completed") {
+              // We'll trigger the replay after components are mounted
+              setTimeout(() => {
+                console.log("Auto-starting replay of saved review");
+                window.__hasRecordedSession = true;
+                const event = new CustomEvent('session-available');
+                window.dispatchEvent(event);
+              }, 1000);
             }
           }
         }
@@ -304,9 +302,62 @@ export default function Home() {
   
   // Force client-side rendering for window access
   const [isClient, setIsClient] = useState(false);
+  const [savedReviewSession, setSavedReviewSession] = useState(null);
+  
   useEffect(() => {
     setIsClient(true);
   }, []);
+  
+  // Save the review session to Cosmos DB when a recording is completed
+  const onSessionComplete = useCallback(async (session) => {
+    console.log('Session complete:', session);
+    
+    // If this is a review of a specific cartoon from the inbox, save the session to Cosmos DB
+    if (cartoonId) {
+      try {
+        // First, get the current cartoon data
+        const response = await fetch(`/api/cartoons?id=${cartoonId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch cartoon: ${response.status}`);
+        }
+        
+        const cartoons = await response.json();
+        if (cartoons && cartoons.length > 0) {
+          const cartoon = cartoons[0];
+          
+          // Update cartoon with the session data and set status to "Completed"
+          const updateResponse = await fetch('/api/cartoons', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...cartoon,
+              status: "Completed",
+              reviewSession: session
+            })
+          });
+          
+          if (updateResponse.ok) {
+            console.log("Saved review session to Cosmos DB and updated status to Completed");
+          } else {
+            console.error("Failed to update cartoon with review session:", await updateResponse.text());
+          }
+        }
+      } catch (error) {
+        console.error("Error saving review session:", error);
+      }
+    }
+    
+    // Update session availability
+    if (typeof window !== 'undefined') {
+      window.__hasRecordedSession = true;
+      
+      // Dispatch a custom event to notify about session availability
+      const event = new CustomEvent('session-available');
+      window.dispatchEvent(event);
+    }
+  }, [cartoonId]);
 
   return (
     <div className="min-h-screen p-4">
@@ -439,6 +490,8 @@ export default function Home() {
               videoUrl={contentToReview.videoUrl}
               videoId={contentToReview.videoTitle?.replace(/\s+/g, '-').toLowerCase()}
               contentToReview={contentToReview}
+              initialSession={savedReviewSession}
+              onSessionComplete={onSessionComplete}
             />
           </div>
           

@@ -111,6 +111,11 @@ export async function PUT(request: Request) {
       );
     }
     
+    // Update the status to "Completed" if a reviewSession is present and status isn't already "Archived"
+    if (cartoon.reviewSession && cartoon.status !== "Archived") {
+      cartoon.status = "Completed";
+    }
+    
     const { resource: updatedCartoon } = await container.item(cartoon.id, cartoon.id).replace(cartoon);
     
     return NextResponse.json(updatedCartoon, { status: 200 });
