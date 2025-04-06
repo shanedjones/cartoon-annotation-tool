@@ -5,6 +5,7 @@ A Next.js application for recording, annotating, and replaying video sessions wi
 ## Overview
 
 This tool allows users to:
+- Browse cartoons in an inbox with filtering and search capabilities
 - Record synchronized audio while watching and interacting with videos
 - Add visual annotations and drawings directly on the video
 - Tag animations with specific categories (e.g., Artistic Style, Character Design)
@@ -12,6 +13,7 @@ This tool allows users to:
 - Replay entire sessions with perfect audio-video-annotation synchronization
 - View selected animation categories during replay
 - Save and load feedback sessions as JSON files
+- Store cartoon data in Azure Cosmos DB
 
 ## Installation & Setup
 
@@ -26,12 +28,32 @@ This tool allows users to:
    npm install
    ```
 
-3. **Run the development server**
+3. **Set up Azure Cosmos DB**
+   - Create an Azure Cosmos DB account with SQL API
+   - Create a database named `cartoon-db`
+   - Create a container named `cartoons` with `/id` as the partition key
+   - Copy your Cosmos DB endpoint and key from the Azure portal
+
+4. **Configure environment variables**
+   - Create a `.env` file in the root directory:
+   ```
+   COSMOS_ENDPOINT=https://your-cosmos-account.documents.azure.com:443/
+   COSMOS_KEY=your-primary-key
+   COSMOS_DATABASE_ID=cartoon-db
+   COSMOS_CONTAINER_ID=cartoons
+   ```
+
+5. **Seed the database**
+   ```
+   npm run seed-db
+   ```
+
+6. **Run the development server**
    ```
    npm run dev
    ```
 
-4. **Build for production**
+7. **Build for production**
    ```
    npm run build
    npm start
@@ -188,14 +210,22 @@ The application uses two main data structures:
 cartoon-annotation/
 ├── app/                  # Next.js app directory
 │   ├── page.tsx          # Main application page
-│   └── layout.tsx        # App layout
+│   ├── layout.tsx        # App layout
+│   ├── inbox/            # Cartoon review inbox
+│   │   └── page.tsx      # Inbox page component
+│   └── api/              # Backend API routes
+│       └── cartoons/     # Cartoons API
+│           └── route.ts  # Cosmos DB CRUD operations
 ├── src/
-│   └── components/
-│       ├── FeedbackOrchestrator.tsx   # Main coordination component
-│       ├── VideoPlayerWrapper.tsx     # Container component
-│       ├── VideoPlayer.tsx            # Custom video player
-│       ├── AnnotationCanvas.tsx       # Drawing component
-│       └── AudioRecorder.tsx          # Audio recording/playback
+│   ├── components/
+│   │   ├── FeedbackOrchestrator.tsx   # Main coordination component
+│   │   ├── VideoPlayerWrapper.tsx     # Container component
+│   │   ├── VideoPlayer.tsx            # Custom video player
+│   │   ├── AnnotationCanvas.tsx       # Drawing component
+│   │   └── AudioRecorder.tsx          # Audio recording/playback
+│   └── contexts/         # React contexts for state management
+├── scripts/
+│   └── seed-cosmos-db.js # Database seeding script
 ├── public/               # Static assets
 └── package.json          # Dependencies and scripts
 ```
@@ -203,6 +233,8 @@ cartoon-annotation/
 ## Technical Details
 
 - **Built with**: Next.js, React, TypeScript
+- **Database**: Azure Cosmos DB (NoSQL)
+- **Backend API**: Next.js API routes
 - **Audio**: Uses MediaRecorder API with format detection
 - **Drawing**: HTML5 Canvas for vector drawing
 - **State Management**: React's Context and Refs for cross-component communication
@@ -226,6 +258,11 @@ cartoon-annotation/
 - Category-based filtering during replay
 - Export to video format
 - Shared/collaborative sessions
+- User authentication and role-based access
+- Real-time collaboration features
+- Advanced search and filtering for the inbox
+- Integration with video streaming services
+- Custom dashboard with analytics
 
 ## Known Issues
 

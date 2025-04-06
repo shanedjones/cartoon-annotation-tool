@@ -63,15 +63,18 @@ export default function Home() {
     
     const loadCartoonData = async () => {
       try {
-        const response = await fetch('/cartoons.json');
+        // Fetch specific cartoon by ID from Cosmos DB via API
+        const response = await fetch(`/api/cartoons?id=${cartoonId}`);
         if (!response.ok) {
-          throw new Error(`Failed to fetch cartoons: ${response.status}`);
+          throw new Error(`Failed to fetch cartoon: ${response.status}`);
         }
         
         const cartoons = await response.json();
-        const selectedCartoon = cartoons.find((c) => c.id === cartoonId);
         
-        if (selectedCartoon) {
+        // API returns an array even when querying by ID
+        if (cartoons && cartoons.length > 0) {
+          const selectedCartoon = cartoons[0];
+          
           // Convert cartoon data to ReviewContent format
           const metricsArray = Object.entries(selectedCartoon.metrics).map(([name, value]) => ({ name, value }));
           
@@ -90,6 +93,25 @@ export default function Home() {
             keyMetricsTitle: "Production Metrics",
             keyMetrics: metricsArray
           });
+          
+          // Update cartoon status to "Completed" when reviewed
+          if (selectedCartoon.status === "Not Started") {
+            try {
+              await fetch('/api/cartoons', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  ...selectedCartoon,
+                  status: "Completed"
+                })
+              });
+              console.log("Updated cartoon status to Completed");
+            } catch (updateError) {
+              console.error("Error updating cartoon status:", updateError);
+            }
+          }
         }
       } catch (error) {
         console.error("Error loading cartoon:", error);

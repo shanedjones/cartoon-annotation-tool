@@ -26,12 +26,16 @@ export default function InboxPage() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch cartoons data
+  // Fetch cartoons data from Cosmos DB API
   useEffect(() => {
     const fetchCartoons = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/cartoons.json');
+        const url = statusFilter !== 'All' 
+          ? `/api/cartoons?status=${encodeURIComponent(statusFilter)}`
+          : '/api/cartoons';
+          
+        const response = await fetch(url);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch cartoons: ${response.status} ${response.statusText}`);
@@ -39,7 +43,14 @@ export default function InboxPage() {
         
         const data = await response.json();
         setCartoons(data);
-        setFilteredCartoons(data);
+        
+        // Apply search filter separately
+        if (searchTerm) {
+          filterCartoonsBySearch(data, searchTerm);
+        } else {
+          setFilteredCartoons(data);
+        }
+        
         setLoading(false);
       } catch (err) {
         console.error('Error fetching cartoons:', err);
@@ -49,29 +60,34 @@ export default function InboxPage() {
     };
 
     fetchCartoons();
-  }, []);
-
-  // Apply filters when status filter or search term changes
-  useEffect(() => {
-    let results = cartoons;
-    
-    // Apply status filter
-    if (statusFilter !== 'All') {
-      results = results.filter(cartoon => cartoon.status === statusFilter);
+  }, [statusFilter]); // Re-fetch when status filter changes
+  
+  // Function to filter cartoons by search term
+  const filterCartoonsBySearch = (cartoonsToFilter: Cartoon[], term: string) => {
+    if (!term.trim()) {
+      setFilteredCartoons(cartoonsToFilter);
+      return;
     }
     
-    // Apply search filter
-    if (searchTerm) {
-      const lowerCaseSearch = searchTerm.toLowerCase();
-      results = results.filter(cartoon => 
-        cartoon.title.toLowerCase().includes(lowerCaseSearch) || 
-        cartoon.description.toLowerCase().includes(lowerCaseSearch) ||
-        cartoon.categories.some(category => category.toLowerCase().includes(lowerCaseSearch))
-      );
-    }
+    const lowerCaseSearch = term.toLowerCase();
+    const results = cartoonsToFilter.filter(cartoon => 
+      cartoon.title.toLowerCase().includes(lowerCaseSearch) || 
+      cartoon.description.toLowerCase().includes(lowerCaseSearch) ||
+      cartoon.categories.some(category => category.toLowerCase().includes(lowerCaseSearch))
+    );
     
     setFilteredCartoons(results);
-  }, [cartoons, statusFilter, searchTerm]);
+  };
+
+  // Apply only search filter when search term changes
+  // (Status filter is handled in the API call)
+  useEffect(() => {
+    // Don't reapply if we don't have cartoons yet
+    if (cartoons.length === 0) return;
+    
+    // Apply search filter locally
+    filterCartoonsBySearch(cartoons, searchTerm);
+  }, [searchTerm, cartoons]);
 
   // Function to get appropriate status color
   const getStatusColor = (status: string) => {
