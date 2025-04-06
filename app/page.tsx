@@ -99,15 +99,13 @@ export default function Home() {
             console.log("Found saved review session:", selectedCartoon.reviewSession);
             setSavedReviewSession(selectedCartoon.reviewSession);
             
-            // If status is "Completed", automatically start replay after a short delay
+            // If status is "Completed", make session available for replay but don't auto-start
             if (selectedCartoon.status === "Completed") {
-              // We'll trigger the replay after components are mounted
-              setTimeout(() => {
-                console.log("Auto-starting replay of saved review");
-                window.__hasRecordedSession = true;
-                const event = new CustomEvent('session-available');
-                window.dispatchEvent(event);
-              }, 1000);
+              console.log("Completed review found, making session available for replay");
+              window.__hasRecordedSession = true;
+              window.__isCompletedCartoon = true; // Mark as already completed
+              const event = new CustomEvent('session-available');
+              window.dispatchEvent(event);
             }
           }
         }
@@ -145,11 +143,16 @@ export default function Home() {
         isRecording: boolean;
       };
       __hasRecordedSession?: boolean;
+      __isCompletedCartoon?: boolean;
+      __sessionReady?: boolean;
+      __isReplaying?: boolean;
     }
   }
   
-  // State to track if we have a recorded session available
+  // State tracking
   const [hasRecordedSession, setHasRecordedSession] = useState(false);
+  const [isCompletedCartoon, setIsCompletedCartoon] = useState(false);
+  const [isSessionReady, setIsSessionReady] = useState(false);
   
   // Get formatted category label
   const getCategoryLabel = (category: string) => {
@@ -255,6 +258,14 @@ export default function Home() {
     console.log(`Setting replay mode to: ${isReplay}`);
     setIsReplayMode(isReplay);
     
+    // Ensure the UI knows session is being replayed when mode changes
+    if (isReplay && typeof window !== 'undefined') {
+      // Update window state when entering replay mode
+      window.__isReplaying = true;
+    } else if (typeof window !== 'undefined') {
+      window.__isReplaying = false;
+    }
+    
     // Clear the category list when entering/exiting replay mode
     if (isReplay) {
       setCategoryList([]);
@@ -277,6 +288,27 @@ export default function Home() {
           console.log(`Session availability changed: ${hasSession}`);
           setHasRecordedSession(hasSession);
         }
+        
+        // Check if this is a completed cartoon
+        const isCompleted = !!window.__isCompletedCartoon;
+        if (isCompleted !== isCompletedCartoon) {
+          console.log(`Completed cartoon status changed: ${isCompleted}`);
+          setIsCompletedCartoon(isCompleted);
+        }
+        
+        // Check if session is ready for replay
+        const sessionReady = !!window.__sessionReady;
+        if (sessionReady !== isSessionReady) {
+          console.log(`Session ready status changed: ${sessionReady}`);
+          setIsSessionReady(sessionReady);
+        }
+        
+        // Check if session is actively being replayed
+        const isReplayActive = !!window.__isReplaying;
+        if (isReplayActive !== isReplayMode) {
+          console.log(`Replay active status changed: ${isReplayActive}`);
+          setIsReplayMode(isReplayActive);
+        }
       }
     };
     
@@ -286,19 +318,26 @@ export default function Home() {
     // Set up interval to periodically check state
     const interval = setInterval(checkState, 300);
     
-    // Listen for a custom event that might be triggered when session is available
+    // Listen for session availability events
     const handleSessionChange = () => {
       console.log('Received session change event');
       checkState();
     };
     
+    const handleSessionReady = () => {
+      console.log('Received session ready event');
+      checkState();
+    };
+    
     window.addEventListener('session-available', handleSessionChange);
+    window.addEventListener('session-ready', handleSessionReady);
     
     return () => {
       clearInterval(interval);
       window.removeEventListener('session-available', handleSessionChange);
+      window.removeEventListener('session-ready', handleSessionReady);
     };
-  }, [hasRecordedSession]);
+  }, [hasRecordedSession, isCompletedCartoon, isSessionReady]);
   
   // Force client-side rendering for window access
   const [isClient, setIsClient] = useState(false);
@@ -369,20 +408,40 @@ export default function Home() {
               Review Inbox
             </Link>
             <div className="flex space-x-2">
-              <button
-                onClick={() => document.getElementById(isClient && isRecording ? 'stopButton' : 'startRecordingButton')?.click()}
-                disabled={isReplayMode}
-                className={isReplayMode ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" : isClient && isRecording ? "bg-gray-700 text-white py-2 px-4 rounded-md" : "bg-red-500 text-white py-2 px-4 rounded-md"}
-              >
-                {isClient && isRecording ? "Stop" : "Record"}
-              </button>
+              {/* Only show Record button if not a completed cartoon */}
+              {!isCompletedCartoon && (
+                <button
+                  onClick={() => document.getElementById(isClient && isRecording ? 'stopButton' : 'startRecordingButton')?.click()}
+                  disabled={isReplayMode}
+                  className={isReplayMode ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" : isClient && isRecording ? "bg-gray-700 text-white py-2 px-4 rounded-md" : "bg-red-500 text-white py-2 px-4 rounded-md"}
+                >
+                  {isClient && isRecording ? "Stop" : "Record"}
+                </button>
+              )}
               
               <button
                 onClick={() => document.getElementById(isReplayMode ? 'stopButton' : 'startReplayButton')?.click()}
-                disabled={isClient && (isRecording || (!hasRecordedSession && !isReplayMode))}
-                className={isClient && (isRecording || (!hasRecordedSession && !isReplayMode)) ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" : isReplayMode ? "bg-yellow-500 text-white py-2 px-4 rounded-md" : "bg-green-600 text-white py-2 px-4 rounded-md"}
+                disabled={isClient && 
+                  (isRecording || 
+                   (!hasRecordedSession && !isReplayMode) || 
+                   (hasRecordedSession && !isSessionReady && !isReplayMode))}
+                className={
+                  isClient && 
+                    (isRecording || 
+                     (!hasRecordedSession && !isReplayMode) || 
+                     (hasRecordedSession && !isSessionReady && !isReplayMode))
+                    ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
+                    : isReplayMode 
+                      ? "bg-yellow-500 text-white py-2 px-4 rounded-md" 
+                      : "bg-green-600 text-white py-2 px-4 rounded-md"
+                }
               >
-                {isReplayMode ? "Stop Replay" : "Replay Session"}
+                {isReplayMode 
+                  ? "Stop Replay" 
+                  : (hasRecordedSession && !isSessionReady) 
+                    ? "Loading..." 
+                    : "Replay Session"
+                }
               </button>
               
               <button

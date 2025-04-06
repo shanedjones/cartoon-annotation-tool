@@ -9,6 +9,7 @@ export interface AudioChunk {
   videoTime: number;        // Video timestamp when this audio was recorded
   url?: string;             // URL for playback (created during replay)
   mimeType?: string;        // MIME type for proper playback
+  blobUrl?: string;         // URL for the Azure Storage blob 
 }
 
 interface AudioRecorderProps {
@@ -476,7 +477,17 @@ export default function AudioRecorder({
             let audioUrl: string;
             
             try {
-              if (chunk.url) {
+              // Check for Azure Storage blob URL first
+              if (chunk.blobUrl) {
+                // Use the Azure Storage blob URL if available
+                audioUrl = chunk.blobUrl;
+                console.log(`Chunk ${chunkId}: Using Azure Storage blob URL for playback: ${chunk.blobUrl}`);
+                
+                // We'll handle the CORS issue by using Audio element directly
+                // instead of trying to fetch the blob first
+              }
+              // Fall back to local URLs if no Azure Storage blob URL is available
+              else if (chunk.url) {
                 // Use provided URL if available
                 audioUrl = chunk.url;
                 console.log(`Chunk ${chunkId}: Using provided URL for playback`);
@@ -522,7 +533,8 @@ export default function AudioRecorder({
             audio.onloadedmetadata = () => {
               console.log(`Chunk ${chunkId}: Audio metadata loaded:`, {
                 duration: audio.duration,
-                readyState: audio.readyState
+                readyState: audio.readyState,
+                src: audio.src.substring(0, 50) + '...' // Log truncated src for debugging
               });
             };
             
@@ -537,8 +549,9 @@ export default function AudioRecorder({
             audio.onended = () => {
               console.log(`Chunk ${chunkId}: Audio playback ended normally, duration:`, audio.duration);
               playingChunksRef.current.delete(chunkId);
-              // Only revoke if we created the URL (not for data URLs or provided URLs)
-              if (!chunk.url && chunk.blob instanceof Blob) {
+              // Only revoke if we created the URL (not for Azure Storage URLs, data URLs, or provided URLs)
+              if (!chunk.url && !chunk.blobUrl && chunk.blob instanceof Blob) {
+                console.log(`Chunk ${chunkId}: Revoking local blob URL:`, audioUrl);
                 URL.revokeObjectURL(audioUrl);
               }
             };
@@ -547,19 +560,23 @@ export default function AudioRecorder({
               const errorDetails = {
                 errorCode: audio.error?.code,
                 errorMessage: audio.error?.message,
-                audioSrc: audio.src.substring(0, 30) + '...',
+                audioSrc: audio.src.substring(0, 50) + '...',
                 audioReadyState: audio.readyState,
                 chunkDetails: {
                   blobType: chunk.blob instanceof Blob ? 'Blob' : typeof chunk.blob,
                   mimeType: chunk.mimeType,
-                  duration: chunk.duration
+                  duration: chunk.duration,
+                  hasBlobUrl: !!chunk.blobUrl,
+                  blobUrlType: chunk.blobUrl ? (chunk.blobUrl.startsWith('/api') ? 'proxy' : 'direct') : 'none'
                 }
               };
               
               console.error(`Chunk ${chunkId}: Error playing audio:`, errorDetails);
               setError(`Audio playback error: ${audio.error?.message || 'Unknown error'}`);
               playingChunksRef.current.delete(chunkId);
-              if (!chunk.url && chunk.blob instanceof Blob) {
+              // Only revoke if we created the URL (not for Azure Storage URLs, data URLs, or provided URLs)
+              if (!chunk.url && !chunk.blobUrl && chunk.blob instanceof Blob) {
+                console.log(`Chunk ${chunkId}: Revoking local blob URL on error:`, audioUrl);
                 URL.revokeObjectURL(audioUrl);
               }
             };

@@ -34,13 +34,26 @@ This tool allows users to:
    - Create a container named `cartoons` with `/id` as the partition key
    - Copy your Cosmos DB endpoint and key from the Azure portal
 
-4. **Configure environment variables**
+4. **Set up Azure Blob Storage**
+   - Create an Azure Storage account
+   - Create a blob container named `audio-recordings`
+   - Copy your storage connection string from the Azure portal
+
+5. **Configure environment variables**
    - Create a `.env` file in the root directory:
    ```
+   # Azure Cosmos DB Configuration
    COSMOS_ENDPOINT=https://your-cosmos-account.documents.azure.com:443/
    COSMOS_KEY=your-primary-key
    COSMOS_DATABASE_ID=cartoon-db
    COSMOS_CONTAINER_ID=cartoons
+   
+   # Azure Storage Configuration
+   AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=your-account;AccountKey=your-key;EndpointSuffix=core.windows.net
+   AZURE_STORAGE_CONTAINER_NAME=audio-recordings
+   
+   # Note: For Azure Storage, ensure that the storage account allows blob operations. 
+   # Public access at container level is not required as the app will handle authentication.
    ```
 
 5. **Seed the database**
@@ -146,7 +159,20 @@ The application uses two main data structures:
    }
    ```
 
-3. **Event Payloads**: Different event types have specific payload structures:
+3. **Audio Data Structure**: Audio data is stored with metadata for playback
+   ```typescript
+   interface AudioChunk {
+     blob: Blob | string;      // The audio data as Blob or string (for serialization)
+     startTime: number;        // Relative to recording start
+     duration: number;         // Length of audio chunk in ms
+     videoTime: number;        // Video timestamp when this audio was recorded
+     url?: string;             // URL for playback (created during replay)
+     mimeType?: string;        // MIME type for proper playback
+     blobUrl?: string;         // URL for the Azure Storage blob
+   }
+   ```
+
+4. **Event Payloads**: Different event types have specific payload structures:
    ```typescript
    // Video event payload
    interface VideoEventPayload {
@@ -201,7 +227,8 @@ The application uses two main data structures:
 
 ### Serialization
 - Sessions can be saved as JSON files
-- Audio data is serialized as base64 strings
+- Audio data is stored in Azure Blob Storage with URL references
+- For backward compatibility, audio can also be serialized as base64 strings
 - Files can be reloaded for later replay
 
 ## Project Structure
@@ -234,8 +261,9 @@ cartoon-annotation/
 
 - **Built with**: Next.js, React, TypeScript
 - **Database**: Azure Cosmos DB (NoSQL)
+- **Storage**: Azure Blob Storage for audio recordings
 - **Backend API**: Next.js API routes
-- **Audio**: Uses MediaRecorder API with format detection
+- **Audio**: Uses MediaRecorder API with format detection and Azure Storage integration
 - **Drawing**: HTML5 Canvas for vector drawing
 - **State Management**: React's Context and Refs for cross-component communication
 - **Styling**: Tailwind CSS for responsive design

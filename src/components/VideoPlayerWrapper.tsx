@@ -139,7 +139,8 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
           ...chunk,
           blob: base64, // Replace Blob with base64 string
           mimeType: chunk.mimeType || chunk.blob.type, // Ensure we save the mime type
-          url: undefined // Remove URL property if it exists
+          url: undefined, // Remove URL property if it exists
+          blobUrl: chunk.blobUrl // Keep the Azure Storage blob URL if it exists
         };
       } else if (typeof chunk.blob === 'string' && chunk.blob.startsWith('data:')) {
         // Already a data URL, verify it's properly formatted
@@ -155,7 +156,8 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
         return {
           ...chunk,
           mimeType: chunk.mimeType || 'audio/webm', // Ensure MIME type is set
-          url: undefined // Remove URL property if it exists
+          url: undefined, // Remove URL property if it exists
+          blobUrl: chunk.blobUrl // Keep the Azure Storage blob URL if it exists
         };
       } else {
         console.warn(`Chunk ${index}: Unknown blob format: ${typeof chunk.blob}`);
@@ -165,7 +167,8 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
           ...chunk,
           blob: typeof chunk.blob === 'string' ? chunk.blob : '', // Keep string or use empty string
           mimeType: chunk.mimeType || 'audio/webm', // Ensure MIME type is set
-          url: undefined // Remove URL property if it exists
+          url: undefined, // Remove URL property if it exists
+          blobUrl: chunk.blobUrl // Keep the Azure Storage blob URL if it exists
         };
       }
     } catch (error) {
@@ -223,7 +226,8 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
             mimeType: savedChunk.mimeType || 'audio/webm', // Set default MIME type if missing
             startTime: savedChunk.startTime || 0,
             duration: savedChunk.duration || 0,
-            videoTime: savedChunk.videoTime || 0
+            videoTime: savedChunk.videoTime || 0,
+            blobUrl: savedChunk.blobUrl // Keep the Azure Storage blob URL if it exists
           };
         } else {
           console.warn(`Chunk ${index}: String blob doesn't start with 'data:' prefix: ${savedChunk.blob.substring(0, 20)}...`);
@@ -247,7 +251,8 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
         mimeType: savedChunk.mimeType || 'audio/webm',
         startTime: savedChunk.startTime || 0,
         duration: savedChunk.duration || 0,
-        videoTime: savedChunk.videoTime || 0
+        videoTime: savedChunk.videoTime || 0,
+        blobUrl: savedChunk.blobUrl // Keep the Azure Storage blob URL if it exists
       };
     } catch (error) {
       console.error(`Error restoring audio chunk ${index}:`, error);
@@ -462,6 +467,7 @@ export default function VideoPlayerWrapper({
   
   // Start replaying the recorded session
   const startReplay = useCallback(() => {
+    // Set mode to replay
     setMode('replay');
     
     // Clear any existing annotations before starting replay
@@ -488,9 +494,19 @@ export default function VideoPlayerWrapper({
       // Log the categories of the session we're replaying
       console.log('Replaying session with categories:', currentSession.categories);
       
-      orchestratorRef.current.loadSession(currentSession);
+      // Load the session if it hasn't already been loaded
+      if (typeof window !== 'undefined' && !window.__sessionReady) {
+        orchestratorRef.current.loadSession(currentSession);
+      }
+      
+      // Start the replay
       orchestratorRef.current.startReplay();
       setIsActive(true);
+      
+      // Set the completed review status if needed
+      if (typeof window !== 'undefined' && window.__isCompletedCartoon) {
+        console.log('Starting replay of completed review');
+      }
     } else {
       alert('No recorded session to replay. Record a session first.');
     }
@@ -856,10 +872,10 @@ export default function VideoPlayerWrapper({
     };
   }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
   
-  // Auto-start replay if we have an initial session provided
+  // Load session but only start replay if not a completed cartoon
   useEffect(() => {
     if (initialSession && !isActive && mode === 'record') {
-      console.log("Auto-starting replay of provided session");
+      console.log("Initial session provided, preparing for replay");
       
       // Set a small delay to ensure everything is properly initialized
       setTimeout(() => {
@@ -867,13 +883,25 @@ export default function VideoPlayerWrapper({
           // Set the current session
           setCurrentSession(initialSession);
           
-          // Switch to replay mode
-          setMode('replay');
-          
-          // Load and start the replay
+          // Load the session without auto-starting replay or switching mode yet
           orchestratorRef.current.loadSession(initialSession);
-          orchestratorRef.current.startReplay();
-          setIsActive(true);
+          
+          // Check if this is a new session or a completed cartoon
+          if (typeof window !== 'undefined' && !window.__isCompletedCartoon) {
+            console.log("Auto-starting replay for new session");
+            // For new reviews, we auto-start and switch to replay mode
+            setMode('replay');
+            orchestratorRef.current.startReplay();
+            setIsActive(true);
+          } else {
+            console.log("Completed cartoon review - replay is ready but not auto-started");
+            // For completed cartoons, just set ready flag but don't change mode yet
+            if (typeof window !== 'undefined') {
+              window.__sessionReady = true;
+              // Dispatch event to notify UI
+              window.dispatchEvent(new Event('session-ready'));
+            }
+          }
         }
       }, 1500);
     }

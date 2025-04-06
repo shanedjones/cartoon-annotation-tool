@@ -386,13 +386,36 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         const startTime = recordingStartTimeRef.current || 0;
         const duration = recordingEndTime - startTime;
         
-        // Create audio chunk
+        // Generate a session ID if we don't have one yet
+        const sessionId = generateId();
+        
+        // Try to upload the audio blob to Azure Storage
+        let blobUrl: string | undefined;
+        try {
+          // Import the audio storage utility
+          const { uploadAudioToStorage } = await import('../utils/audioStorage');
+          
+          // Make sure we have a valid blob
+          if (audioBlob && audioBlob.size > 0) {
+            // Upload the blob to Azure Storage
+            blobUrl = await uploadAudioToStorage(audioBlob, sessionId);
+            console.log('Audio blob uploaded to Azure Storage:', blobUrl);
+          } else {
+            console.warn('No valid audio blob to upload to Azure Storage');
+          }
+        } catch (error) {
+          console.error('Failed to upload audio to Azure Storage:', error);
+          // Continue with local blob if upload fails
+        }
+        
+        // Create audio chunk (with blobUrl if available)
         const audioChunk: AudioChunk = {
           blob: audioBlob,
           startTime: startTime,
           duration: duration,
           videoTime: 0,
-          mimeType: mimeType || 'audio/webm'
+          mimeType: mimeType || 'audio/webm',
+          blobUrl: blobUrl
         };
         
         // Create and finalize session
@@ -404,7 +427,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         };
         
         const session: FeedbackSession = {
-          id: generateId(),
+          id: sessionId,
           videoId: 'video-' + generateId(),
           startTime: startTime,
           endTime: recordingEndTime,
@@ -582,9 +605,14 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Clean up audio player
     if (audioPlayer) {
       audioPlayer.pause();
-      if (audioPlayer.src.startsWith('blob:')) {
+      
+      // Only revoke object URL if it's a local blob (not an Azure Storage URL)
+      const isLocalBlob = audioPlayer.dataset.isLocalBlob === 'true';
+      if (isLocalBlob && audioPlayer.src.startsWith('blob:')) {
+        console.log('Revoking local blob URL:', audioPlayer.src);
         URL.revokeObjectURL(audioPlayer.src);
       }
+      
       setAudioPlayer(null);
     }
     
@@ -635,6 +663,55 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);
   
   /**
+   * Helper function to simulate timeline without audio
+   */
+  const simulateTimelineWithoutAudio = useCallback((session: FeedbackSession) => {
+    console.log('Using simulated timeline instead of audio playback');
+    
+    // Calculate the total duration from events or use a default
+    const totalDuration = session.events.length > 0 
+      ? Math.max(...session.events.map(e => e.timeOffset)) + 5000
+      : 30000; // Default 30s if no events
+    
+    console.log(`Simulating timeline for ${totalDuration}ms`);
+    
+    let elapsed = 0;
+    const interval = 100; // 100ms updates
+    
+    const timelineInterval = window.setInterval(() => {
+      elapsed += interval;
+      setReplayProgress((elapsed / totalDuration) * 100);
+      
+      // Use requestAnimationFrame for smoother updates
+      requestAnimationFrame(() => {
+        // Update global timeline position via context
+        updatePosition(elapsed);
+        
+        // Log global time position every second to avoid flooding logs
+        if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
+          console.log(`Timeline position updated via context (simulated): ${elapsed}ms`);
+        }
+        
+        // Use Promise.resolve().then to ensure position updates complete before event processing
+        Promise.resolve().then(() => {
+          processPendingEvents(elapsed);
+        });
+        
+        if (elapsed >= totalDuration) {
+          clearInterval(timelineInterval);
+          console.log('Simulated timeline complete, cleaning up and resetting...');
+          completeReplay();
+          // Ensure the active state is updated
+          setIsActive(false);
+        }
+      });
+    }, interval);
+    
+    // Store the interval ID for cleanup
+    replayTimeoutIdsRef.current.push(timelineInterval as unknown as number);
+  }, [updatePosition, processPendingEvents, completeReplay]);
+  
+  /**
    * Start replay of a feedback session
    */
   const startReplay = useCallback(() => {
@@ -679,19 +756,24 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     if (currentSession.audioTrack.chunks.length > 0) {
       const mainAudioChunk = currentSession.audioTrack.chunks[0];
       
-      if (!mainAudioChunk.blob) {
-        console.error('No valid audio blob in the session');
-        return;
-      }
-      
       try {
         let audioUrl: string;
+        let isLocalBlob = false;
         
-        if (mainAudioChunk.blob instanceof Blob) {
+        // First check if we have a blob URL from Azure Storage
+        if (mainAudioChunk.blobUrl) {
+          console.log('Using Azure Storage blob URL for audio playback:', mainAudioChunk.blobUrl);
+          // Use the direct URL from Azure Storage
+          audioUrl = mainAudioChunk.blobUrl;
+        }
+        // Fall back to local blob or data URL if no Azure URL is available
+        else if (mainAudioChunk.blob instanceof Blob) {
+          console.log('Using local Blob object for audio playback');
           audioUrl = URL.createObjectURL(mainAudioChunk.blob);
+          isLocalBlob = true;
         } else if (typeof mainAudioChunk.blob === 'string' && mainAudioChunk.blob.startsWith('data:')) {
           // Handle data URL
-          // This could be improved with proper conversion
+          console.log('Converting data URL to Blob for audio playback');
           const parts = mainAudioChunk.blob.split(',');
           if (parts.length !== 2) {
             throw new Error('Invalid data URL format');
@@ -710,16 +792,36 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           
           const blob = new Blob([uint8Array], { type: mime });
           audioUrl = URL.createObjectURL(blob);
+          isLocalBlob = true;
+        } else if (!mainAudioChunk.blob) {
+          console.error('No valid audio blob or blob URL in the session');
+          return;
         } else {
           throw new Error('Unsupported audio format');
         }
         
-        const audio = new Audio(audioUrl);
+        console.log(`Creating audio player with URL: ${audioUrl.substring(0, 50)}...`);
+        
+        const audio = new Audio();
+        
+        // Add event listeners before setting src to catch any loading errors
+        audio.preload = 'auto';
+        
+        // Add a load listener to detect when audio is ready
+        audio.onloadeddata = () => {
+          console.log('Audio data loaded successfully:', {
+            duration: audio.duration,
+            readyState: audio.readyState
+          });
+        };
         
         // Set up audio events
         audio.onplay = () => {
           console.log('Audio playback started');
         };
+        
+        // Set src after adding listeners
+        audio.src = audioUrl;
         
         audio.ontimeupdate = () => {
           const currentTime = audio.currentTime * 1000; // Convert to ms
@@ -752,62 +854,84 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         };
         
         audio.onerror = (e) => {
-          console.error('Audio playback error:', audio.error);
+          const errorInfo = {
+            code: audio.error ? audio.error.code : 'unknown',
+            message: audio.error ? audio.error.message : 'No error details available',
+            src: audioUrl.substring(0, 100) + '...',
+            audioType: isLocalBlob ? 'local-blob' : (audioUrl.startsWith('/api') ? 'proxy-url' : 'azure-url'),
+            readyState: audio.readyState,
+            networkState: audio.networkState,
+            error: audio.error
+          };
+          console.error('Audio playback error:', errorInfo);
+          
+          // Try to recover by stopping and restarting
+          try {
+            audio.pause();
+            setTimeout(() => {
+              console.log('Attempting to restart audio playback after error...');
+              audio.load();
+              audio.play().catch(err => {
+                console.error('Failed to restart audio playback:', err);
+                completeReplay(); // Stop the replay if we can't recover
+              });
+            }, 1000);
+          } catch (recoverError) {
+            console.error('Error attempting to recover from audio playback error:', recoverError);
+            completeReplay(); // Stop the replay if we can't recover
+          }
         };
+        
+        // Store isLocalBlob status with the audio player for cleanup
+        audio.dataset.isLocalBlob = isLocalBlob.toString();
         
         setAudioPlayer(audio);
         
-        // Start playback
-        audio.play().catch(error => {
-          console.error('Failed to start audio playback:', error);
-          alert('Failed to start audio playback. Try clicking on the page first.');
-        });
+        // Wait a moment to ensure the audio is loaded before playing
+        setTimeout(() => {
+          console.log('Attempting to start audio playback...');
+          
+          // First check if audio is ready
+          if (audio.readyState >= 2) { // HAVE_CURRENT_DATA or better
+            console.log('Audio is ready to play, starting playback');
+            audio.play().catch(error => {
+              console.error('Failed to start audio playback despite ready state:', error);
+              
+              // Show a user-friendly message for autoplay policy errors
+              if (error.name === 'NotAllowedError') {
+                alert('Audio playback requires user interaction. Please click anywhere on the page and try again.');
+              } else {
+                // Fall back to simulated playback if audio fails completely
+                console.log('Switching to simulated timeline mode due to audio error');
+                simulateTimelineWithoutAudio(currentSession);
+              }
+            });
+          } else {
+            console.warn(`Audio not ready yet, readyState: ${audio.readyState}. Retrying in 1 second...`);
+            
+            // Retry after a delay
+            setTimeout(() => {
+              console.log('Retrying audio playback...');
+              audio.play().catch(error => {
+                console.error('Failed to start audio playback on retry:', error);
+                
+                // Fall back to simulated playback if audio fails completely
+                console.log('Switching to simulated timeline mode due to audio error');
+                simulateTimelineWithoutAudio(currentSession);
+              });
+            }, 1000);
+          }
+        }, 500);
       } catch (error) {
         console.error('Error creating audio player for replay:', error);
       }
     } else {
       console.warn('No audio track found for replay. Using simulated timeline.');
       
-      // Simulate timeline with setTimeout if no audio
-      const totalDuration = currentSession.events.length > 0 
-        ? Math.max(...currentSession.events.map(e => e.timeOffset)) + 5000
-        : 30000; // Default 30s if no events
-      
-      let elapsed = 0;
-      const interval = 100; // 100ms updates
-      
-      const timelineInterval = window.setInterval(() => {
-        elapsed += interval;
-        setReplayProgress((elapsed / totalDuration) * 100);
-        
-        // Use requestAnimationFrame for smoother updates
-        requestAnimationFrame(() => {
-          // Update global timeline position via context
-          updatePosition(elapsed);
-          
-          // Log global time position every second to avoid flooding logs
-          if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
-            console.log(`Timeline position updated via context (simulated): ${elapsed}ms`);
-          }
-          
-          // Use Promise.resolve().then to ensure position updates complete before event processing
-          Promise.resolve().then(() => {
-            processPendingEvents(elapsed);
-          });
-          
-          if (elapsed >= totalDuration) {
-            clearInterval(timelineInterval);
-            console.log('Simulated timeline complete, cleaning up and resetting...');
-            completeReplay();
-            // Ensure the active state is updated
-            setIsActive(false);
-          }
-        });
-      }, interval);
-      
-      replayTimeoutIdsRef.current.push(timelineInterval as unknown as number);
+      // Use the dedicated helper function for simulated timeline
+      simulateTimelineWithoutAudio(currentSession);
     }
-  }, [currentSession, isActive, resetTimelinePosition, updatePosition, processPendingEvents, completeReplay]);
+  }, [currentSession, isActive, resetTimelinePosition, updatePosition, processPendingEvents, completeReplay, simulateTimelineWithoutAudio]);
   
   /**
    * Stop the current replay
@@ -824,9 +948,14 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Clean up audio player
     if (audioPlayer) {
       audioPlayer.pause();
-      if (audioPlayer.src.startsWith('blob:')) {
+      
+      // Only revoke object URL if it's a local blob (not an Azure Storage URL)
+      const isLocalBlob = audioPlayer.dataset.isLocalBlob === 'true';
+      if (isLocalBlob && audioPlayer.src.startsWith('blob:')) {
+        console.log('Revoking local blob URL:', audioPlayer.src);
         URL.revokeObjectURL(audioPlayer.src);
       }
+      
       setAudioPlayer(null);
     }
     
@@ -871,10 +1000,59 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   /**
    * Load a session for replay
    */
-  const loadSession = useCallback((session: FeedbackSession) => {
+  const loadSession = useCallback(async (session: FeedbackSession) => {
     console.log('Loading session for replay, session ID:', session.id);
     console.log('Total events in session:', session.events.length);
     console.log('All event types:', session.events.map(e => e.type));
+    
+    // If we have audio chunks with blobUrl from Azure Storage, preload them and convert to proxy URLs
+    if (session.audioTrack && session.audioTrack.chunks && session.audioTrack.chunks.length > 0) {
+      // Set flag that session is loading
+      if (typeof window !== 'undefined') {
+        window.__sessionReady = false;
+      }
+      
+      for (let i = 0; i < session.audioTrack.chunks.length; i++) {
+        const chunk = session.audioTrack.chunks[i];
+        if (chunk.blobUrl) {
+          try {
+            console.log('Processing Azure Storage blob URL:', chunk.blobUrl);
+            
+            // Convert Azure Storage URL to our proxy URL to avoid CORS issues
+            try {
+              const url = new URL(chunk.blobUrl);
+              const blobPath = url.pathname.split('/').slice(2).join('/'); // Extract path after container name
+              
+              // Create a proxy URL that goes through our Next.js API
+              const proxyUrl = `/api/audio/${blobPath}`;
+              console.log(`Converted Azure URL to proxy URL: ${proxyUrl}`);
+              
+              // Update the chunk's URL to use our proxy instead
+              session.audioTrack.chunks[i] = {
+                ...chunk,
+                blobUrl: proxyUrl
+              };
+            } catch (urlError) {
+              console.warn('Failed to convert Azure URL to proxy URL:', urlError);
+              // Keep original URL if conversion fails
+            }
+            
+            if (typeof window !== 'undefined') {
+              console.log('Using proxy URL to avoid CORS issues:', session.audioTrack.chunks[i].blobUrl);
+            }
+          } catch (error) {
+            console.error('Error processing audio blob URL:', error);
+            // Continue with next chunk
+          }
+        }
+      }
+      
+      // Mark session as ready after processing all chunks
+      if (typeof window !== 'undefined') {
+        window.__sessionReady = true;
+        window.dispatchEvent(new Event('session-ready'));
+      }
+    }
     
     setCurrentSession(session);
     
@@ -962,7 +1140,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Clean up audio player
       if (audioPlayer) {
         audioPlayer.pause();
-        if (audioPlayer.src.startsWith('blob:')) {
+        
+        // Only revoke object URL if it's a local blob (not an Azure Storage URL)
+        const isLocalBlob = audioPlayer.dataset.isLocalBlob === 'true';
+        if (isLocalBlob && audioPlayer.src.startsWith('blob:')) {
+          console.log('Revoking local blob URL:', audioPlayer.src);
           URL.revokeObjectURL(audioPlayer.src);
         }
       }
