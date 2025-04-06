@@ -334,7 +334,14 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
       
       // Also collect annotation paths for backwards compatibility
       if (event.payload.action === 'draw' && event.payload.path) {
-        annotations.push(event.payload.path);
+        // Add timing metadata to the annotation for proper replay
+        const pathWithTiming = {
+          ...event.payload.path,
+          timeOffset: event.timeOffset,
+          globalTimeOffset: event.timeOffset,
+          videoTime: event.timeOffset
+        };
+        annotations.push(pathWithTiming);
       }
     }
     else if (event.type === 'marker') {
@@ -966,7 +973,14 @@ export default function VideoPlayerWrapper({
           isRecording={mode === 'record' && isActive}
           isReplaying={mode === 'replay' && isActive}
           setVideoRef={setVideoElementRef}
-          replayAnnotations={feedbackData.annotations || []}
+          replayAnnotations={currentSession?.events
+            ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
+            ?.map(e => ({
+              ...e.payload.path,
+              timeOffset: e.timeOffset,
+              globalTimeOffset: e.timeOffset,
+              videoTime: e.timeOffset
+            })) || feedbackData.annotations || []}
           videoUrl={videoUrl}
           onRecordAction={(action) => {
             // Forward video actions to the orchestrator

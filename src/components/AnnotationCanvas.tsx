@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 
 export interface Point {
@@ -55,16 +55,16 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   const { lastClearTime } = useLastClearTime();
   
   // Get canvas context in a memoized way
-  const getContext = () => {
+  const getContext = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     return ctx;
-  };
+  }, [canvasRef]);
 
   // Clear the canvas
-  const clearCanvasDrawings = () => {
+  const clearCanvasDrawings = useCallback(() => {
     console.log('AnnotationCanvas: Starting canvas clear operation');
     const ctx = getContext();
     if (ctx) {
@@ -81,7 +81,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         resolve();
       });
     });
-  };
+  }, [getContext, width, height]);
 
   // Listen for external clear command
   useEffect(() => {
@@ -127,8 +127,8 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   }, [width, height]);
 
   // Handle drawing a path
-  const drawPath = (ctx: CanvasRenderingContext2D, path: DrawingPath) => {
-    if (path.points.length < 2) return;
+  const drawPath = useCallback((ctx: CanvasRenderingContext2D, path: DrawingPath) => {
+    if (!path || !path.points || path.points.length < 2) return;
 
     ctx.beginPath();
     ctx.strokeStyle = path.color;
@@ -141,29 +141,63 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     }
     
     ctx.stroke();
-  };
+  }, []);
 
   // Draw annotations during replay
   useEffect(() => {
-    if (!isReplaying || replayAnnotations.length === 0) return;
+    // Only run this effect when replaying
+    if (!isReplaying) return;
+    
+    console.log("REPLAY EFFECT RUNNING", {
+      isReplaying,
+      annotationsCount: replayAnnotations?.length || 0,
+      globalTimePosition
+    });
     
     const ctx = getContext();
-    if (!ctx) return;
+    if (!ctx) {
+      console.error("Failed to get canvas context for annotation replay");
+      return;
+    }
     
     // Clear canvas before drawing
     ctx.clearRect(0, 0, width, height);
     
+    // Exit early if no annotations to draw
+    if (!replayAnnotations || replayAnnotations.length === 0) {
+      console.log("No annotations to replay");
+      return;
+    }
+    
+    // Always log the annotation data once to diagnose issues
+    if (Math.random() < 0.1) {
+      console.log("Annotation replay data:", 
+        replayAnnotations.slice(0, 2).map(a => ({
+          hasPoints: Boolean(a?.points),
+          pointsLength: a?.points?.length,
+          globalTimeOffset: (a as any).globalTimeOffset,
+          timeOffset: (a as any).timeOffset,
+          videoTime: a.videoTime,
+          timestamp: a.timestamp
+        }))
+      );
+    }
+    
     // Also track video time for debugging
     const videoTimeMs = currentTime * 1000; // Convert to milliseconds
     
-    // Log global timeline information periodically
+    // Log global timeline information periodically (every second)
     if (Math.floor(globalTimePosition / 1000) !== Math.floor((globalTimePosition - 100) / 1000)) {
-      console.log(`Annotation replay: Global time: ${globalTimePosition}ms, Last clear: ${lastClearTime}ms`);
+      console.log(`Annotation replay: Global time: ${globalTimePosition}ms, Last clear: ${lastClearTime}ms, Annotations: ${replayAnnotations.length}`);
     }
     
     // First, filter annotations to only include those created after the last clear
     // This ensures "clear" actions are properly respected during replay
     const visibleAnnotations = replayAnnotations.filter(annotation => {
+      if (!annotation || !annotation.points || annotation.points.length < 2) {
+        return false; // Skip invalid annotations
+      }
+      
       // First, check if this annotation has globalTimeOffset and if it came after the last clear
       if ((annotation as any).globalTimeOffset !== undefined) {
         const globalTimeOffset = (annotation as any).globalTimeOffset;
@@ -176,7 +210,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         // Now check if this annotation should be visible at the current timeline position
         const isVisible = globalTimeOffset <= globalTimePosition;
         
-        if (Math.random() < 0.05) { // Only log a small percentage to reduce console spam
+        if (Math.random() < 0.01) { // Reduce logging frequency
           console.log(`Annotation with globalTimeOffset: ${globalTimeOffset}ms at time: ${globalTimePosition}ms, lastClear: ${lastClearTime}ms`, {
             visible: isVisible,
             afterClear: globalTimeOffset > lastClearTime,
@@ -210,14 +244,23 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       return annotation.timestamp <= videoTimeMs;
     });
     
-    if (visibleAnnotations.length > 0 && Math.random() < 0.1) { // Reduce logging frequency
+    // Always log when we have visible annotations
+    if (visibleAnnotations.length > 0) {
       console.log(`Showing ${visibleAnnotations.length} of ${replayAnnotations.length} annotations at global time ${globalTimePosition}ms`);
+      
+      // Draw each visible annotation
+      visibleAnnotations.forEach(path => {
+        console.log("Drawing path:", {
+          points: path.points?.length,
+          color: path.color,
+          width: path.width
+        });
+        drawPath(ctx, path);
+      });
+    } else if (Math.random() < 0.1) {
+      console.log(`No visible annotations at time ${globalTimePosition}ms (of ${replayAnnotations.length} total)`);
     }
-    
-    visibleAnnotations.forEach(path => {
-      drawPath(ctx, path);
-    });
-  }, [isReplaying, replayAnnotations, currentTime, width, height, globalTimePosition, lastClearTime]);
+  }, [isReplaying, replayAnnotations, currentTime, width, height, globalTimePosition, lastClearTime, getContext, drawPath]);
 
   // Draw all stored paths
   useEffect(() => {
