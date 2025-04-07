@@ -339,7 +339,8 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
           ...event.payload.path,
           timeOffset: event.timeOffset,
           globalTimeOffset: event.timeOffset,
-          videoTime: event.timeOffset
+          videoTime: event.timeOffset,
+          tool: event.payload.path.tool || 'freehand' // Ensure tool type is preserved
         };
         annotations.push(pathWithTiming);
       }
@@ -975,12 +976,19 @@ export default function VideoPlayerWrapper({
           setVideoRef={setVideoElementRef}
           replayAnnotations={currentSession?.events
             ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
-            ?.map(e => ({
-              ...e.payload.path,
-              timeOffset: e.timeOffset,
-              globalTimeOffset: e.timeOffset,
-              videoTime: e.timeOffset
-            })) || feedbackData.annotations || []}
+            ?.map(e => {
+              // Make sure the tool property is preserved during replay
+              const tool = e.payload.path.tool || 'freehand';
+              console.log(`Preparing annotation for replay: tool=${tool}, points=${e.payload.path.points?.length}`);
+              
+              return {
+                ...e.payload.path,
+                timeOffset: e.timeOffset,
+                globalTimeOffset: e.timeOffset,
+                videoTime: e.timeOffset,
+                tool: tool  // Explicitly set the tool to ensure it's included
+              };
+            }) || feedbackData.annotations || []}
           videoUrl={videoUrl}
           onRecordAction={(action) => {
             // Forward video actions to the orchestrator

@@ -8,12 +8,15 @@ export interface Point {
   y: number;
 }
 
+export type DrawingTool = 'freehand' | 'line';
+
 export interface DrawingPath {
   points: Point[];
   color: string;
   width: number;
   timestamp: number;
   videoTime?: number; // Time in the video when this annotation was created (in ms)
+  tool?: DrawingTool; // The tool used to create this drawing
 }
 
 interface AnnotationCanvasProps {
@@ -27,6 +30,7 @@ interface AnnotationCanvasProps {
   replayAnnotations?: DrawingPath[];
   toolColor?: string;
   toolWidth?: number;
+  toolType?: DrawingTool;
   clearCanvas?: boolean;
   onClearComplete?: () => void;
 }
@@ -42,6 +46,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   replayAnnotations = [],
   toolColor = '#ff0000',
   toolWidth = 4,
+  toolType = 'freehand',
   clearCanvas = false,
   onClearComplete
 }, ref) => {
@@ -49,6 +54,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
   const [allDrawings, setAllDrawings] = useState<DrawingPath[]>([]);
+  const [startPoint, setStartPoint] = useState<Point | null>(null);
   
   // Get timeline context
   const { state: { currentPosition: globalTimePosition } } = useTimeline();
@@ -134,10 +140,18 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     ctx.strokeStyle = path.color;
     ctx.lineWidth = path.width;
     
-    ctx.moveTo(path.points[0].x, path.points[0].y);
-    
-    for (let i = 1; i < path.points.length; i++) {
-      ctx.lineTo(path.points[i].x, path.points[i].y);
+    // For line tool with just two points, draw a straight line
+    if (path.tool === 'line' && path.points.length === 2) {
+      const [start, end] = path.points;
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+    } else {
+      // For freehand or legacy paths, draw all points
+      ctx.moveTo(path.points[0].x, path.points[0].y);
+      
+      for (let i = 1; i < path.points.length; i++) {
+        ctx.lineTo(path.points[i].x, path.points[i].y);
+      }
     }
     
     ctx.stroke();
@@ -253,8 +267,15 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         console.log("Drawing path:", {
           points: path.points?.length,
           color: path.color,
-          width: path.width
+          width: path.width,
+          tool: path.tool || 'freehand'
         });
+        
+        // Ensure tool type is set for backwards compatibility
+        if (!path.tool) {
+          path.tool = 'freehand';
+        }
+        
         drawPath(ctx, path);
       });
     } else if (Math.random() < 0.1) {
@@ -287,16 +308,69 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       videoTime: path.videoTime || 'not set',
       timestamp: path.timestamp || 'not set',
       timeOffset: (path as any).timeOffset || 'not set',
-      currentVideoTime: currentTime * 1000
+      currentVideoTime: currentTime * 1000,
+      tool: path.tool || 'freehand' // Default to freehand if not specified
     });
     
+    // Make sure tool type is set
+    const completePath = {
+      ...path,
+      tool: path.tool || 'freehand'
+    };
+    
     // Add to local drawings - preserve the original path with all timing information
-    setAllDrawings(prev => [...prev, path]);
+    setAllDrawings(prev => [...prev, completePath]);
     
     // Report the annotation if we're recording
     if (isRecording && onAnnotationAdded) {
-      onAnnotationAdded(path);
+      onAnnotationAdded(completePath);
     }
+  };
+
+  // Get mouse/touch position in canvas coordinates
+  const getPointerPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    let clientX: number, clientY: number;
+
+    if ('touches' in e) {
+      // Touch event
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      // Mouse event
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  // Draw temporary straight line during line tool usage
+  const drawTemporaryLine = (start: Point, end: Point) => {
+    const ctx = getContext();
+    if (!ctx) return;
+
+    // Clear canvas before redrawing
+    ctx.clearRect(0, 0, width, height);
+    
+    // Redraw all existing paths
+    allDrawings.forEach(path => {
+      drawPath(ctx, path);
+    });
+    
+    // Draw the temporary line
+    ctx.beginPath();
+    ctx.strokeStyle = toolColor;
+    ctx.lineWidth = toolWidth;
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
   };
 
   // Event handlers for drawing
@@ -306,65 +380,50 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     setIsDrawing(true);
     setCurrentPath([]);
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    let clientX: number, clientY: number;
-
-    if ('touches' in e) {
-      // Touch event
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      // Mouse event
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    const position = getPointerPosition(e);
+    if (!position) return;
     
-    setCurrentPath([{ x, y }]);
+    // For line tool, just save the start point
+    if (toolType === 'line') {
+      setStartPoint(position);
+      setCurrentPath([position]);
+    } else {
+      // For freehand, start the path
+      setCurrentPath([position]);
+    }
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing || isReplaying) return; // Drawing is always enabled
     
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    let clientX: number, clientY: number;
-
     if ('touches' in e) {
-      // Touch event
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-      
       // Prevent scrolling while drawing
       e.preventDefault();
-    } else {
-      // Mouse event
-      clientX = e.clientX;
-      clientY = e.clientY;
     }
 
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    const position = getPointerPosition(e);
+    if (!position) return;
     
-    setCurrentPath(prev => [...prev, { x, y }]);
-    
-    const ctx = getContext();
-    if (ctx && currentPath.length > 0) {
-      ctx.beginPath();
-      ctx.strokeStyle = toolColor;
-      ctx.lineWidth = toolWidth;
+    if (toolType === 'line' && startPoint) {
+      // For line tool, continuously update the preview without adding points
+      drawTemporaryLine(startPoint, position);
+      // Update current path to track the current end position
+      setCurrentPath([startPoint, position]);
+    } else {
+      // For freehand, add point to path and draw incremental line segment
+      setCurrentPath(prev => [...prev, position]);
       
-      const lastPoint = currentPath[currentPath.length - 1];
-      ctx.moveTo(lastPoint.x, lastPoint.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
+      const ctx = getContext();
+      if (ctx && currentPath.length > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = toolColor;
+        ctx.lineWidth = toolWidth;
+        
+        const lastPoint = currentPath[currentPath.length - 1];
+        ctx.moveTo(lastPoint.x, lastPoint.y);
+        ctx.lineTo(position.x, position.y);
+        ctx.stroke();
+      }
     }
   };
 
@@ -373,12 +432,51 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     
     setIsDrawing(false);
     
-    if (currentPath.length > 1) {
+    if (toolType === 'line' && startPoint) {
+      // For line tool, create a path with just the start and end points
+      if (currentPath.length === 2) {
+        const endPosition = currentPath[1];
+        
+        // Only create a line if the end position is different from the start
+        if (endPosition.x !== startPoint.x || endPosition.y !== startPoint.y) {
+          const newPath: DrawingPath = {
+            points: [startPoint, endPosition],
+            color: toolColor,
+            width: toolWidth,
+            timestamp: Date.now(),
+            tool: 'line'
+          };
+          
+          // Draw the final line
+          const ctx = getContext();
+          if (ctx) {
+            ctx.beginPath();
+            ctx.strokeStyle = newPath.color;
+            ctx.lineWidth = newPath.width;
+            ctx.moveTo(startPoint.x, startPoint.y);
+            ctx.lineTo(endPosition.x, endPosition.y);
+            ctx.stroke();
+          }
+          
+          setAllDrawings(prev => [...prev, newPath]);
+          
+          // Report the annotation if we're recording
+          if (isRecording && onAnnotationAdded) {
+            onAnnotationAdded(newPath);
+          }
+          
+          console.log('Created line from', startPoint, 'to', endPosition);
+        }
+      }
+      setStartPoint(null);
+    } else if (currentPath.length > 1) {
+      // For freehand, create path with all points
       const newPath: DrawingPath = {
         points: [...currentPath],
         color: toolColor,
         width: toolWidth,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        tool: 'freehand'
       };
       
       setAllDrawings(prev => [...prev, newPath]);

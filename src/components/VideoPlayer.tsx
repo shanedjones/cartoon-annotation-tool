@@ -16,7 +16,7 @@ export interface RecordedAction {
   };
 }
 
-import AnnotationCanvas, { DrawingPath } from './AnnotationCanvas';
+import AnnotationCanvas, { DrawingPath, DrawingTool } from './AnnotationCanvas';
 
 import { AudioChunk } from './AudioRecorder';
 
@@ -61,6 +61,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
   const [annotationColor, setAnnotationColor] = useState('#ff0000'); // Default red
   const [annotationWidth, setAnnotationWidth] = useState(3);
+  const [annotationTool, setAnnotationTool] = useState<DrawingTool>('freehand');
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [shouldClearCanvas, setShouldClearCanvas] = useState(false);
   
@@ -167,7 +168,9 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
       // Store both the original timestamp (relative to the recording start)
       videoTime: currentTime * 1000,
       // Add global timeline offset for proper replay synchronization
-      globalTimeOffset: globalTimeOffset
+      globalTimeOffset: globalTimeOffset,
+      // Ensure tool type is always included
+      tool: path.tool || 'freehand'
     };
     
     // If recording, pass the annotation to the parent
@@ -488,6 +491,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
             replayAnnotations={replayAnnotations}
             toolColor={annotationColor}
             toolWidth={annotationWidth}
+            toolType={annotationTool}
             clearCanvas={shouldClearCanvas}
             onClearComplete={handleClearComplete}
           />
@@ -559,6 +563,23 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
         {/* Annotation controls */}
         <div className="flex flex-wrap items-center justify-between pt-2 border-t border-gray-200">
           <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+              <label className="text-xs text-gray-600">Tool:</label>
+              <div className="flex bg-gray-100 rounded overflow-hidden border border-gray-300">
+                <button
+                  onClick={() => setAnnotationTool('freehand')}
+                  className={`py-1 px-2 text-xs ${annotationTool === 'freehand' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  Pen
+                </button>
+                <button
+                  onClick={() => setAnnotationTool('line')}
+                  className={`py-1 px-2 text-xs ${annotationTool === 'line' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  Line
+                </button>
+              </div>
+            </div>
             
             <div className="flex items-center space-x-1">
               <label className="text-xs text-gray-600">Color:</label>
