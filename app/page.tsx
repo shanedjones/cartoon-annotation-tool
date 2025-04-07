@@ -146,19 +146,23 @@ export default function Home() {
     setCategories(newCategories);
     
     // Record the category change event in the orchestrator if we're recording
-    if (typeof window !== 'undefined' && window.__videoPlayerWrapper?.isRecording) {
+    if (typeof window !== 'undefined') {
       console.log(`RECORDING: Sending category event to orchestrator: ${category}=${rating}`);
       
       try {
-        window.__videoPlayerWrapper.recordCategoryChange(category, rating);
-        console.log('RECORDING: Category event sent successfully');
+        // Always send to record category changes, regardless of recording state
+        // This ensures categories are saved properly even when not actively recording
+        if (window.__videoPlayerWrapper?.recordCategoryChange) {
+          window.__videoPlayerWrapper.recordCategoryChange(category, rating);
+          console.log('RECORDING: Category event sent successfully');
+        } else {
+          console.warn('RECORDING: recordCategoryChange function not available');
+        }
       } catch (error) {
         console.error('RECORDING: Error sending category event:', error);
       }
     } else {
-      console.warn('RECORDING: Not recording category event - isRecording is false or wrapper not available');
-      console.log('RECORDING: window.__videoPlayerWrapper?.isRecording =', 
-        typeof window !== 'undefined' ? window.__videoPlayerWrapper?.isRecording : 'window undefined');
+      console.warn('RECORDING: Window not defined, cannot send category event');
     }
   };
   
@@ -192,6 +196,7 @@ export default function Home() {
         const label = getCategoryLabel(categoryName);
         console.log(`PARENT: Formatting category ${categoryName} to ${label} with rating ${rating}`);
         return {
+          id: categoryName, // Keep the original ID
           name: label,
           rating: rating as number
         };
@@ -204,10 +209,7 @@ export default function Home() {
       const newList = [...ratedCategories];
       console.log('PARENT: Setting category list to:', newList);
       
-      // Ensure we're in replay mode
-      setIsReplayMode(true);
-      
-      // Replace the entire list at once with a forced update
+      // Replace the entire list at once with a forced update - don't set replay mode here
       setCategoryList(newList);
       
       // Force UI update by using double setState in different ticks for React 18+ batching
@@ -465,26 +467,53 @@ export default function Home() {
               ) : (
                 // Show ratings during replay mode
                 <div>
-                  {categoryList.length === 0 ? (
-                    <p className="text-gray-500 italic">Category ratings will appear here when session loads.</p>
-                  ) : (
+                  {contentToReview && (
                     <>
-                      <p className="text-sm font-medium mb-2">Animation category ratings:</p>
                       <ul className="space-y-3">
-                        {categoryList.map((category, index) => (
-                          <li key={index}>
-                            <div className="font-medium">{category.name}</div>
+                        {contentToReview.labelProperties?.map((property) => (
+                          <li key={property.id}>
+                            <div className="font-medium">{property.label}</div>
                             <div className="flex text-yellow-400 mt-1 text-base">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <span key={star} className={star <= category.rating ? "text-yellow-400" : "text-gray-300"}>
-                                  ★
-                                </span>
-                              ))}
+                              {[1, 2, 3, 4, 5].map((star) => {
+                                // Find if we have a rating for this category from replay data
+                                // First check by ID (most reliable)
+                                const ratingCategoryById = categoryList.find(cat => 
+                                  cat.id === property.id
+                                );
+                                
+                                // Then check by name if ID match failed
+                                const ratingCategoryByName = !ratingCategoryById ? categoryList.find(cat => 
+                                  cat.name?.toLowerCase() === property.label.toLowerCase() ||
+                                  cat.name?.toLowerCase().replace(/\s+/g, '') === property.label.toLowerCase().replace(/\s+/g, '')
+                                ) : null;
+                                
+                                // Also check if we have a direct match in the categories object
+                                const directRating = categories[property.id];
+                                
+                                // Use the first available rating
+                                const rating = directRating || 
+                                              ratingCategoryById?.rating || 
+                                              ratingCategoryByName?.rating || 
+                                              0;
+                                
+                                // Debug ratings for the first category
+                                if (property.id === "setupAlignment") {
+                                  console.log(`Rating for ${property.label}: directRating=${directRating}, byId=${ratingCategoryById?.rating}, byName=${ratingCategoryByName?.rating}, final=${rating}`);
+                                }
+                                
+                                return (
+                                  <span key={star} className={star <= rating ? "text-yellow-400" : "text-gray-300"}>
+                                    ★
+                                  </span>
+                                );
+                              })}
                             </div>
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-gray-500 mt-2">{categoryList.length} categories rated</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {categoryList.length > 0 ? `${categoryList.length} ${categoryList.length === 1 ? 'category' : 'categories'} rated` : 'No ratings yet'}
+                      </p>
                     </>
                   )}
                 </div>

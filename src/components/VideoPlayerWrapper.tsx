@@ -771,13 +771,33 @@ export default function VideoPlayerWrapper({
   
   // Method to record a category change
   const recordCategoryChange = useCallback((category: string, rating: number) => {
-    if (orchestratorRef.current && mode === 'record' && isActive) {
+    if (orchestratorRef.current) {
       console.log(`Recording category change in orchestrator: ${category} = ${rating}`);
+      
+      // Check if recording is active - if not, initiate a minimal session if needed
+      if (!isActive && mode === 'record') {
+        console.log('Not actively recording, but will still save category rating');
+        // If we don't have a current session, create a simple one for storing categories
+        if (!currentSession) {
+          console.log('Creating minimal session for categories');
+          const newSession = {
+            id: `temp-${Date.now()}`,
+            videoId: videoId || 'unknown',
+            startTime: Date.now(),
+            events: [],
+            audioTrack: { chunks: [], totalDuration: 0 },
+            categories: { [category]: rating }
+          };
+          setCurrentSession(newSession);
+        }
+      }
+      
+      // Always store category changes, even if not actively recording
       orchestratorRef.current.handleCategoryEvent(category, rating);
     } else {
-      console.warn('Unable to record category change - not in recording mode or not active');
+      console.warn('Unable to record category change - orchestrator not available');
     }
-  }, [mode, isActive]);
+  }, [mode, isActive, currentSession, videoId]);
   
   // Get a reference to the annotation canvas via the video player
   const getVideoPlayerRef = useCallback((videoPlayerInstance: any) => {

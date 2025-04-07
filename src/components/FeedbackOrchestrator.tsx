@@ -426,13 +426,36 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           totalDuration: duration
         };
         
+        // Get current session to preserve categories
+        const currentSessionData = currentSession || { categories: {} };
+        
+        // Make sure we have the most up-to-date categories
+        console.log('Building final session with categories:', currentSessionData.categories);
+        
+        // Create a properly-typed categories object
+        const categories: Record<string, number> = {};
+        
+        // Ensure all category values are numbers, not null
+        if (currentSessionData.categories) {
+          Object.keys(currentSessionData.categories).forEach(key => {
+            const value = currentSessionData.categories[key];
+            // Only include ratings that have a positive numeric value
+            if (typeof value === 'number' && value > 0) {
+              categories[key] = value;
+            }
+          });
+        }
+        
+        console.log('Final clean categories object for saving:', categories);
+        
         const session: FeedbackSession = {
           id: sessionId,
           videoId: 'video-' + generateId(),
           startTime: startTime,
           endTime: recordingEndTime,
           audioTrack: audioTrack,
-          events: eventsRef.current
+          events: eventsRef.current,
+          categories: categories
         };
         
         setCurrentSession(session);
@@ -457,7 +480,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         videoId: 'video-' + generateId(),
         startTime: startTime,
         audioTrack: { chunks: [], totalDuration: 0 },
-        events: []
+        events: [],
+        categories: {} // Initialize empty categories object
       };
       
       setCurrentSession(newSession);
@@ -569,30 +593,53 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   }, [recordEvent]);
   
   /**
-   * Record a category change
+   * Record a category change - store only in categories object, not as events
    */
   const handleCategoryEvent = useCallback((category: string, rating: number) => {
     console.log(`Recording category change: ${category} = ${rating}`);
     
-    // Create event with lower priority for category events
-    if (!isActive || !recordingStartTimeRef.current) return;
+    // Allow category updates even when not recording
+    // This ensures category changes are saved regardless of recording state
     
-    const now = Date.now();
-    const timeOffset = now - recordingStartTimeRef.current;
+    // Update the session's categories directly
+    setCurrentSession(prevSession => {
+      if (!prevSession) {
+        // Create initial session if none exists
+        return {
+          id: generateId(),
+          videoId: 'unknown', 
+          startTime: recordingStartTimeRef.current || Date.now(),
+          events: [],
+          audioTrack: { chunks: [], totalDuration: 0 },
+          categories: { [category]: rating }
+        };
+      }
+      
+      // Get current categories or initialize empty object
+      const currentCategories = prevSession.categories || {};
+      
+      // Create new categories object with the updated rating
+      const updatedCategories = {
+        ...currentCategories,
+        [category]: rating
+      };
+      
+      console.log('Updated categories object:', updatedCategories);
+      
+      // Update existing session - only update categories, don't add to events
+      return {
+        ...prevSession,
+        categories: updatedCategories
+      };
+    });
     
-    const event: TimelineEvent = {
-      id: generateId(),
-      type: 'category',
-      timeOffset,
-      payload: { category, rating },
-      priority: 4  // Lowest priority for category events
-    };
+    // Log the current session after update (for debugging)
+    setTimeout(() => {
+      console.log('Current session after category update:', currentSession);
+    }, 50);
     
-    eventsRef.current.push(event);
-    console.log(`Recorded category event at ${timeOffset}ms:`, { category, rating });
-    
-    return event;
-  }, [isActive, generateId]);
+    console.log(`Updated session categories with ${category}: ${rating}`);
+  }, [generateId, currentSession]);
   
   /**
    * Complete the replay process
@@ -1061,38 +1108,35 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       console.log(`Event ${index}: type=${event.type}, timeOffset=${event.timeOffset}, payload=`, event.payload);
     });
     
-    // Try direct approach first: check if session has categories property
+    // Combine both approaches for most reliable category data
+    const categoriesState: Record<string, number> = {};
+    
+    // First collect categories from direct property if available (primary source)
     if (session.categories && Object.keys(session.categories).length > 0) {
       console.log('Session has categories property directly:', session.categories);
       
-      if (onCategoriesLoaded) {
-        console.log('Using categories directly from session:', session.categories);
-        
-        // Use the categories directly since they're already in the right format
-        setTimeout(() => {
-          onCategoriesLoaded(session.categories);
-        }, 100);
-        
-        // We've handled categories directly, so we can return
-        return;
-      }
+      // Add all categories from session.categories
+      Object.entries(session.categories).forEach(([category, rating]) => {
+        if (typeof rating === 'number' && rating > 0) {
+          categoriesState[category] = rating;
+        }
+      });
+      
+      console.log('Added categories from direct property:', Object.keys(categoriesState));
     }
     
-    // Fallback to category events if no direct categories property
-    console.log('No direct categories property, looking for category events...');
-    
-    // Find all category events, regardless of rating status first
+    // Then also check category events as a fallback or supplementary source
     const allCategoryEvents = session.events.filter(event => event.type === 'category');
     console.log(`Found ${allCategoryEvents.length} total category events in session`);
     
-    // Use the most recent state of each category (last event for each category determines its rating)
-    const categoriesState: Record<string, number> = {};
-    
-    // Process events in chronological order so we end up with the final state
+    // Add or update categories from events
     allCategoryEvents.forEach(event => {
-      if (event.payload?.category) {
-        categoriesState[event.payload.category] = event.payload.rating || 0;
-        console.log(`Category ${event.payload.category} = ${event.payload.rating}`);
+      if (event.payload?.category && typeof event.payload.rating === 'number' && event.payload.rating > 0) {
+        // Only add if not already present (prefer session.categories) or if it's zero in categories
+        if (!categoriesState[event.payload.category] || categoriesState[event.payload.category] === 0) {
+          categoriesState[event.payload.category] = event.payload.rating;
+          console.log(`Added category from event: ${event.payload.category} = ${event.payload.rating}`);
+        }
       }
     });
     
@@ -1103,22 +1147,29 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     console.log(`Final state has ${ratedCategories.length} rated categories:`, ratedCategories);
     
-    // If we have categories and a callback, send all the categories at once
-    if (Object.keys(categoriesState).length > 0 && onCategoriesLoaded) {
+    // Even if we have no ratings, send the empty state to ensure UI is updated
+    if (onCategoriesLoaded) {
       console.log('Final categories state to send:', categoriesState);
       
-      // Notify parent about all categories - use setTimeout to ensure it happens after component mount
+      // Update session's categories property for future reference
+      if (Object.keys(categoriesState).length > 0) {
+        session.categories = { ...categoriesState };
+        setCurrentSession({ ...session });
+      }
+      
+      // Notify parent right away
+      onCategoriesLoaded(categoriesState);
+      
+      // Also schedule a delayed notification to ensure component has mounted
       setTimeout(() => {
         if (onCategoriesLoaded) {
-          console.log('Calling onCategoriesLoaded with:', categoriesState);
+          console.log('Delayed call to onCategoriesLoaded with:', categoriesState);
           onCategoriesLoaded(categoriesState);
         }
       }, 100);
     } else {
-      console.warn('No category events found in the session or callback missing', {
-        allCategoryEvents: allCategoryEvents.length,
-        categoriesState: Object.keys(categoriesState).length,
-        hasCallback: !!onCategoriesLoaded
+      console.warn('No callback available for notifying categories', {
+        categoriesState: Object.keys(categoriesState).length
       });
     }
   }, [onCategoriesLoaded]);
