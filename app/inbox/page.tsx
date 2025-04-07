@@ -193,14 +193,9 @@ export default function InboxPage() {
               {filteredVideos.map((video) => (
                 <tr key={video.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <img className="h-10 w-10 rounded-full object-cover" src={video.thumbnailUrl} alt={video.title} />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{video.title}</div>
-                        <div className="text-sm text-gray-500 truncate max-w-xs">{video.description}</div>
-                      </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{video.title}</div>
+                      <div className="text-sm text-gray-500 truncate max-w-xs">{video.description}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -230,18 +225,19 @@ export default function InboxPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex space-x-3 justify-end">
-                      <Link
-                        href={`/?videoId=${video.id}`}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Review
-                      </Link>
-                      {video.status === 'Completed' && (
+                      {video.status === 'Completed' ? (
                         <Link
                           href={`/?videoId=${video.id}&replay=true`}
                           className="text-green-600 hover:text-green-900"
                         >
                           Replay
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/?videoId=${video.id}`}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          Review
                         </Link>
                       )}
                     </div>

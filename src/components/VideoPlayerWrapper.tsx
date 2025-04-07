@@ -981,11 +981,6 @@ export default function VideoPlayerWrapper({
         </button>
       </div>
       
-      {/* Video metadata section */}
-      <div className="mb-4">
-        {videoId && <h2 className="text-lg font-medium">{videoId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h2>}
-        {videoUrl && <p className="text-sm text-gray-600">Source: {videoUrl}</p>}
-      </div>
       
       {/* Feedback Orchestrator handles all coordination */}
       <div className="relative">

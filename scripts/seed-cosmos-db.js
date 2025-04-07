@@ -64,7 +64,7 @@ const videoData = [
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
     duration: "0:45",
     dateAdded: "2024-02-10",
-    status: "Completed",
+    status: "Not Started",
     categories: [
       "Instructional",
       "Iron Play",
@@ -132,7 +132,7 @@ const videoData = [
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
     duration: "0:41",
     dateAdded: "2024-01-28",
-    status: "Archived",
+    status: "Not Started",
     categories: [
       "Putting",
       "Green Reading",
@@ -166,7 +166,7 @@ const videoData = [
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
     duration: "0:37",
     dateAdded: "2024-02-18",
-    status: "Completed",
+    status: "Not Started",
     categories: [
       "Short Game",
       "Pitch Shots",
