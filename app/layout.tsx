@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cartoon Annotation Tool",
-  description: "Interactive tool for annotating and reviewing cartoon content",
+  title: "Annotation Tool",
+  description: "Interactive tool for annotating and reviewing video content",
 };
 
 export default function RootLayout({
