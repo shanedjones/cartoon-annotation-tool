@@ -10,9 +10,21 @@ const client = new CosmosClient({
   key: process.env.COSMOS_KEY,
 });
 
+// Validate environment variables
+if (!process.env.COSMOS_DATABASE_ID) {
+  throw new Error('COSMOS_DATABASE_ID environment variable is required');
+}
+
+if (!process.env.COSMOS_USERS_CONTAINER_ID) {
+  throw new Error('COSMOS_USERS_CONTAINER_ID environment variable is required');
+}
+
 // Database and container names
-const databaseId = 'cartoon-db';
-const containerId = 'users';
+const databaseId = process.env.COSMOS_DATABASE_ID;
+const containerId = process.env.COSMOS_USERS_CONTAINER_ID;
+
+console.log(`Using database: ${databaseId}`);
+console.log(`Using container: ${containerId}`);
 
 async function main() {
   try {

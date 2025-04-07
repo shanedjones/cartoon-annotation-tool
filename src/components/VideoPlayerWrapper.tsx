@@ -512,7 +512,7 @@ export default function VideoPlayerWrapper({
       setIsActive(true);
       
       // Set the completed review status if needed
-      if (typeof window !== 'undefined' && window.__isCompletedCartoon) {
+      if (typeof window !== 'undefined' && window.__isCompletedVideo) {
         console.log('Starting replay of completed review');
       }
     } else {
@@ -880,7 +880,7 @@ export default function VideoPlayerWrapper({
     };
   }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
   
-  // Load session but only start replay if not a completed cartoon
+  // Load session but only start replay if not a completed video
   useEffect(() => {
     if (initialSession && !isActive && mode === 'record') {
       console.log("Initial session provided, preparing for replay");
@@ -894,16 +894,16 @@ export default function VideoPlayerWrapper({
           // Load the session without auto-starting replay or switching mode yet
           orchestratorRef.current.loadSession(initialSession);
           
-          // Check if this is a new session or a completed cartoon
-          if (typeof window !== 'undefined' && !window.__isCompletedCartoon) {
+          // Check if this is a new session or a completed video
+          if (typeof window !== 'undefined' && !window.__isCompletedVideo) {
             console.log("Auto-starting replay for new session");
             // For new reviews, we auto-start and switch to replay mode
             setMode('replay');
             orchestratorRef.current.startReplay();
             setIsActive(true);
           } else {
-            console.log("Completed cartoon review - replay is ready but not auto-started");
-            // For completed cartoons, just set ready flag but don't change mode yet
+            console.log("Completed video review - replay is ready but not auto-started");
+            // For completed videos, just set ready flag but don't change mode yet
             if (typeof window !== 'undefined') {
               window.__sessionReady = true;
               // Dispatch event to notify UI

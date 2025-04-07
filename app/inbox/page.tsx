@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 // Removed Image import
 
-// Define the cartoon interface
-interface Cartoon {
+// Define the video interface
+interface Video {
   id: string;
   title: string;
   description: string;
@@ -19,75 +19,75 @@ interface Cartoon {
 }
 
 export default function InboxPage() {
-  const [cartoons, setCartoons] = useState<Cartoon[]>([]);
-  const [filteredCartoons, setFilteredCartoons] = useState<Cartoon[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch cartoons data from Cosmos DB API
+  // Fetch videos data from Cosmos DB API
   useEffect(() => {
-    const fetchCartoons = async () => {
+    const fetchVideos = async () => {
       try {
         setLoading(true);
         const url = statusFilter !== 'All' 
-          ? `/api/cartoons?status=${encodeURIComponent(statusFilter)}`
-          : '/api/cartoons';
+          ? `/api/videos?status=${encodeURIComponent(statusFilter)}`
+          : '/api/videos';
           
         const response = await fetch(url);
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch cartoons: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch videos: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
-        setCartoons(data);
+        setVideos(data);
         
         // Apply search filter separately
         if (searchTerm) {
-          filterCartoonsBySearch(data, searchTerm);
+          filterVideosBySearch(data, searchTerm);
         } else {
-          setFilteredCartoons(data);
+          setFilteredVideos(data);
         }
         
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching cartoons:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch cartoons');
+        console.error('Error fetching videos:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch videos');
         setLoading(false);
       }
     };
 
-    fetchCartoons();
+    fetchVideos();
   }, [statusFilter]); // Re-fetch when status filter changes
   
-  // Function to filter cartoons by search term
-  const filterCartoonsBySearch = (cartoonsToFilter: Cartoon[], term: string) => {
+  // Function to filter videos by search term
+  const filterVideosBySearch = (videosToFilter: Video[], term: string) => {
     if (!term.trim()) {
-      setFilteredCartoons(cartoonsToFilter);
+      setFilteredVideos(videosToFilter);
       return;
     }
     
     const lowerCaseSearch = term.toLowerCase();
-    const results = cartoonsToFilter.filter(cartoon => 
-      cartoon.title.toLowerCase().includes(lowerCaseSearch) || 
-      cartoon.description.toLowerCase().includes(lowerCaseSearch) ||
-      cartoon.categories.some(category => category.toLowerCase().includes(lowerCaseSearch))
+    const results = videosToFilter.filter(video => 
+      video.title.toLowerCase().includes(lowerCaseSearch) || 
+      video.description.toLowerCase().includes(lowerCaseSearch) ||
+      video.categories.some(category => category.toLowerCase().includes(lowerCaseSearch))
     );
     
-    setFilteredCartoons(results);
+    setFilteredVideos(results);
   };
 
   // Apply only search filter when search term changes
   // (Status filter is handled in the API call)
   useEffect(() => {
-    // Don't reapply if we don't have cartoons yet
-    if (cartoons.length === 0) return;
+    // Don't reapply if we don't have videos yet
+    if (videos.length === 0) return;
     
     // Apply search filter locally
-    filterCartoonsBySearch(cartoons, searchTerm);
-  }, [searchTerm, cartoons]);
+    filterVideosBySearch(videos, searchTerm);
+  }, [searchTerm, videos]);
 
   // Function to get appropriate status color
   const getStatusColor = (status: string) => {
@@ -159,8 +159,8 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* Cartoons list */}
-      {filteredCartoons.length === 0 ? (
+      {/* Videos list */}
+      {filteredVideos.length === 0 ? (
         <div className="bg-gray-100 rounded-lg p-8 text-center">
           <p className="text-lg text-gray-600">No sessions found matching your filters.</p>
         </div>
@@ -190,40 +190,40 @@ export default function InboxPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredCartoons.map((cartoon) => (
-                <tr key={cartoon.id} className="hover:bg-gray-50">
+              {filteredVideos.map((video) => (
+                <tr key={video.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        <img className="h-10 w-10 rounded-full object-cover" src={cartoon.thumbnailUrl} alt={cartoon.title} />
+                        <img className="h-10 w-10 rounded-full object-cover" src={video.thumbnailUrl} alt={video.title} />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{cartoon.title}</div>
-                        <div className="text-sm text-gray-500 truncate max-w-xs">{cartoon.description}</div>
+                        <div className="text-sm font-medium text-gray-900">{video.title}</div>
+                        <div className="text-sm text-gray-500 truncate max-w-xs">{video.description}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(cartoon.dateAdded)}
+                    {formatDate(video.dateAdded)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {cartoon.duration}
+                    {video.duration}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(cartoon.status)}`}>
-                      {cartoon.status}
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(video.status)}`}>
+                      {video.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex flex-wrap gap-1">
-                      {cartoon.categories.slice(0, 2).map((category, index) => (
+                      {video.categories.slice(0, 2).map((category, index) => (
                         <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                           {category}
                         </span>
                       ))}
-                      {cartoon.categories.length > 2 && (
+                      {video.categories.length > 2 && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          +{cartoon.categories.length - 2} more
+                          +{video.categories.length - 2} more
                         </span>
                       )}
                     </div>
@@ -231,14 +231,14 @@ export default function InboxPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex space-x-3 justify-end">
                       <Link
-                        href={`/?cartoonId=${cartoon.id}`}
+                        href={`/?videoId=${video.id}`}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         Review
                       </Link>
-                      {cartoon.status === 'Completed' && (
+                      {video.status === 'Completed' && (
                         <Link
-                          href={`/?cartoonId=${cartoon.id}&replay=true`}
+                          href={`/?videoId=${video.id}&replay=true`}
                           className="text-green-600 hover:text-green-900"
                         >
                           Replay
@@ -259,24 +259,24 @@ export default function InboxPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-md shadow-sm">
             <div className="text-sm text-gray-500">Total</div>
-            <div className="text-2xl font-bold">{cartoons.length}</div>
+            <div className="text-2xl font-bold">{videos.length}</div>
           </div>
           <div className="bg-white p-4 rounded-md shadow-sm">
             <div className="text-sm text-gray-500">Not Started</div>
             <div className="text-2xl font-bold">
-              {cartoons.filter(c => c.status === 'Not Started').length}
+              {videos.filter(v => v.status === 'Not Started').length}
             </div>
           </div>
           <div className="bg-white p-4 rounded-md shadow-sm">
             <div className="text-sm text-gray-500">Completed</div>
             <div className="text-2xl font-bold">
-              {cartoons.filter(c => c.status === 'Completed').length}
+              {videos.filter(v => v.status === 'Completed').length}
             </div>
           </div>
           <div className="bg-white p-4 rounded-md shadow-sm">
             <div className="text-sm text-gray-500">Archived</div>
             <div className="text-2xl font-bold">
-              {cartoons.filter(c => c.status === 'Archived').length}
+              {videos.filter(v => v.status === 'Archived').length}
             </div>
           </div>
         </div>

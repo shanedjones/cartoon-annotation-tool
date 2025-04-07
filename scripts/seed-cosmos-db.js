@@ -7,8 +7,8 @@ const { CosmosClient } = require('@azure/cosmos');
 // Cosmos DB connection configuration
 const endpoint = process.env.COSMOS_ENDPOINT;
 const key = process.env.COSMOS_KEY;
-const databaseId = process.env.COSMOS_DATABASE_ID || 'cartoon-db';
-const containerId = process.env.COSMOS_CONTAINER_ID || 'cartoons';
+const databaseId = process.env.COSMOS_DATABASE_ID || '';
+const containerId = process.env.COSMOS_CONTAINER_ID || '';
 
 // Check for required environment variables
 if (!endpoint || !key) {
@@ -20,10 +20,10 @@ if (!endpoint || !key) {
 // Initialize the Cosmos client
 const client = new CosmosClient({ endpoint, key });
 
-// Sample cartoon data to seed
-const cartoonData = [
+// Sample video data to seed
+const videoData = [
   {
-    id: "cartoon-001",
+    id: "video-001",
     title: "Big Buck Bunny",
     description: "A short animated film featuring a big rabbit dealing with three bullying rodents",
     thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_big.jpg",
@@ -47,7 +47,7 @@ const cartoonData = [
     }
   },
   {
-    id: "cartoon-002",
+    id: "video-002",
     title: "Sintel",
     description: "A girl seeking revenge for the death of her pet dragon encounters several dangerous adventures",
     thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Sintel_poster.jpg/800px-Sintel_poster.jpg",
@@ -71,7 +71,7 @@ const cartoonData = [
     }
   },
   {
-    id: "cartoon-003",
+    id: "video-003",
     title: "Tears of Steel",
     description: "A sci-fi film about a group of warriors and scientists who try to save the world from robots",
     thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Tears_of_Steel_poster.jpg/800px-Tears_of_Steel_poster.jpg",
@@ -95,7 +95,7 @@ const cartoonData = [
     }
   },
   {
-    id: "cartoon-004",
+    id: "video-004",
     title: "Elephant's Dream",
     description: "The first open movie project from the Blender Foundation about two strange characters exploring a mechanized world",
     thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d2/Elephants_Dream_poster.jpg",
@@ -119,7 +119,7 @@ const cartoonData = [
     }
   },
   {
-    id: "cartoon-005",
+    id: "video-005",
     title: "Caminandes: Llama Drama",
     description: "A llama tries to cross a fence to reach greener pastures while avoiding a grumpy guard dog",
     thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Caminandes_-_Llama_Drama_Poster.jpg/800px-Caminandes_-_Llama_Drama_Poster.jpg",
@@ -184,9 +184,9 @@ async function main() {
     }
 
     // Insert sample data
-    console.log('Inserting sample cartoon data...');
-    for (const cartoon of cartoonData) {
-      const { resource: createdItem } = await container.items.create(cartoon);
+    console.log('Inserting sample video data...');
+    for (const video of videoData) {
+      const { resource: createdItem } = await container.items.create(video);
       console.log(`Created item: ${createdItem.id}`);
     }
 

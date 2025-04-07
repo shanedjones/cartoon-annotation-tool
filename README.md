@@ -5,7 +5,7 @@ A Next.js application for recording, annotating, and replaying video sessions wi
 ## Overview
 
 This tool allows users to:
-- Browse cartoons in an inbox with filtering and search capabilities
+- Browse videos in an inbox with filtering and search capabilities
 - Record synchronized audio while watching and interacting with videos
 - Add visual annotations and drawings directly on the video
 - Tag animations with specific categories (e.g., Artistic Style, Character Design)
@@ -13,7 +13,7 @@ This tool allows users to:
 - Replay entire sessions with perfect audio-video-annotation synchronization
 - View selected animation categories during replay
 - Save and load feedback sessions as JSON files
-- Store cartoon data in Azure Cosmos DB
+- Store video data in Azure Cosmos DB
 
 ## Installation & Setup
 
@@ -238,10 +238,10 @@ cartoon-annotation/
 ├── app/                  # Next.js app directory
 │   ├── page.tsx          # Main application page
 │   ├── layout.tsx        # App layout
-│   ├── inbox/            # Cartoon review inbox
+│   ├── inbox/            # Video review inbox
 │   │   └── page.tsx      # Inbox page component
 │   └── api/              # Backend API routes
-│       └── cartoons/     # Cartoons API
+│       └── videos/       # Videos API
 │           └── route.ts  # Cosmos DB CRUD operations
 ├── src/
 │   ├── components/

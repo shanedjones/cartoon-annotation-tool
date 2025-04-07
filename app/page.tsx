@@ -27,11 +27,11 @@ export default function Home() {
     keyMetrics?: KeyMetric[];
   }
   
-  // Get cartoon ID from URL if present
+  // Get video ID from URL if present
   const searchParams = useSearchParams();
-  const cartoonId = searchParams.get('cartoonId');
+  const videoId = searchParams.get('videoId');
   
-  // State for selected cartoon
+  // State for selected video
   const [contentToReview, setContentToReview] = useState<ReviewContent>({
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
     videoTitle: "Big Buck Bunny",
@@ -57,31 +57,31 @@ export default function Home() {
     ]
   });
   
-  // Load cartoon data if cartoonId is provided
+  // Load video data if videoId is provided
   useEffect(() => {
-    if (!cartoonId) return;
+    if (!videoId) return;
     
-    const loadCartoonData = async () => {
+    const loadVideoData = async () => {
       try {
-        // Fetch specific cartoon by ID from Cosmos DB via API
-        const response = await fetch(`/api/cartoons?id=${cartoonId}`);
+        // Fetch specific video by ID from Cosmos DB via API
+        const response = await fetch(`/api/videos?id=${videoId}`);
         if (!response.ok) {
-          throw new Error(`Failed to fetch cartoon: ${response.status}`);
+          throw new Error(`Failed to fetch video: ${response.status}`);
         }
         
-        const cartoons = await response.json();
+        const videos = await response.json();
         
         // API returns an array even when querying by ID
-        if (cartoons && cartoons.length > 0) {
-          const selectedCartoon = cartoons[0];
+        if (videos && videos.length > 0) {
+          const selectedVideo = videos[0];
           
-          // Convert cartoon data to ReviewContent format
-          const metricsArray = Object.entries(selectedCartoon.metrics).map(([name, value]) => ({ name, value }));
+          // Convert video data to ReviewContent format
+          const metricsArray = Object.entries(selectedVideo.metrics).map(([name, value]) => ({ name, value }));
           
           setContentToReview({
-            videoUrl: selectedCartoon.videoUrl,
-            videoTitle: selectedCartoon.title,
-            videoDescription: selectedCartoon.description,
+            videoUrl: selectedVideo.videoUrl,
+            videoTitle: selectedVideo.title,
+            videoDescription: selectedVideo.description,
             dataLabelingTitle: "Animation Categories",
             labelProperties: [
               { id: "artisticStyle", label: "Artistic Style" },
@@ -94,28 +94,28 @@ export default function Home() {
             keyMetrics: metricsArray
           });
           
-          // Check if this cartoon has a saved review session
-          if (selectedCartoon.reviewSession) {
-            console.log("Found saved review session:", selectedCartoon.reviewSession);
-            setSavedReviewSession(selectedCartoon.reviewSession);
+          // Check if this video has a saved review session
+          if (selectedVideo.reviewSession) {
+            console.log("Found saved review session:", selectedVideo.reviewSession);
+            setSavedReviewSession(selectedVideo.reviewSession);
             
             // If status is "Completed", make session available for replay but don't auto-start
-            if (selectedCartoon.status === "Completed") {
+            if (selectedVideo.status === "Completed") {
               console.log("Completed review found, making session available for replay");
               window.__hasRecordedSession = true;
-              window.__isCompletedCartoon = true; // Mark as already completed
+              window.__isCompletedVideo = true; // Mark as already completed
               const event = new CustomEvent('session-available');
               window.dispatchEvent(event);
             }
           }
         }
       } catch (error) {
-        console.error("Error loading cartoon:", error);
+        console.error("Error loading video:", error);
       }
     };
     
-    loadCartoonData();
-  }, [cartoonId]);
+    loadVideoData();
+  }, [videoId]);
   
   // Generate initial categories state from labelProperties
   const initialCategories = contentToReview.labelProperties.reduce((acc, prop) => {
@@ -143,7 +143,7 @@ export default function Home() {
         isRecording: boolean;
       };
       __hasRecordedSession?: boolean;
-      __isCompletedCartoon?: boolean;
+      __isCompletedVideo?: boolean;
       __sessionReady?: boolean;
       __isReplaying?: boolean;
     }
@@ -151,7 +151,7 @@ export default function Home() {
   
   // State tracking
   const [hasRecordedSession, setHasRecordedSession] = useState(false);
-  const [isCompletedCartoon, setIsCompletedCartoon] = useState(false);
+  const [isCompletedVideo, setIsCompletedVideo] = useState(false);
   const [isSessionReady, setIsSessionReady] = useState(false);
   
   // Get formatted category label
@@ -289,11 +289,11 @@ export default function Home() {
           setHasRecordedSession(hasSession);
         }
         
-        // Check if this is a completed cartoon
-        const isCompleted = !!window.__isCompletedCartoon;
-        if (isCompleted !== isCompletedCartoon) {
-          console.log(`Completed cartoon status changed: ${isCompleted}`);
-          setIsCompletedCartoon(isCompleted);
+        // Check if this is a completed video
+        const isCompleted = !!window.__isCompletedVideo;
+        if (isCompleted !== isCompletedVideo) {
+          console.log(`Completed video status changed: ${isCompleted}`);
+          setIsCompletedVideo(isCompleted);
         }
         
         // Check if session is ready for replay
@@ -337,7 +337,7 @@ export default function Home() {
       window.removeEventListener('session-available', handleSessionChange);
       window.removeEventListener('session-ready', handleSessionReady);
     };
-  }, [hasRecordedSession, isCompletedCartoon, isSessionReady]);
+  }, [hasRecordedSession, isCompletedVideo, isSessionReady]);
   
   // Force client-side rendering for window access
   const [isClient, setIsClient] = useState(false);
@@ -351,27 +351,27 @@ export default function Home() {
   const onSessionComplete = useCallback(async (session) => {
     console.log('Session complete:', session);
     
-    // If this is a review of a specific cartoon from the inbox, save the session to Cosmos DB
-    if (cartoonId) {
+    // If this is a review of a specific video from the inbox, save the session to Cosmos DB
+    if (videoId) {
       try {
-        // First, get the current cartoon data
-        const response = await fetch(`/api/cartoons?id=${cartoonId}`);
+        // First, get the current video data
+        const response = await fetch(`/api/videos?id=${videoId}`);
         if (!response.ok) {
-          throw new Error(`Failed to fetch cartoon: ${response.status}`);
+          throw new Error(`Failed to fetch video: ${response.status}`);
         }
         
-        const cartoons = await response.json();
-        if (cartoons && cartoons.length > 0) {
-          const cartoon = cartoons[0];
+        const videos = await response.json();
+        if (videos && videos.length > 0) {
+          const video = videos[0];
           
-          // Update cartoon with the session data and set status to "Completed"
-          const updateResponse = await fetch('/api/cartoons', {
+          // Update video with the session data and set status to "Completed"
+          const updateResponse = await fetch('/api/videos', {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              ...cartoon,
+              ...video,
               status: "Completed",
               reviewSession: session
             })
@@ -380,7 +380,7 @@ export default function Home() {
           if (updateResponse.ok) {
             console.log("Saved review session to Cosmos DB and updated status to Completed");
           } else {
-            console.error("Failed to update cartoon with review session:", await updateResponse.text());
+            console.error("Failed to update video with review session:", await updateResponse.text());
           }
         }
       } catch (error) {
@@ -396,7 +396,7 @@ export default function Home() {
       const event = new CustomEvent('session-available');
       window.dispatchEvent(event);
     }
-  }, [cartoonId]);
+  }, [videoId]);
 
   return (
     <div className="min-h-screen p-4">
@@ -441,8 +441,8 @@ export default function Home() {
           </div>
         </div>
         
-        {/* Display cartoon title and description from URL parameter */}
-        {cartoonId && (
+        {/* Display video title and description from URL parameter */}
+        {videoId && (
           <div className="bg-blue-50 p-4 rounded-lg mb-4">
             <h2 className="text-xl font-semibold">{contentToReview.videoTitle}</h2>
             <p className="text-gray-600">{contentToReview.videoDescription}</p>
