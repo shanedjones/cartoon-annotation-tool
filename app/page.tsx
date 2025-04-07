@@ -404,9 +404,6 @@ export default function Home() {
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
           <h1 className="text-2xl font-bold">Session Annotation Tool</h1>
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
-            <Link href="/inbox" className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-md">
-              Review Inbox
-            </Link>
             <div className="flex space-x-2">
               {/* Only show Record button if not a completed cartoon */}
               {!isCompletedCartoon && (
