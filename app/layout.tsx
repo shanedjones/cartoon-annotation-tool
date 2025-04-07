@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AppProviders } from "@/src/contexts/AppProviders";
+import { Navbar } from "@/src/components/Navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Session Annotation Tool",
-  description: "Interactive tool for annotating and reviewing video content",
+  title: "Cartoon Annotation Tool",
+  description: "Interactive tool for annotating and reviewing cartoon content",
 };
 
 export default function RootLayout({
@@ -27,7 +29,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <AppProviders>
+          <Navbar />
+          <main className="container mx-auto p-4">
+            {children}
+          </main>
+        </AppProviders>
       </body>
     </html>
   );

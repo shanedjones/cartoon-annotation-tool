@@ -7,14 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed-db": "node scripts/seed-cosmos-db.js"
+    "seed-db": "node scripts/seed-cosmos-db.js",
+    "seed-users": "node scripts/seed-users.js"
   },
   "dependencies": {
     "@azure/cosmos": "^4.0.0",
     "@azure/storage-blob": "^12.27.0",
+    "@types/bcrypt": "^5.0.2",
     "@types/uuid": "^10.0.0",
+    "bcrypt": "^5.1.1",
     "dotenv": "^16.3.1",
     "next": "15.2.3",
+    "next-auth": "^4.24.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "uuid": "^11.1.0"
