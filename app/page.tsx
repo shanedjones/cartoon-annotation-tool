@@ -32,34 +32,15 @@ export default function Home() {
   const videoId = searchParams.get('videoId');
   
   // State for selected video
-  const [contentToReview, setContentToReview] = useState<ReviewContent>({
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    videoTitle: "Big Buck Bunny",
-    videoDescription: "A short animated film featuring a big rabbit dealing with three bullying rodents",
-    dataLabelingTitle: "Animation Categories",
-    labelProperties: [
-      { id: "artisticStyle", label: "Artistic Style" },
-      { id: "characterDesign", label: "Character Design" },
-      { id: "motionDynamics", label: "Motion Dynamics" },
-      { id: "colorPalette", label: "Color Palette" },
-      { id: "narrativeTechniques", label: "Narrative Techniques" },
-    ],
-    keyMetricsTitle: "Production Metrics",
-    keyMetrics: [
-      { name: "Runtime", value: "10:34" },
-      { name: "Release Year", value: 2008 },
-      { name: "Production Budget", value: "$150,000" },
-      { name: "Character Count", value: 4 },
-      { name: "Animation Team Size", value: 12 },
-      { name: "Frames Rendered", value: "15,240" },
-      { name: "Software Used", value: "Blender" },
-      { name: "Render Time (hours)", value: 687 }
-    ]
-  });
+  const [contentToReview, setContentToReview] = useState<ReviewContent | null>(null);
   
   // Load video data if videoId is provided
   useEffect(() => {
-    if (!videoId) return;
+    if (!videoId) {
+      // Initialize with empty content if no video is selected
+      setContentToReview(null);
+      return;
+    }
     
     const loadVideoData = async () => {
       try {
@@ -82,8 +63,8 @@ export default function Home() {
             videoUrl: selectedVideo.videoUrl,
             videoTitle: selectedVideo.title,
             videoDescription: selectedVideo.description,
-            dataLabelingTitle: "Animation Categories",
-            labelProperties: [
+            dataLabelingTitle: selectedVideo.dataLabelingTitle || "Animation Categories",
+            labelProperties: selectedVideo.labelProperties || [
               { id: "artisticStyle", label: "Artistic Style" },
               { id: "characterDesign", label: "Character Design" },
               { id: "motionDynamics", label: "Motion Dynamics" },
@@ -117,14 +98,8 @@ export default function Home() {
     loadVideoData();
   }, [videoId]);
   
-  // Generate initial categories state from labelProperties
-  const initialCategories = contentToReview.labelProperties.reduce((acc, prop) => {
-    acc[prop.id] = null; // null means no rating
-    return acc;
-  }, {} as Record<string, number | null>);
-  
   // State for star ratings during recording
-  const [categories, setCategories] = useState(initialCategories);
+  const [categories, setCategories] = useState<Record<string, number | null>>({});
   
   // State to track if we're in replay mode
   const [isReplayMode, setIsReplayMode] = useState(false);
@@ -347,6 +322,17 @@ export default function Home() {
     setIsClient(true);
   }, []);
   
+  // Generate initial categories state from labelProperties when content is loaded
+  useEffect(() => {
+    if (contentToReview?.labelProperties) {
+      const initialCats = contentToReview.labelProperties.reduce((acc, prop) => {
+        acc[prop.id] = null; // null means no rating
+        return acc;
+      }, {} as Record<string, number | null>);
+      setCategories(initialCats);
+    }
+  }, [contentToReview]);
+  
   // Save the review session to Cosmos DB when a recording is completed
   const onSessionComplete = useCallback(async (session) => {
     console.log('Session complete:', session);
@@ -442,7 +428,7 @@ export default function Home() {
         </div>
         
         {/* Display video title and description from URL parameter */}
-        {videoId && (
+        {videoId && contentToReview && (
           <div className="bg-blue-50 p-4 rounded-lg mb-4">
             <h2 className="text-xl font-semibold">{contentToReview.videoTitle}</h2>
             <p className="text-gray-600">{contentToReview.videoDescription}</p>
@@ -451,14 +437,14 @@ export default function Home() {
         
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Categories Section */}
-          <div className="lg:w-1/4">
+          {contentToReview && <div className="lg:w-1/4">
             <div className="p-4 border rounded-lg bg-gray-50 h-full">
               <h2 className="text-xl font-semibold mb-3">{contentToReview.dataLabelingTitle}</h2>
               
               {/* Show rating stars during recording mode */}
               {!isReplayMode ? (
                 <div className="space-y-3">
-                  {contentToReview.labelProperties.map((property) => (
+                  {contentToReview.labelProperties?.map((property) => (
                     <div key={property.id}>
                       <div className="mb-1">{property.label}</div>
                       <div className="flex items-center">
@@ -504,11 +490,11 @@ export default function Home() {
                 </div>
               )}
             </div>
-          </div>
+          </div>}
           
           {/* Video Player */}
           <div className="lg:w-1/2">
-            <VideoPlayerWrapper 
+            {contentToReview ? <VideoPlayerWrapper 
               categories={categories}
               onCategoriesCleared={clearCategories}
               onCategoriesLoaded={handleCategoryAddedDuringReplay}
@@ -518,7 +504,9 @@ export default function Home() {
               contentToReview={contentToReview}
               initialSession={savedReviewSession}
               onSessionComplete={onSessionComplete}
-            />
+            /> : <div className="flex items-center justify-center h-64 bg-gray-100 rounded-lg">
+              <p className="text-gray-500">Please select a video to review</p>
+            </div>}
             
             {/* Session Data Controls */}
             {hasRecordedSession && (
@@ -557,7 +545,7 @@ export default function Home() {
           </div>
           
           {/* Key Metrics Section */}
-          {contentToReview.keyMetrics && contentToReview.keyMetrics.length > 0 && (
+          {contentToReview?.keyMetrics && contentToReview.keyMetrics.length > 0 && (
             <div className="lg:w-1/4">
               <div className="p-4 border rounded-lg bg-gray-50 h-full">
                 <h2 className="text-xl font-semibold mb-3">{contentToReview.keyMetricsTitle || "Key Metrics"}</h2>

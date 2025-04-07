@@ -36,6 +36,14 @@ const videoData = [
       "Short Film",
       "Comedy"
     ],
+    dataLabelingTitle: "Animation Categories",
+    labelProperties: [
+      { id: "artisticStyle", label: "Artistic Style" },
+      { id: "characterDesign", label: "Character Design" },
+      { id: "motionDynamics", label: "Motion Dynamics" },
+      { id: "colorPalette", label: "Color Palette" },
+      { id: "narrativeTechniques", label: "Narrative Techniques" }
+    ],
     metrics: {
       "Runtime": "10:34",
       "Release Year": 2008,
@@ -59,6 +67,14 @@ const videoData = [
       "3D Animation",
       "Fantasy",
       "Adventure"
+    ],
+    dataLabelingTitle: "Fantasy Elements",
+    labelProperties: [
+      { id: "worldBuilding", label: "World Building" },
+      { id: "characterArcs", label: "Character Arcs" },
+      { id: "visualEffects", label: "Visual Effects" },
+      { id: "storyStructure", label: "Story Structure" },
+      { id: "emotionalImpact", label: "Emotional Impact" }
     ],
     metrics: {
       "Runtime": "14:48",
@@ -84,6 +100,14 @@ const videoData = [
       "Short Film",
       "VFX"
     ],
+    dataLabelingTitle: "Sci-Fi Elements",
+    labelProperties: [
+      { id: "conceptDevelopment", label: "Concept Development" },
+      { id: "vfxIntegration", label: "VFX Integration" },
+      { id: "futuristicDesign", label: "Futuristic Design" },
+      { id: "technicalExecution", label: "Technical Execution" },
+      { id: "thematicCohesion", label: "Thematic Cohesion" }
+    ],
     metrics: {
       "Runtime": "12:14", 
       "Release Year": 2012,
@@ -108,6 +132,14 @@ const videoData = [
       "Abstract",
       "Experimental"
     ],
+    dataLabelingTitle: "Experimental Animation",
+    labelProperties: [
+      { id: "abstractConcepts", label: "Abstract Concepts" },
+      { id: "experimentalTechnique", label: "Experimental Technique" },
+      { id: "symbolism", label: "Symbolism" },
+      { id: "soundDesign", label: "Sound Design" },
+      { id: "artisticVision", label: "Artistic Vision" }
+    ],
     metrics: {
       "Runtime": "10:54",
       "Release Year": 2006,
@@ -131,6 +163,14 @@ const videoData = [
       "3D Animation",
       "Comedy",
       "Short Film"
+    ],
+    dataLabelingTitle: "Character Animation",
+    labelProperties: [
+      { id: "characterExpression", label: "Character Expression" },
+      { id: "comicTiming", label: "Comic Timing" },
+      { id: "environmentDesign", label: "Environment Design" },
+      { id: "animalPhysics", label: "Animal Physics" },
+      { id: "visualStorytelling", label: "Visual Storytelling" }
     ],
     metrics: {
       "Runtime": "2:30",

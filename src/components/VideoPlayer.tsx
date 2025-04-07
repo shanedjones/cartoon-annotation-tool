@@ -472,7 +472,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onDurationChange={handleDurationChange}
-          src={videoUrl}
+          src={videoUrl || null}
           playsInline
           preload="metadata"
           muted
