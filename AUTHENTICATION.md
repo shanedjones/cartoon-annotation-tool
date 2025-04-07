@@ -77,6 +77,7 @@ A complete username/password authentication system has been implemented for the 
 3. **Login with Admin Credentials**
    - Email: admin@example.com
    - Password: password123
+   - After login, you will be redirected to the inbox page
 
 4. **Register a New User**
    - Navigate to http://localhost:3000/auth/register

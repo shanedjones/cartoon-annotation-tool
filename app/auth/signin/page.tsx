@@ -28,7 +28,7 @@ export default function SignIn() {
         return;
       }
       
-      router.push("/");
+      router.push("/inbox");
     } catch (error) {
       setError("An error occurred. Please try again.");
       setLoading(false);

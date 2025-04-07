@@ -37,7 +37,7 @@ export default function Register() {
         password,
       });
       
-      router.push('/');
+      router.push('/inbox');
     } catch (error: any) {
       setError(error.message || 'An error occurred during registration');
       setLoading(false);
