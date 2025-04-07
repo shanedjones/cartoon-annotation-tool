@@ -131,7 +131,7 @@ export default function InboxPage() {
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Session Review Inbox</h1>
+        <h1 className="text-3xl font-bold">Inbox</h1>
       </div>
 
       {/* Filters and search */}
