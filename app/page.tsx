@@ -440,33 +440,6 @@ export default function Home() {
                     : "Replay Session"
                 }
               </button>
-              
-              <button
-                onClick={() => document.getElementById('downloadDataButton')?.click()}
-                disabled={isClient && (isRecording || !hasRecordedSession)}
-                className={isClient && (isRecording || !hasRecordedSession) ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" : "bg-blue-500 text-white py-2 px-4 rounded-md"}
-              >
-                Download Data
-              </button>
-              
-              <label className="bg-purple-500 text-white py-2 px-4 rounded-md cursor-pointer inline-block">
-                Load Data
-                <input 
-                  type="file" 
-                  accept=".json" 
-                  onChange={(e) => {
-                    const fileInput = document.getElementById('fileUploadInput') as HTMLInputElement;
-                    if (fileInput && e.target.files && e.target.files.length > 0) {
-                      const dataTransfer = new DataTransfer();
-                      dataTransfer.items.add(e.target.files[0]);
-                      fileInput.files = dataTransfer.files;
-                      const event = new Event('change', { bubbles: true });
-                      fileInput.dispatchEvent(event);
-                    }
-                  }}
-                  className="hidden"
-                />
-              </label>
             </div>
           </div>
         </div>
@@ -549,6 +522,41 @@ export default function Home() {
               initialSession={savedReviewSession}
               onSessionComplete={onSessionComplete}
             />
+            
+            {/* Session Data Controls */}
+            {hasRecordedSession && (
+              <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                <h3 className="text-lg font-semibold mb-2">Recorded Session</h3>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => document.getElementById('downloadDataButton')?.click()}
+                    disabled={isClient && (isRecording || !hasRecordedSession)}
+                    className={isClient && (isRecording || !hasRecordedSession) ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" : "bg-blue-500 text-white py-2 px-4 rounded-md"}
+                  >
+                    Download Data
+                  </button>
+                  
+                  <label className="bg-purple-500 text-white py-2 px-4 rounded-md cursor-pointer inline-block">
+                    Load Data
+                    <input 
+                      type="file" 
+                      accept=".json" 
+                      onChange={(e) => {
+                        const fileInput = document.getElementById('fileUploadInput') as HTMLInputElement;
+                        if (fileInput && e.target.files && e.target.files.length > 0) {
+                          const dataTransfer = new DataTransfer();
+                          dataTransfer.items.add(e.target.files[0]);
+                          fileInput.files = dataTransfer.files;
+                          const event = new Event('change', { bubbles: true });
+                          fileInput.dispatchEvent(event);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Key Metrics Section */}
