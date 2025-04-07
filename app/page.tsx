@@ -71,7 +71,7 @@ export default function Home() {
               { id: "colorPalette", label: "Color Palette" },
               { id: "narrativeTechniques", label: "Narrative Techniques" },
             ],
-            keyMetricsTitle: "Production Metrics",
+            keyMetricsTitle: selectedVideo.keyMetricsTitle || "Swing Metrics",
             keyMetrics: metricsArray
           });
           
@@ -388,7 +388,7 @@ export default function Home() {
     <div className="min-h-screen p-4">
       <main className="max-w-4xl mx-auto">
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
-          <h1 className="text-2xl font-bold">Session Annotation Tool</h1>
+          <h1 className="text-2xl font-bold">Golf Swing Analysis Tool</h1>
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
             <div className="flex space-x-2">
               <button

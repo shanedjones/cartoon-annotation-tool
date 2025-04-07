@@ -24,162 +24,172 @@ const client = new CosmosClient({ endpoint, key });
 const videoData = [
   {
     id: "video-001",
-    title: "Big Buck Bunny",
-    description: "A short animated film featuring a big rabbit dealing with three bullying rodents",
-    thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_big.jpg",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    duration: "10:34",
-    dateAdded: "2023-12-15",
+    title: "Professional Golf Swing - Driver",
+    description: "A professional golfer demonstrating an ideal driver swing with proper technique and follow-through",
+    thumbnailUrl: "https://img.freepik.com/free-photo/full-shot-man-playing-golf_23-2149354970.jpg",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    duration: "0:38",
+    dateAdded: "2024-01-15",
     status: "Not Started",
     categories: [
-      "3D Animation",
-      "Short Film",
-      "Comedy"
+      "Professional",
+      "Driver",
+      "Technique Demo"
     ],
-    dataLabelingTitle: "Animation Categories",
+    dataLabelingTitle: "Swing Analysis",
     labelProperties: [
-      { id: "artisticStyle", label: "Artistic Style" },
-      { id: "characterDesign", label: "Character Design" },
-      { id: "motionDynamics", label: "Motion Dynamics" },
-      { id: "colorPalette", label: "Color Palette" },
-      { id: "narrativeTechniques", label: "Narrative Techniques" }
+      { id: "setupAlignment", label: "Setup & Alignment" },
+      { id: "takeawayPath", label: "Takeaway Path" },
+      { id: "backswingPosition", label: "Backswing Position" },
+      { id: "downswingTransition", label: "Downswing Transition" },
+      { id: "impactPosition", label: "Impact Position" }
     ],
+    keyMetricsTitle: "Driver Metrics",
     metrics: {
-      "Runtime": "10:34",
-      "Release Year": 2008,
-      "Production Budget": "$150,000",
-      "Character Count": 4,
-      "Animation Team Size": 12,
-      "Frames Rendered": "15,240",
-      "Software Used": "Blender"
+      "Club Head Speed": "112 mph",
+      "Smash Factor": 1.48,
+      "Launch Angle": "13.5°",
+      "Spin Rate": "2340 rpm",
+      "Carry Distance": "285 yards",
+      "Clubface Angle": "0.2° open",
+      "Attack Angle": "-1.2°",
+      "Handicap": "+2.5"
     }
   },
   {
     id: "video-002",
-    title: "Sintel",
-    description: "A girl seeking revenge for the death of her pet dragon encounters several dangerous adventures",
-    thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Sintel_poster.jpg/800px-Sintel_poster.jpg",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-    duration: "14:48",
-    dateAdded: "2024-01-05",
+    title: "Iron Swing Sequence - 7 Iron",
+    description: "A step-by-step demonstration of a proper 7-iron swing with emphasis on ball striking and control",
+    thumbnailUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    duration: "0:45",
+    dateAdded: "2024-02-10",
     status: "Completed",
     categories: [
-      "3D Animation",
-      "Fantasy",
-      "Adventure"
+      "Instructional",
+      "Iron Play",
+      "Mid-range"
     ],
-    dataLabelingTitle: "Fantasy Elements",
+    dataLabelingTitle: "Iron Technique",
     labelProperties: [
-      { id: "worldBuilding", label: "World Building" },
-      { id: "characterArcs", label: "Character Arcs" },
-      { id: "visualEffects", label: "Visual Effects" },
-      { id: "storyStructure", label: "Story Structure" },
-      { id: "emotionalImpact", label: "Emotional Impact" }
+      { id: "ballPosition", label: "Ball Position" },
+      { id: "wristHinge", label: "Wrist Hinge" },
+      { id: "weightTransfer", label: "Weight Transfer" },
+      { id: "followThrough", label: "Follow Through" },
+      { id: "divotPattern", label: "Divot Pattern" }
     ],
+    keyMetricsTitle: "Iron Shot Metrics",
     metrics: {
-      "Runtime": "14:48",
-      "Release Year": 2010,
-      "Production Budget": "$400,000",
-      "Character Count": 12,
-      "Animation Team Size": 14,
-      "Frames Rendered": "22,500",
-      "Software Used": "Blender"
+      "Club Head Speed": "87 mph",
+      "Smash Factor": 1.38,
+      "Dynamic Loft": "32.5°",
+      "Shaft Lean": "7.2°",
+      "Spin Rate": "6540 rpm",
+      "Carry Distance": "165 yards",
+      "Dispersion": "4.5 yards",
+      "Handicap": "5"
     }
   },
   {
     id: "video-003",
-    title: "Tears of Steel",
-    description: "A sci-fi film about a group of warriors and scientists who try to save the world from robots",
-    thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Tears_of_Steel_poster.jpg/800px-Tears_of_Steel_poster.jpg",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-    duration: "12:14",
-    dateAdded: "2024-01-12",
+    title: "Bunker Shot Technique",
+    description: "Demonstration of proper bunker shot technique to effectively escape greenside sand traps",
+    thumbnailUrl: "https://images.unsplash.com/photo-1592919505780-303950717480",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    duration: "0:52",
+    dateAdded: "2024-03-05",
     status: "Not Started",
     categories: [
-      "Sci-Fi",
-      "Short Film",
-      "VFX"
+      "Short Game",
+      "Bunker Play",
+      "Sand Shots"
     ],
-    dataLabelingTitle: "Sci-Fi Elements",
+    dataLabelingTitle: "Sand Technique",
     labelProperties: [
-      { id: "conceptDevelopment", label: "Concept Development" },
-      { id: "vfxIntegration", label: "VFX Integration" },
-      { id: "futuristicDesign", label: "Futuristic Design" },
-      { id: "technicalExecution", label: "Technical Execution" },
-      { id: "thematicCohesion", label: "Thematic Cohesion" }
+      { id: "stanceWidth", label: "Stance Width" },
+      { id: "clubFacePosition", label: "Clubface Position" },
+      { id: "sandEntry", label: "Sand Entry" },
+      { id: "followThroughLength", label: "Follow Through Length" },
+      { id: "bodyRotation", label: "Body Rotation" }
     ],
+    keyMetricsTitle: "Bunker Shot Metrics",
     metrics: {
-      "Runtime": "12:14", 
-      "Release Year": 2012,
-      "Production Budget": "$630,000",
-      "Character Count": 8,
-      "Animation Team Size": 18,
-      "VFX Shots": 65,
-      "Software Used": "Blender, GIMP"
+      "Club": "58° wedge",
+      "Sand Type": "Fluffy",
+      "Entry Point": "1.5 inches behind ball",
+      "Swing Speed": "67 mph",
+      "Shot Height": "High",
+      "Spin Rate": "8650 rpm",
+      "Carry Distance": "24 yards",
+      "Roll Out": "4 feet"
     }
   },
   {
     id: "video-004",
-    title: "Elephant's Dream",
-    description: "The first open movie project from the Blender Foundation about two strange characters exploring a mechanized world",
-    thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d2/Elephants_Dream_poster.jpg",
-    videoUrl: "https://archive.org/download/ElephantsDream/ed_hd.mp4",
-    duration: "10:54",
-    dateAdded: "2023-11-15",
+    title: "Putting Stroke Analysis",
+    description: "Detailed breakdown of a proper putting stroke with emphasis on path, face control, and tempo",
+    thumbnailUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2e414",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    duration: "0:41",
+    dateAdded: "2024-01-28",
     status: "Archived",
     categories: [
-      "3D Animation",
-      "Abstract",
-      "Experimental"
+      "Putting",
+      "Green Reading",
+      "Stroke Analysis"
     ],
-    dataLabelingTitle: "Experimental Animation",
+    dataLabelingTitle: "Putting Elements",
     labelProperties: [
-      { id: "abstractConcepts", label: "Abstract Concepts" },
-      { id: "experimentalTechnique", label: "Experimental Technique" },
-      { id: "symbolism", label: "Symbolism" },
-      { id: "soundDesign", label: "Sound Design" },
-      { id: "artisticVision", label: "Artistic Vision" }
+      { id: "gripPressure", label: "Grip Pressure" },
+      { id: "strokePath", label: "Stroke Path" },
+      { id: "faceAngle", label: "Face Angle" },
+      { id: "tempo", label: "Tempo" },
+      { id: "acceleration", label: "Acceleration" }
     ],
+    keyMetricsTitle: "Putting Metrics",
     metrics: {
-      "Runtime": "10:54",
-      "Release Year": 2006,
-      "Production Budget": "$120,000",
-      "Character Count": 2,
-      "Animation Team Size": 7,
-      "Frames Rendered": "14,350",
-      "Software Used": "Blender"
+      "Stroke Type": "Slight Arc",
+      "Tempo Ratio": "2:1 (back:through)",
+      "Face Rotation": "0.3°",
+      "Path Deviation": "0.2° inside",
+      "Impact Position": "Center",
+      "Ball Speed": "6.8 feet/second",
+      "Distance Control": "97% accuracy",
+      "Make Percentage": "88% from 10 feet"
     }
   },
   {
     id: "video-005",
-    title: "Caminandes: Llama Drama",
-    description: "A llama tries to cross a fence to reach greener pastures while avoiding a grumpy guard dog",
-    thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Caminandes_-_Llama_Drama_Poster.jpg/800px-Caminandes_-_Llama_Drama_Poster.jpg",
-    videoUrl: "https://archive.org/download/Caminandes-LlamaDrama/caminandes_llamadrama_1080p.mp4",
-    duration: "2:30",
-    dateAdded: "2023-12-28",
+    title: "Pitch Shot - 40 Yard Shot",
+    description: "Technique demonstration for a controlled 40-yard pitch shot with proper distance control and spin",
+    thumbnailUrl: "https://images.unsplash.com/photo-1576690234871-28f376265de8",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+    duration: "0:37",
+    dateAdded: "2024-02-18",
     status: "Completed",
     categories: [
-      "3D Animation",
-      "Comedy",
-      "Short Film"
+      "Short Game",
+      "Pitch Shots",
+      "Wedge Play"
     ],
-    dataLabelingTitle: "Character Animation",
+    dataLabelingTitle: "Pitch Shot Technique",
     labelProperties: [
-      { id: "characterExpression", label: "Character Expression" },
-      { id: "comicTiming", label: "Comic Timing" },
-      { id: "environmentDesign", label: "Environment Design" },
-      { id: "animalPhysics", label: "Animal Physics" },
-      { id: "visualStorytelling", label: "Visual Storytelling" }
+      { id: "handPosition", label: "Hand Position" },
+      { id: "wristAction", label: "Wrist Action" },
+      { id: "lowPointControl", label: "Low Point Control" },
+      { id: "faceControl", label: "Face Control" },
+      { id: "loftPresentation", label: "Loft Presentation" }
     ],
+    keyMetricsTitle: "Pitch Shot Metrics",
     metrics: {
-      "Runtime": "2:30",
-      "Release Year": 2013,
-      "Production Budget": "$85,000",
-      "Character Count": 2,
-      "Animation Team Size": 5,
-      "Frames Rendered": "3,600",
-      "Software Used": "Blender"
+      "Club": "56° wedge",
+      "Carry Distance": "38 yards",
+      "Spin Rate": "7340 rpm",
+      "Launch Angle": "32°",
+      "Landing Angle": "55°",
+      "Apex Height": "18 feet",
+      "Roll Out": "2.5 feet",
+      "Shot Dispersion": "3.8 feet"
     }
   }
 ];

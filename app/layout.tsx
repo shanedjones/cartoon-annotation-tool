@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Annotation Tool",
-  description: "Interactive tool for annotating and reviewing video content",
+  title: "Golf Swing Analysis Tool",
+  description: "Interactive tool for analyzing and annotating golf swing videos",
 };
 
 export default function RootLayout({
