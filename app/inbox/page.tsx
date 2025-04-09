@@ -130,8 +130,29 @@ export default function InboxPage() {
   };
   
   // Close the assessment review modal
-  const closeAssessmentReview = () => {
+  const closeAssessmentReview = (saved?: boolean) => {
     setIsReviewModalOpen(false);
+    
+    // If a review was saved, update the session status in the UI
+    if (saved && reviewSessionId) {
+      // Update the sessions state to reflect the completion
+      setSessions(prevSessions => 
+        prevSessions.map(session => 
+          session.id === reviewSessionId 
+            ? { ...session, status: 'Completed' } 
+            : session
+        )
+      );
+      
+      // Also update filtered sessions to immediately reflect the change in UI
+      setFilteredSessions(prevSessions => 
+        prevSessions.map(session => 
+          session.id === reviewSessionId 
+            ? { ...session, status: 'Completed' } 
+            : session
+        )
+      );
+    }
   };
 
   // Function to get appropriate status color

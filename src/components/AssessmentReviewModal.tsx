@@ -17,7 +17,7 @@ interface AssessmentReviewModalProps {
   sessionId: string;
   athleteName: string;
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (saved?: boolean) => void;
 }
 
 const DEFAULT_FOCUS_AREAS: FocusArea[] = [
@@ -113,8 +113,8 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
       });
       
       if (response.ok) {
-        // Close modal on success
-        onClose();
+        // Close modal and indicate success to parent
+        onClose(true);
       } else {
         const errorData = await response.json();
         setSaveError(errorData.error || 'Failed to save assessment review');

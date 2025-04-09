@@ -96,6 +96,9 @@ export async function POST(request: Request) {
     // Update the session with the review data
     session.review = review;
     
+    // Update the status to "Completed" when a review is saved
+    session.status = "Completed";
+    
     // Save the updated session
     const { resource: updatedSession } = await container.item(sessionId, sessionId).replace(session);
     
