@@ -446,7 +446,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   }));
   
   return (
-    <div className="flex flex-col w-full max-w-3xl bg-gray-100 rounded-lg shadow-md overflow-hidden">
+    <div className="flex flex-col w-full max-w-5xl bg-gray-100 rounded-lg shadow-md overflow-hidden">
       <div className="relative" ref={videoContainerRef}>
         {isRecording && (
           <div className="absolute top-2 right-2 z-20 flex items-center px-2 py-1 bg-red-500 text-white rounded-md text-sm">

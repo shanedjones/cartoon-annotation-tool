@@ -388,7 +388,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-4">
-      <main className="max-w-4xl mx-auto">
+      <main className="max-w-6xl mx-auto">
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
             <div className="flex space-x-2">
@@ -438,7 +438,7 @@ export default function Home() {
         
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Categories Section */}
-          {contentToReview && <div className="lg:w-1/4">
+          {contentToReview && <div className="lg:w-1/5">
             <div className="p-4 border rounded-lg bg-gray-50 h-full">
               <h2 className="text-xl font-semibold mb-3">{contentToReview.dataLabelingTitle}</h2>
               
@@ -521,7 +521,7 @@ export default function Home() {
           </div>}
           
           {/* Video Player */}
-          <div className="lg:w-1/2">
+          <div className="lg:w-3/5">
             {contentToReview ? <VideoPlayerWrapper 
               categories={categories}
               onCategoriesCleared={clearCategories}
@@ -574,7 +574,7 @@ export default function Home() {
           
           {/* Key Metrics Section */}
           {contentToReview?.keyMetrics && contentToReview.keyMetrics.length > 0 && (
-            <div className="lg:w-1/4">
+            <div className="lg:w-1/5">
               <div className="p-4 border rounded-lg bg-gray-50 h-full">
                 <h2 className="text-xl font-semibold mb-3">{contentToReview.keyMetricsTitle || "Key Metrics"}</h2>
                 <div className="flex flex-col gap-3">
