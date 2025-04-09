@@ -20,6 +20,116 @@ if (!endpoint || !key) {
 // Initialize the Cosmos client
 const client = new CosmosClient({ endpoint, key });
 
+// Define the clubs and strengths
+const clubs = ["Driver", "7 Iron", "PW"];
+const strengths = ["Head-to-Head", "Neck-to-Neck", "Chest-to-Chest"];
+
+// Function to generate swings for a session
+function generateSwings(sessionId, startIndex = 1) {
+  const swings = [];
+  let swingCounter = startIndex;
+
+  clubs.forEach(club => {
+    strengths.forEach(strength => {
+      const swingId = `swing-${sessionId}-${swingCounter}`;
+      swingCounter++;
+
+      // Create descriptions based on club and strength
+      let description = "";
+      if (club === "Driver") {
+        description = `Focus on stance and alignment during the ${strength} position. Check for proper weight distribution and follow-through.`;
+      } else if (club === "7 Iron") {
+        description = `Analyze the swing plane and body rotation during the ${strength} position. Ensure proper wrist action.`;
+      } else {
+        description = `Check the hand position and loft presentation during the ${strength} position. Note the divot pattern.`;
+      }
+
+      // Create metrics based on club
+      let metrics = {};
+      let labelProperties = [];
+      let dataLabelingTitle = "";
+      let keyMetricsTitle = "";
+
+      if (club === "Driver") {
+        dataLabelingTitle = "Driver Analysis";
+        keyMetricsTitle = "Driver Metrics";
+        labelProperties = [
+          { id: "setupAlignment", label: "Setup & Alignment" },
+          { id: "takeawayPath", label: "Takeaway Path" },
+          { id: "backswingPosition", label: "Backswing Position" },
+          { id: "downswingTransition", label: "Downswing Transition" },
+          { id: "impactPosition", label: "Impact Position" }
+        ];
+        metrics = {
+          "Club Head Speed": `${Math.floor(Math.random() * 20) + 95} mph`,
+          "Smash Factor": (1.35 + Math.random() * 0.15).toFixed(2),
+          "Launch Angle": `${(13 + Math.random() * 4).toFixed(1)}°`,
+          "Spin Rate": `${Math.floor(Math.random() * 600) + 2200} rpm`,
+          "Carry Distance": `${Math.floor(Math.random() * 60) + 240} yards`,
+          "Clubface Angle": `${(Math.random() * 2 - 1).toFixed(1)}° ${Math.random() > 0.5 ? 'open' : 'closed'}`,
+          "Attack Angle": `${(Math.random() * 3 - 1.5).toFixed(1)}°`
+        };
+      } else if (club === "7 Iron") {
+        dataLabelingTitle = "Iron Technique";
+        keyMetricsTitle = "Iron Shot Metrics";
+        labelProperties = [
+          { id: "ballPosition", label: "Ball Position" },
+          { id: "wristHinge", label: "Wrist Hinge" },
+          { id: "weightTransfer", label: "Weight Transfer" },
+          { id: "followThrough", label: "Follow Through" },
+          { id: "divotPattern", label: "Divot Pattern" }
+        ];
+        metrics = {
+          "Club Head Speed": `${Math.floor(Math.random() * 15) + 80} mph`,
+          "Smash Factor": (1.3 + Math.random() * 0.1).toFixed(2),
+          "Dynamic Loft": `${(30 + Math.random() * 4).toFixed(1)}°`,
+          "Shaft Lean": `${(6 + Math.random() * 3).toFixed(1)}°`,
+          "Spin Rate": `${Math.floor(Math.random() * 1000) + 6000} rpm`,
+          "Carry Distance": `${Math.floor(Math.random() * 30) + 150} yards`,
+          "Dispersion": `${(3 + Math.random() * 3).toFixed(1)} yards`
+        };
+      } else {
+        dataLabelingTitle = "Pitch Shot Technique";
+        keyMetricsTitle = "Wedge Metrics";
+        labelProperties = [
+          { id: "handPosition", label: "Hand Position" },
+          { id: "wristAction", label: "Wrist Action" },
+          { id: "lowPointControl", label: "Low Point Control" },
+          { id: "faceControl", label: "Face Control" },
+          { id: "loftPresentation", label: "Loft Presentation" }
+        ];
+        metrics = {
+          "Club": "56° wedge",
+          "Carry Distance": `${Math.floor(Math.random() * 20) + 85} yards`,
+          "Spin Rate": `${Math.floor(Math.random() * 1000) + 7000} rpm`,
+          "Launch Angle": `${(28 + Math.random() * 6).toFixed(1)}°`,
+          "Landing Angle": `${(50 + Math.random() * 10).toFixed(1)}°`,
+          "Apex Height": `${Math.floor(Math.random() * 8) + 15} feet`,
+          "Roll Out": `${(1 + Math.random() * 3).toFixed(1)} feet`,
+          "Shot Dispersion": `${(2 + Math.random() * 3).toFixed(1)} feet`
+        };
+      }
+
+      // Create the swing
+      swings.push({
+        id: swingId,
+        title: `${club} - ${strength}`,
+        description: description,
+        thumbnailUrl: `https://images.unsplash.com/photo-${Math.floor(Math.random() * 1000000000)}`,
+        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
+        duration: `0:${Math.floor(Math.random() * 20) + 30}`,
+        status: "Not Started",
+        dataLabelingTitle: dataLabelingTitle,
+        labelProperties: labelProperties,
+        keyMetricsTitle: keyMetricsTitle,
+        metrics: metrics
+      });
+    });
+  });
+
+  return swings;
+}
+
 // Sample assessment session data to seed
 const assessmentData = [
   {
@@ -34,62 +144,7 @@ const assessmentData = [
     status: "Not Started",
     location: "Oak Ridge Golf Club",
     coach: "David Smith",
-    swings: [
-      {
-        id: "swing-001-1",
-        title: "Driver Full Swing",
-        description: "Please review the stance throughout the swing and check if the club path is correct on the downswing.",
-        thumbnailUrl: "https://img.freepik.com/free-photo/full-shot-man-playing-golf_23-2149354970.jpg",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:38",
-        status: "Not Started",
-        dataLabelingTitle: "Swing Analysis",
-        labelProperties: [
-          { id: "setupAlignment", label: "Setup & Alignment" },
-          { id: "takeawayPath", label: "Takeaway Path" },
-          { id: "backswingPosition", label: "Backswing Position" },
-          { id: "downswingTransition", label: "Downswing Transition" },
-          { id: "impactPosition", label: "Impact Position" }
-        ],
-        keyMetricsTitle: "Driver Metrics",
-        metrics: {
-          "Club Head Speed": "112 mph",
-          "Smash Factor": 1.48,
-          "Launch Angle": "13.5°",
-          "Spin Rate": "2340 rpm",
-          "Carry Distance": "285 yards",
-          "Clubface Angle": "0.2° open",
-          "Attack Angle": "-1.2°"
-        }
-      },
-      {
-        id: "swing-001-2",
-        title: "7 Iron Full Strength",
-        description: "Can you review if the weight transfer is correct? Pay attention to the transition at the top of the backswing.",
-        thumbnailUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:45",
-        status: "Not Started",
-        dataLabelingTitle: "Iron Technique",
-        labelProperties: [
-          { id: "ballPosition", label: "Ball Position" },
-          { id: "wristHinge", label: "Wrist Hinge" },
-          { id: "weightTransfer", label: "Weight Transfer" },
-          { id: "followThrough", label: "Follow Through" },
-          { id: "divotPattern", label: "Divot Pattern" }
-        ],
-        keyMetricsTitle: "Iron Shot Metrics",
-        metrics: {
-          "Club Head Speed": "87 mph",
-          "Smash Factor": 1.38,
-          "Dynamic Loft": "32.5°",
-          "Shaft Lean": "7.2°",
-          "Spin Rate": "6540 rpm",
-          "Carry Distance": "165 yards",
-          "Dispersion": "4.5 yards"
-        }
-      }
-    ]
+    swings: generateSwings("001")
   },
   {
     id: "session-002",
@@ -103,63 +158,7 @@ const assessmentData = [
     status: "Not Started",
     location: "Pine Valley Golf Resort",
     coach: "Lisa Chen",
-    swings: [
-      {
-        id: "swing-002-1",
-        title: "Driver Full Swing",
-        description: "Focus on hip rotation and weight transfer. Note if the backswing is overextended.",
-        thumbnailUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:41",
-        status: "Not Started",
-        dataLabelingTitle: "Swing Analysis",
-        labelProperties: [
-          { id: "setupAlignment", label: "Setup & Alignment" },
-          { id: "takeawayPath", label: "Takeaway Path" },
-          { id: "backswingPosition", label: "Backswing Position" },
-          { id: "downswingTransition", label: "Downswing Transition" },
-          { id: "impactPosition", label: "Impact Position" }
-        ],
-        keyMetricsTitle: "Driver Metrics",
-        metrics: {
-          "Club Head Speed": "94 mph",
-          "Smash Factor": 1.42,
-          "Launch Angle": "14.2°",
-          "Spin Rate": "2580 rpm",
-          "Carry Distance": "225 yards",
-          "Clubface Angle": "1.5° open",
-          "Attack Angle": "0.8°"
-        }
-      },
-      {
-        id: "swing-002-2",
-        title: "SW Bunker Shot",
-        description: "Check if sand entry point is correct and provide feedback on the follow-through technique.",
-        thumbnailUrl: "https://images.unsplash.com/photo-1592919505780-303950717480",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:52",
-        status: "Not Started",
-        dataLabelingTitle: "Sand Technique",
-        labelProperties: [
-          { id: "stanceWidth", label: "Stance Width" },
-          { id: "clubFacePosition", label: "Clubface Position" },
-          { id: "sandEntry", label: "Sand Entry" },
-          { id: "followThroughLength", label: "Follow Through Length" },
-          { id: "bodyRotation", label: "Body Rotation" }
-        ],
-        keyMetricsTitle: "Bunker Shot Metrics",
-        metrics: {
-          "Club": "58° wedge",
-          "Sand Type": "Fluffy",
-          "Entry Point": "1.5 inches behind ball",
-          "Swing Speed": "67 mph",
-          "Shot Height": "High",
-          "Spin Rate": "8650 rpm",
-          "Carry Distance": "24 yards",
-          "Roll Out": "4 feet"
-        }
-      }
-    ]
+    swings: generateSwings("002")
   },
   {
     id: "session-003",
@@ -173,36 +172,7 @@ const assessmentData = [
     status: "Not Started",
     location: "Meadowbrook Golf Academy",
     coach: "Mark Wilson",
-    swings: [
-      {
-        id: "swing-003-1",
-        title: "PW Half Strength",
-        description: "Can you check if hand position at impact is correct? Also review if loft presentation is appropriate for a half swing.",
-        thumbnailUrl: "https://images.unsplash.com/photo-1576690234871-28f376265de8",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:37",
-        status: "Not Started",
-        dataLabelingTitle: "Pitch Shot Technique",
-        labelProperties: [
-          { id: "handPosition", label: "Hand Position" },
-          { id: "wristAction", label: "Wrist Action" },
-          { id: "lowPointControl", label: "Low Point Control" },
-          { id: "faceControl", label: "Face Control" },
-          { id: "loftPresentation", label: "Loft Presentation" }
-        ],
-        keyMetricsTitle: "Pitch Shot Metrics",
-        metrics: {
-          "Club": "56° wedge",
-          "Carry Distance": "38 yards",
-          "Spin Rate": "7340 rpm",
-          "Launch Angle": "32°",
-          "Landing Angle": "55°",
-          "Apex Height": "18 feet",
-          "Roll Out": "2.5 feet",
-          "Shot Dispersion": "3.8 feet"
-        }
-      }
-    ]
+    swings: generateSwings("003")
   },
   {
     id: "session-004",
@@ -216,63 +186,7 @@ const assessmentData = [
     status: "Not Started",
     location: "Westview Golf Course",
     coach: "Jennifer Adams",
-    swings: [
-      {
-        id: "swing-004-1",
-        title: "Driver Full Swing",
-        description: "Analyze the swing plane and body rotation. Focus on maintaining posture through impact.",
-        thumbnailUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2e414",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:41",
-        status: "Not Started",
-        dataLabelingTitle: "Swing Analysis",
-        labelProperties: [
-          { id: "setupAlignment", label: "Setup & Alignment" },
-          { id: "takeawayPath", label: "Takeaway Path" },
-          { id: "backswingPosition", label: "Backswing Position" },
-          { id: "downswingTransition", label: "Downswing Transition" },
-          { id: "impactPosition", label: "Impact Position" }
-        ],
-        keyMetricsTitle: "Driver Metrics",
-        metrics: {
-          "Club Head Speed": "85 mph",
-          "Smash Factor": 1.35,
-          "Launch Angle": "15.1°",
-          "Spin Rate": "3100 rpm",
-          "Carry Distance": "180 yards",
-          "Clubface Angle": "2.3° closed",
-          "Attack Angle": "2.1°"
-        }
-      },
-      {
-        id: "swing-004-2",
-        title: "Putter 8-foot Break",
-        description: "Please review the stroke path and face alignment at impact. Is the tempo consistent through the stroke?",
-        thumbnailUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2e414",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:41",
-        status: "Not Started",
-        dataLabelingTitle: "Putting Elements",
-        labelProperties: [
-          { id: "gripPressure", label: "Grip Pressure" },
-          { id: "strokePath", label: "Stroke Path" },
-          { id: "faceAngle", label: "Face Angle" },
-          { id: "tempo", label: "Tempo" },
-          { id: "acceleration", label: "Acceleration" }
-        ],
-        keyMetricsTitle: "Putting Metrics",
-        metrics: {
-          "Stroke Type": "Slight Arc",
-          "Tempo Ratio": "2:1 (back:through)",
-          "Face Rotation": "0.3°",
-          "Path Deviation": "0.2° inside",
-          "Impact Position": "Center",
-          "Ball Speed": "6.8 feet/second",
-          "Distance Control": "97% accuracy",
-          "Make Percentage": "88% from 10 feet"
-        }
-      }
-    ]
+    swings: generateSwings("004")
   },
   {
     id: "session-005",
@@ -286,35 +200,7 @@ const assessmentData = [
     status: "Not Started",
     location: "Highland Links Golf Club",
     coach: "Richard Taylor",
-    swings: [
-      {
-        id: "swing-005-1",
-        title: "Driver Full Swing",
-        description: "Review shoulder rotation and spine angle. Check if club path is on plane.",
-        thumbnailUrl: "https://images.unsplash.com/photo-1576690234871-28f376265de8",
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
-        duration: "0:37",
-        status: "Not Started",
-        dataLabelingTitle: "Swing Analysis",
-        labelProperties: [
-          { id: "setupAlignment", label: "Setup & Alignment" },
-          { id: "takeawayPath", label: "Takeaway Path" },
-          { id: "backswingPosition", label: "Backswing Position" },
-          { id: "downswingTransition", label: "Downswing Transition" },
-          { id: "impactPosition", label: "Impact Position" }
-        ],
-        keyMetricsTitle: "Driver Metrics",
-        metrics: {
-          "Club Head Speed": "108 mph",
-          "Smash Factor": 1.46,
-          "Launch Angle": "13.9°",
-          "Spin Rate": "2420 rpm",
-          "Carry Distance": "272 yards",
-          "Clubface Angle": "0.5° closed",
-          "Attack Angle": "-0.8°"
-        }
-      }
-    ]
+    swings: generateSwings("005")
   }
 ];
 
@@ -359,9 +245,14 @@ async function main() {
 
     // Insert sample data
     console.log('Inserting sample assessment data...');
+    
+    // Count the total number of swings across all sessions
+    const totalSwings = assessmentData.reduce((total, session) => total + session.swings.length, 0);
+    console.log(`Creating ${assessmentData.length} assessment sessions with a total of ${totalSwings} swings...`);
+    
     for (const session of assessmentData) {
       const { resource: createdItem } = await container.items.create(session);
-      console.log(`Created session: ${createdItem.id}`);
+      console.log(`Created session: ${createdItem.id} with ${session.swings.length} swings`);
     }
 
     console.log('Seed data inserted successfully');

@@ -339,36 +339,100 @@ export default function Home() {
   const onSessionComplete = useCallback(async (session) => {
     console.log('Session complete:', session);
     
-    // If this is a review of a specific video from the inbox, save the session to Cosmos DB
+    // If this is a review of a specific swing from the inbox, save the session to Cosmos DB
     if (videoId) {
       try {
-        // First, get the current video data
+        // First, get the swing data
         const response = await fetch(`/api/videos?id=${videoId}`);
         if (!response.ok) {
-          throw new Error(`Failed to fetch video: ${response.status}`);
+          throw new Error(`Failed to fetch swing: ${response.status}`);
         }
         
-        const videos = await response.json();
-        if (videos && videos.length > 0) {
-          const video = videos[0];
+        const swings = await response.json();
+        if (swings && swings.length > 0) {
+          const swing = swings[0];
           
-          // Update video with the session data and set status to "Completed"
-          const updateResponse = await fetch('/api/videos', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              ...video,
-              status: "Completed",
-              reviewSession: session
-            })
-          });
+          // Check if this is individual swing or swing within a session
+          const isSwingId = videoId.includes('swing-');
           
-          if (updateResponse.ok) {
-            console.log("Saved review session to Cosmos DB and updated status to Completed");
+          if (isSwingId) {
+            console.log("Processing swing within a session...");
+            
+            // Find which session contains this swing
+            const sessionQueryResponse = await fetch(`/api/videos/session?swingId=${videoId}`);
+            
+            if (sessionQueryResponse.ok) {
+              const sessionData = await sessionQueryResponse.json();
+              console.log("Found session data:", sessionData.id);
+              
+              // Update the swing within the session
+              if (sessionData && sessionData.id) {
+                // Merge the review session with the swing
+                const swingWithSession = {
+                  ...swing,
+                  status: "Completed",
+                  reviewSession: session
+                };
+                
+                // Update the swing
+                const updateSwingResponse = await fetch('/api/videos/updateSwing', {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    sessionId: sessionData.id,
+                    swing: swingWithSession
+                  })
+                });
+                
+                if (updateSwingResponse.ok) {
+                  console.log("Saved review session to Cosmos DB and updated swing status to Completed");
+                } else {
+                  console.error("Failed to update swing within session:", await updateSwingResponse.text());
+                }
+              }
+            } else {
+              console.error("Failed to find session for swing:", await sessionQueryResponse.text());
+              
+              // Fallback: try to update the swing directly as standalone
+              const updateResponse = await fetch('/api/videos', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  ...swing,
+                  status: "Completed",
+                  reviewSession: session
+                })
+              });
+              
+              if (updateResponse.ok) {
+                console.log("Saved review session to standalone swing");
+              } else {
+                console.error("Failed to update swing:", await updateResponse.text());
+              }
+            }
           } else {
-            console.error("Failed to update video with review session:", await updateResponse.text());
+            // Direct video update (not a swing within a session)
+            const updateResponse = await fetch('/api/videos', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ...swing,
+                status: "Completed",
+                reviewSession: session
+              })
+            });
+            
+            if (updateResponse.ok) {
+              console.log("Saved review session to Cosmos DB and updated status to Completed");
+            } else {
+              console.error("Failed to update video with review session:", await updateResponse.text());
+            }
           }
         }
       } catch (error) {
