@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AssessmentReviewModal from '@/src/components/AssessmentReviewModal';
 
 // Define the assessment session interface
 interface Athlete {
@@ -42,6 +43,11 @@ export default function InboxPage() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  
+  // Assessment review modal state
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewSessionId, setReviewSessionId] = useState('');
+  const [reviewAthleteName, setReviewAthleteName] = useState('');
 
   // Fetch assessment sessions from Cosmos DB API
   useEffect(() => {
@@ -114,6 +120,18 @@ export default function InboxPage() {
     } else {
       setExpandedSession(sessionId);
     }
+  };
+  
+  // Open the assessment review modal
+  const openAssessmentReview = (sessionId: string, athleteName: string) => {
+    setReviewSessionId(sessionId);
+    setReviewAthleteName(athleteName);
+    setIsReviewModalOpen(true);
+  };
+  
+  // Close the assessment review modal
+  const closeAssessmentReview = () => {
+    setIsReviewModalOpen(false);
   };
 
   // Function to get appropriate status color
@@ -270,8 +288,13 @@ export default function InboxPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {session.swings?.length || 0} {(session.swings?.length || 0) === 1 ? 'swing' : 'swings'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      -
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                      <button
+                        onClick={() => openAssessmentReview(session.id, session.athlete?.name || 'Unknown Athlete')}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        Review Assessment
+                      </button>
                     </td>
                   </tr>
                   
@@ -324,6 +347,14 @@ export default function InboxPage() {
         </div>
       )}
       
+      
+      {/* Assessment Review Modal */}
+      <AssessmentReviewModal
+        sessionId={reviewSessionId}
+        athleteName={reviewAthleteName}
+        isOpen={isReviewModalOpen}
+        onClose={closeAssessmentReview}
+      />
     </div>
   );
 }
