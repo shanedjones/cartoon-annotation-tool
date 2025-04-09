@@ -1,19 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
-import { useVideoSource, useVideoControls } from '../contexts/VideoContext';
-
-// Add a utility function to check if a URL is a cross-origin URL
-const isCrossOriginUrl = (url: string): boolean => {
-  try {
-    if (typeof window === 'undefined') return false;
-    const urlObj = new URL(url, window.location.href);
-    return urlObj.origin !== window.location.origin;
-  } catch (e) {
-    return false;
-  }
-};
+import React, { useState, useRef, useEffect } from 'react';
+import type { DrawingPath, DrawingTool } from './AnnotationCanvas';
+import AnnotationCanvas from './AnnotationCanvas';
 
 // Define the types of events we want to record
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
@@ -27,8 +16,6 @@ export interface RecordedAction {
     [key: string]: any; // Additional details specific to the action
   };
 }
-
-import AnnotationCanvas, { DrawingPath, DrawingTool } from './AnnotationCanvas';
 
 import { AudioChunk } from './AudioRecorder';
 
@@ -67,6 +54,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   onAnnotationAdded,
   videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 }: VideoPlayerProps, ref) => {
+  // Component state
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -81,16 +69,16 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const [isVideoCached, setIsVideoCached] = useState(false);
   const [cachedVideoSrc, setCachedVideoSrc] = useState<string | null>(null);
   const [isLoadStarted, setIsLoadStarted] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
-  // Use contexts
-  const { updatePosition } = useTimeline();
-  const { updateClearTime } = useLastClearTime();
-  
+  // References
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
   const annotationCanvasRef = useRef<any>(null);
-
+  const localBlobCache = useRef<Record<string, string>>({});
+  
   // Initialize recording start time when recording begins
   useEffect(() => {
     if (isRecording && !recordingStartTimeRef.current) {
@@ -100,130 +88,30 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
   }, [isRecording]);
   
-  // Use the video context hooks with try/catch to handle case where context might not be available
-  let effectiveUrl, isContextLoading, videoControls;
-  try {
-    const videoSource = useVideoSource();
-    effectiveUrl = videoSource?.effectiveUrl;
-    isContextLoading = videoSource?.isLoading;
-    
-    videoControls = useVideoControls();
-  } catch (error) {
-    console.warn('Video context not available:', error);
-    effectiveUrl = null;
-    isContextLoading = false;
-    videoControls = null;
-  }
-  
-  // Create a local video blob cache if needed (fallback if context isn't working)
-  const localBlobCache = useRef<Record<string, string>>({});
-  
-  // Debug info about video URLs
-  useEffect(() => {
-    console.log('VideoPlayer URLs:', { 
-      propUrl: videoUrl,
-      effectiveUrl,
-      cachedVideoSrc
-    });
-  }, [videoUrl, effectiveUrl, cachedVideoSrc]);
-  
-  // States for error handling
-  const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
   // Directly handle loading videos with improved error handling
   useEffect(() => {
-    // Skip if no URL or already started loading
-    if (!videoUrl || isLoadStarted) return;
+    // Skip if no URL
+    if (!videoUrl) return;
     
-    console.log('Starting video loading process for:', videoUrl);
-    setIsLoading(true);
-    setIsLoadStarted(true);
-    setHasError(false); // Reset error state
-    setErrorMessage('');
-    
-    // Wait for the video context to handle caching
-    if (effectiveUrl) {
-      // Cache resolution successful
-      console.log('Cache resolution successful, using URL:', effectiveUrl);
-      setCachedVideoSrc(effectiveUrl);
-      setIsLoading(false);
-      setIsVideoCached(true);
-    } else {
-      // Wait for context to resolve
-      // Don't set video src yet
-      console.log('Waiting for video context to resolve cache status');
-    }
-  }, [videoUrl, effectiveUrl, isLoadStarted]);
-  
-  // Handle cache failures by checking context error status
-  useEffect(() => {
-    const videoSource = useVideoSource();
-    // Check if the context has an error
-    if (videoSource?.hasError && videoUrl && isLoadStarted) {
-      console.error('Video caching failed for:', videoUrl);
-      setHasError(true);
-      setErrorMessage(videoSource.errorMessage || 'Unable to load video. Please contact technical support.');
-      setIsLoading(false);
+    // Set loading state if not already loading
+    if (!isLoadStarted) {
+      console.log('Starting video loading process for:', videoUrl);
+      setIsLoading(true);
+      setIsLoadStarted(true);
+      setHasError(false);
+      setErrorMessage('');
+      
+      // In a real implementation, we would check cache here
+      // For now, directly set the cached source to the original URL
+      setCachedVideoSrc(videoUrl);
+      
+      // Simulate loading completion
+      setTimeout(() => {
+        setIsLoading(false);
+        setIsVideoCached(true);
+      }, 1000);
     }
   }, [videoUrl, isLoadStarted]);
-  
-  // Consolidated video loading event handling
-  useEffect(() => {
-    if (!videoRef.current) return;
-    
-    // Create a single handler for all loading-related events
-    const handleVideoLoad = () => {
-      if (videoRef.current) {
-        const readyState = videoRef.current.readyState;
-        console.log('Video load event triggered - readyState:', readyState);
-        
-        // Set duration if available
-        if (readyState >= 1 && videoRef.current.duration) {
-          setDuration(videoRef.current.duration);
-        }
-        
-        // Update loading state based on readiness
-        if (readyState >= 2 && isLoading) {
-          setIsLoading(false);
-        }
-        
-        // Mark as cached once canplaythrough fires
-        if (readyState >= 4 && !isVideoCached) {
-          setIsVideoCached(true);
-          
-          // Store in local cache if using direct URL mode
-          if (videoUrl && !cachedVideoSrc) {
-            console.log('Video ready for playthrough, marking as cached:', videoUrl);
-            // Use our local cache ref to store this information
-            localBlobCache.current[videoUrl] = videoUrl;
-          }
-        }
-      }
-    };
-    
-    // Add listeners for all relevant events
-    videoRef.current.addEventListener('loadedmetadata', handleVideoLoad);
-    videoRef.current.addEventListener('loadeddata', handleVideoLoad);
-    videoRef.current.addEventListener('canplay', handleVideoLoad);
-    videoRef.current.addEventListener('canplaythrough', handleVideoLoad);
-    videoRef.current.addEventListener('durationchange', handleVideoLoad);
-    
-    // Initial check in case events already fired
-    if (videoRef.current.readyState >= 2) {
-      handleVideoLoad();
-    }
-    
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener('loadedmetadata', handleVideoLoad);
-        videoRef.current.removeEventListener('loadeddata', handleVideoLoad);
-        videoRef.current.removeEventListener('canplay', handleVideoLoad);
-        videoRef.current.removeEventListener('canplaythrough', handleVideoLoad);
-        videoRef.current.removeEventListener('durationchange', handleVideoLoad);
-      }
-    };
-  }, [videoRef.current, isLoading, isVideoCached, videoUrl, cachedVideoSrc]);
   
   // Pass video element reference to parent component
   useEffect(() => {
@@ -304,8 +192,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
   };
   
-  // Toggle annotation mode - removed as drawing is always enabled
-  
   // Clear annotations
   const clearAnnotations = () => {
     setShouldClearCanvas(true);
@@ -316,10 +202,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
       
       console.log(`Recording canvas clear at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
-      
-      // Update last clear time using context
-      updateClearTime(globalTimeOffset);
-      console.log(`Updated lastClearTime via context to ${globalTimeOffset}ms`);
       
       const action: RecordedAction = {
         type: 'annotation',
@@ -339,7 +221,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const handleClearComplete = () => {
     setShouldClearCanvas(false);
   };
-
+  
   // Function to record an action if recording is enabled
   const recordAction = (type: ActionType, details?: {[key: string]: any}) => {
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
@@ -361,39 +243,33 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       onRecordAction(action);
     }
   };
-
+  
   const togglePlay = () => {
     if (videoRef.current) {
       if (playing) {
         videoRef.current.pause();
-        videoControls?.pause?.(); // Update context if method exists
         recordAction('pause');
       } else {
         videoRef.current.play();
-        videoControls?.play?.(); // Update context if method exists
         recordAction('play');
       }
       setPlaying(!playing);
     }
   };
-
+  
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      // Update both component state and context to reflect the current video time
+      // Update state to reflect the current video time
       const time = videoRef.current.currentTime;
       setCurrentTime(time);
-      // Only call updateTime if it exists (using optional chaining)
-      videoControls?.updateTime?.(time);
     }
   };
-
+  
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       console.log('Video metadata loaded, duration:', videoRef.current.duration);
       const duration = videoRef.current.duration;
       setDuration(duration);
-      // Only call updateDuration if it exists (using optional chaining)
-      videoControls?.updateDuration?.(duration);
     }
   };
   
@@ -403,11 +279,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       console.log('Video duration changed:', videoRef.current.duration);
       const duration = videoRef.current.duration;
       setDuration(duration);
-      // Only call updateDuration if it exists (using optional chaining)
-      videoControls?.updateDuration?.(duration);
     }
   };
-
+  
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     const result = seekToTime(time);
@@ -429,19 +303,16 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       recordAction('seek', { from: result.previousTime, to: result.newTime });
     }
   };
-
-
+  
   const handlePlaybackRateChange = (rate: number) => {
     if (videoRef.current) {
       const previousRate = videoRef.current.playbackRate;
       videoRef.current.playbackRate = rate;
       setPlaybackRate(rate);
-      // Update context if the method exists
-      videoControls?.setPlaybackRate?.(rate);
       recordAction('playbackRate', { from: previousRate, to: rate });
     }
   };
-
+  
   const formatTime = (time: number) => {
     if (!time || isNaN(time) || time < 0) {
       return '0:00';
@@ -450,7 +321,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
-
+  
   // Helper function to seek to a specific time
   const seekToTime = (time: number) => {
     if (videoRef.current) {
@@ -458,13 +329,11 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       const newTime = Math.max(0, Math.min(duration, time));
       videoRef.current.currentTime = newTime;
       setCurrentTime(newTime);
-      // Update the video context, only if the method exists
-      videoControls?.seek?.(newTime);
       return { previousTime, newTime };
     }
     return null;
   };
-
+  
   // Add keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -495,31 +364,28 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
             });
           }
         }
-      // 'm' shortcut removed
       }
     };
-
+    
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [duration, playing, isRecording, currentTime]);
-
-  // First useImperativeHandle is removed as it's duplicated below
-
+  
   // Expose handlers for AnnotationCanvas 
   const handleManualAnnotation = (path: DrawingPath) => {
     if (annotationCanvasRef.current) {
       annotationCanvasRef.current.handleManualAnnotation(path);
     }
   };
-
+  
   const clearAllAnnotations = () => {
     if (annotationCanvasRef.current) {
       annotationCanvasRef.current.clearCanvasDrawings();
     }
   };
-
+  
   // Add methods to imperativeHandle 
   React.useImperativeHandle(ref, () => ({
     // Expose the video element
@@ -561,10 +427,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           
           console.log(`Recording canvas clear via clearAllAnnotations at global time ${globalTimeOffset}ms`);
           
-          // Update last clear time using context
-          updateClearTime(globalTimeOffset);
-          console.log(`Updated lastClearTime via context to ${globalTimeOffset}ms`);
-          
           const action: RecordedAction = {
             type: 'annotation',
             timestamp: globalTimeOffset,
@@ -582,7 +444,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       }
     }
   }));
-
+  
   return (
     <div className="flex flex-col w-full max-w-3xl bg-gray-100 rounded-lg shadow-md overflow-hidden">
       <div className="relative" ref={videoContainerRef}>
@@ -620,7 +482,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           playsInline
           preload="metadata"
           muted
-          // Only use cachedVideoSrc which is set after caching completes
         />
         
         {videoDimensions.width > 0 && videoDimensions.height > 0 && (
@@ -773,17 +634,5 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
 // Add displayName for better debugging in React DevTools
 VideoPlayer.displayName = 'VideoPlayer';
 
-// Custom comparison function for memoization
-const arePropsEqual = (prevProps: VideoPlayerProps, nextProps: VideoPlayerProps) => {
-  // Only re-render if these props changed
-  return (
-    prevProps.videoUrl === nextProps.videoUrl &&
-    prevProps.isRecording === nextProps.isRecording &&
-    prevProps.isReplaying === nextProps.isReplaying &&
-    // Simplistic comparison of replay annotations (optimally would do deep compare)
-    prevProps.replayAnnotations === nextProps.replayAnnotations
-  );
-};
-
-// Export with proper memo implementation
-export default React.memo(VideoPlayer, arePropsEqual);
+// Export with memo implementation
+export default VideoPlayer;

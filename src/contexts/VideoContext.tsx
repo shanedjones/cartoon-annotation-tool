@@ -384,14 +384,23 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
         dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
       } catch (error) {
         console.error('Error loading video:', error);
-        // Don't set a fallback URL, instead set an error state
-        dispatch({ 
-          type: 'SET_ERROR', 
-          payload: { 
-            hasError: true, 
-            errorMessage: 'Failed to load video. Please contact technical support.' 
-          } 
-        });
+        
+        // Check if URL is still the same before setting error
+        if (loadingUrlRef.current === state.videoUrl) {
+          // Set error state
+          const message = error instanceof Error 
+            ? error.message 
+            : 'Failed to load video. Please contact technical support.';
+          
+          // Don't set a fallback URL, instead set an error state
+          dispatch({ 
+            type: 'SET_ERROR', 
+            payload: { 
+              hasError: true, 
+              errorMessage: message
+            } 
+          });
+        }
       } finally {
         // Only clear loading state if we're still loading the same URL
         if (loadingUrlRef.current === state.videoUrl) {
@@ -478,7 +487,11 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
     },
     
     setVideoUrl: (url: string) => {
+      // Skip if URL hasn't changed to prevent infinite updates
       if (url === state.videoUrl) return;
+      
+      // Dispatch URL change - this should also reset error states
+      // as defined in the reducer for 'SET_VIDEO_URL'
       dispatch({ type: 'SET_VIDEO_URL', payload: { url } });
     },
     

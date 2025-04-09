@@ -390,18 +390,20 @@ export default function VideoPlayerWrapper({
     videoContext = { setVideoUrl: () => {}, state: {} };
   }
   
-  // Set video URL in context when videoUrl prop changes
+  // Track previous URL to prevent unnecessary context updates
+  const prevUrlRef = useRef(videoUrl);
+  
+  // Set video URL in context only when videoUrl prop changes
   useEffect(() => {
-    if (videoUrl && videoContext.setVideoUrl) {
+    // Only update if URL actually changed to prevent infinite loops
+    if (videoUrl && videoContext.setVideoUrl && videoUrl !== prevUrlRef.current) {
       console.log('VideoPlayerWrapper: Setting video URL in context:', videoUrl);
-      videoContext.setVideoUrl(videoUrl);
       
-      // Reset any error states that might exist from previous attempts
-      if (videoContext.setError) {
-        videoContext.setError(false, '');
-      }
+      // Update URL in context
+      videoContext.setVideoUrl(videoUrl);
+      prevUrlRef.current = videoUrl;
     }
-  }, [videoUrl, videoContext]);
+  }, [videoUrl]);
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
