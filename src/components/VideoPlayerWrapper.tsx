@@ -8,6 +8,7 @@ import type { DrawingPath } from './AnnotationCanvas';
 import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
 import { AppProviders } from '../contexts/AppProviders';
+import { useVideoSource, useVideo } from '../contexts/VideoContext';
 
 // Import the AudioChunk type from the AudioRecorder component
 import type { AudioChunk } from './AudioRecorder';
@@ -380,6 +381,27 @@ export default function VideoPlayerWrapper({
   initialSession,
   onSessionComplete
 }: VideoPlayerWrapperProps) {
+  // Wrap in try/catch in case we're not in a provider
+  let videoContext;
+  try {
+    videoContext = useVideo();
+  } catch (error) {
+    console.warn('VideoContext not available:', error);
+    videoContext = { setVideoUrl: () => {}, state: {} };
+  }
+  
+  // Set video URL in context when videoUrl prop changes
+  useEffect(() => {
+    if (videoUrl && videoContext.setVideoUrl) {
+      console.log('VideoPlayerWrapper: Setting video URL in context:', videoUrl);
+      videoContext.setVideoUrl(videoUrl);
+      
+      // Reset any error states that might exist from previous attempts
+      if (videoContext.setError) {
+        videoContext.setError(false, '');
+      }
+    }
+  }, [videoUrl, videoContext]);
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
@@ -473,47 +495,60 @@ export default function VideoPlayerWrapper({
     }
   }, [onCategoriesCleared, currentSession]);
   
-  // Start replaying the recorded session
+  // Start replaying the recorded session with optimized state changes
   const startReplay = useCallback(() => {
-    // Set mode to replay
-    setMode('replay');
+    // Prepare everything before changing state
+    // This prevents multiple re-renders
     
-    // Clear any existing annotations before starting replay
-    if (annotationCanvasComponentRef.current) {
+    // Prepare canvas
+    if (annotationCanvasComponentRef.current && annotationCanvasComponentRef.current.clearCanvasDrawings) {
       console.log('Clearing annotations before starting replay');
-      if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
-        annotationCanvasComponentRef.current.clearCanvasDrawings();
-      }
+      annotationCanvasComponentRef.current.clearCanvasDrawings();
     }
     
-    // Reset video to beginning
+    // Prepare video if available
     if (videoRef.current) {
       console.log('Resetting video position before starting replay');
       videoRef.current.currentTime = 0;
     }
     
     if (orchestratorRef.current && currentSession) {
-      // Clear categories before replay starts
+      // First, handle categories clearing if needed
       if (onCategoriesCleared) {
         console.log('Clearing categories before replay');
         onCategoriesCleared();
       }
       
-      // Log the categories of the session we're replaying
       console.log('Replaying session with categories:', currentSession.categories);
       
-      // Load the session if it hasn't already been loaded
+      // Load the session if needed
       if (typeof window !== 'undefined' && !window.__sessionReady) {
+        console.log('Loading session data');
         orchestratorRef.current.loadSession(currentSession);
       }
       
-      // Start the replay
-      orchestratorRef.current.startReplay();
-      setIsActive(true);
-      
-      // Set the completed review status if needed
-      if (typeof window !== 'undefined' && window.__isCompletedVideo) {
-        console.log('Starting replay of completed review');
+      // Now batch the state updates to reduce re-renders
+      try {
+        // Batch state updates together to minimize renders
+        console.log('Batching state updates for replay');
+        setMode('replay');
+        setIsActive(true);
+        
+        // Use setTimeout to ensure state updates have completed
+        // before starting the replay, which prevents race conditions
+        setTimeout(() => {
+          if (orchestratorRef.current) {
+            console.log('Starting replay after state updates');
+            orchestratorRef.current.startReplay();
+            
+            // Set the completed review status if needed
+            if (typeof window !== 'undefined' && window.__isCompletedVideo) {
+              console.log('Starting replay of completed review');
+            }
+          }
+        }, 0);
+      } catch (error) {
+        console.error('Error in replay state updates:', error);
       }
     } else {
       alert('No recorded session to replay. Record a session first.');
@@ -935,107 +970,121 @@ export default function VideoPlayerWrapper({
     }
   }, [initialSession]);
   
+  // Get the effective URL from the context with fallback
+  let contextVideoUrl;
+  try {
+    const videoSource = useVideoSource();
+    contextVideoUrl = videoSource?.effectiveUrl;
+  } catch (error) {
+    console.warn('VideoSource not available:', error);
+    contextVideoUrl = videoUrl; // Fallback to prop
+  }
+  
+  // Log when the effective URL changes
+  useEffect(() => {
+    console.log('VideoPlayerWrapper: Context effective URL:', contextVideoUrl);
+  }, [contextVideoUrl]);
+  
   return (
-    <AppProviders>
-      <div className="w-full">
-      {/* Hidden buttons that will be triggered by parent */}
-      <div className="hidden">
-        <button
-          id="startRecordingButton"
-          onClick={startRecording}
-        >
-          Start Recording
-        </button>
+    <div className="w-full">
+        {/* Hidden buttons that will be triggered by parent */}
+        <div className="hidden">
+          <button
+            id="startRecordingButton"
+            onClick={startRecording}
+          >
+            Start Recording
+          </button>
+          
+          <button
+            id="startReplayButton"
+            onClick={startReplay}
+            disabled={!currentSession}
+          >
+            Replay Session
+          </button>
+          
+          <button
+            id="downloadDataButton"
+            onClick={downloadSessionData}
+            disabled={!currentSession}
+          >
+            Download Data
+          </button>
+          
+          <label>
+            <input 
+              id="fileUploadInput"
+              type="file" 
+              accept=".json" 
+              onChange={handleFileUpload} 
+            />
+            Load Data
+          </label>
+          
+          <button
+            id="stopButton"
+            onClick={mode === 'record' ? stopRecording : stopReplay}
+          >
+            Stop
+          </button>
+        </div>
         
-        <button
-          id="startReplayButton"
-          onClick={startReplay}
-          disabled={!currentSession}
-        >
-          Replay Session
-        </button>
         
-        <button
-          id="downloadDataButton"
-          onClick={downloadSessionData}
-          disabled={!currentSession}
-        >
-          Download Data
-        </button>
-        
-        <label>
-          <input 
-            id="fileUploadInput"
-            type="file" 
-            accept=".json" 
-            onChange={handleFileUpload} 
-          />
-          Load Data
-        </label>
-        
-        <button
-          id="stopButton"
-          onClick={mode === 'record' ? stopRecording : stopReplay}
-        >
-          Stop
-        </button>
-      </div>
-      
-      
-      {/* Feedback Orchestrator handles all coordination */}
-      <div className="relative">
-        <VideoPlayer 
-          ref={getVideoPlayerRef}
-          isRecording={mode === 'record' && isActive}
-          isReplaying={mode === 'replay' && isActive}
-          setVideoRef={setVideoElementRef}
-          replayAnnotations={currentSession?.events
-            ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
-            ?.map(e => {
-              // Make sure the tool property is preserved during replay
-              const tool = e.payload.path.tool || 'freehand';
-              console.log(`Preparing annotation for replay: tool=${tool}, points=${e.payload.path.points?.length}`);
-              
-              return {
-                ...e.payload.path,
-                timeOffset: e.timeOffset,
-                globalTimeOffset: e.timeOffset,
-                videoTime: e.timeOffset,
-                tool: tool  // Explicitly set the tool to ensure it's included
-              };
-            }) || feedbackData.annotations || []}
-          videoUrl={videoUrl}
-          onRecordAction={(action) => {
-            // Forward video actions to the orchestrator
-            if (orchestratorRef.current && mode === 'record' && isActive) {
-              switch(action.type) {
-                case 'play':
-                case 'pause':
-                case 'seek':
-                case 'playbackRate':
-                case 'keyboardShortcut':
-                  orchestratorRef.current.handleVideoEvent(action.type, action.details);
-                  break;
-                case 'annotation':
-                  if (action.details?.clear) {
-                    orchestratorRef.current.handleAnnotationEvent('clear');
-                  } else if (action.details?.path) {
-                    orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
-                  }
-                  break;
+        {/* Feedback Orchestrator handles all coordination */}
+        <div className="relative">
+          <VideoPlayer 
+            ref={getVideoPlayerRef}
+            isRecording={mode === 'record' && isActive}
+            isReplaying={mode === 'replay' && isActive}
+            setVideoRef={setVideoElementRef}
+            replayAnnotations={currentSession?.events
+              ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
+              ?.map(e => {
+                // Make sure the tool property is preserved during replay
+                const tool = e.payload.path.tool || 'freehand';
+                console.log(`Preparing annotation for replay: tool=${tool}, points=${e.payload.path.points?.length}`);
+                
+                return {
+                  ...e.payload.path,
+                  timeOffset: e.timeOffset,
+                  globalTimeOffset: e.timeOffset,
+                  videoTime: e.timeOffset,
+                  tool: tool  // Explicitly set the tool to ensure it's included
+                };
+              }) || feedbackData.annotations || []}
+            videoUrl={videoUrl}
+            onRecordAction={(action) => {
+              // Forward video actions to the orchestrator
+              if (orchestratorRef.current && mode === 'record' && isActive) {
+                switch(action.type) {
+                  case 'play':
+                  case 'pause':
+                  case 'seek':
+                  case 'playbackRate':
+                  case 'keyboardShortcut':
+                    orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                    break;
+                  case 'annotation':
+                    if (action.details?.clear) {
+                      orchestratorRef.current.handleAnnotationEvent('clear');
+                    } else if (action.details?.path) {
+                      orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
+                    }
+                    break;
+                }
               }
-            }
-          }}
-          onAnnotationAdded={(annotation) => {
-            // Forward annotation events to the orchestrator
-            if (orchestratorRef.current && mode === 'record' && isActive) {
-              orchestratorRef.current.handleAnnotationEvent('draw', annotation);
-            }
-          }}
-        />
-        
-        {/* Initialize the Orchestrator */}
-        <FeedbackOrchestrator
+            }}
+            onAnnotationAdded={(annotation) => {
+              // Forward annotation events to the orchestrator
+              if (orchestratorRef.current && mode === 'record' && isActive) {
+                orchestratorRef.current.handleAnnotationEvent('draw', annotation);
+              }
+            }}
+          />
+          
+          {/* Initialize the Orchestrator */}
+          <FeedbackOrchestrator
           videoElementRef={videoRef}
           canvasRef={canvasRef}
           drawAnnotation={drawAnnotation}
@@ -1149,6 +1198,5 @@ export default function VideoPlayerWrapper({
         </div>
       )}
     </div>
-    </AppProviders>
   );
 }

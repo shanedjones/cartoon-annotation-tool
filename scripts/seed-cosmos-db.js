@@ -24,17 +24,16 @@ const client = new CosmosClient({ endpoint, key });
 const videoData = [
   {
     id: "video-001",
-    title: "Professional Golf Swing - Driver",
-    description: "A professional golfer demonstrating an ideal driver swing with proper technique and follow-through",
+    title: "Michael Johnson - Driver Full Swing",
+    description: "Please review the stance throughout the swing and check if the club path is correct on the downswing.",
     thumbnailUrl: "https://img.freepik.com/free-photo/full-shot-man-playing-golf_23-2149354970.jpg",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
     duration: "0:38",
     dateAdded: "2024-01-15",
     status: "Not Started",
-    categories: [
-      "Professional",
-      "Driver",
-      "Technique Demo"
+    tags: [
+      "DR",
+      "HCP 5"
     ],
     dataLabelingTitle: "Swing Analysis",
     labelProperties: [
@@ -58,17 +57,16 @@ const videoData = [
   },
   {
     id: "video-002",
-    title: "Iron Swing Sequence - 7 Iron",
-    description: "A step-by-step demonstration of a proper 7-iron swing with emphasis on ball striking and control",
+    title: "Sarah Williams - 7 Iron Full Strength",
+    description: "Can you review if the weight transfer is correct? Pay attention to the transition at the top of the backswing.",
     thumbnailUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
     duration: "0:45",
     dateAdded: "2024-02-10",
     status: "Not Started",
-    categories: [
-      "Instructional",
-      "Iron Play",
-      "Mid-range"
+    tags: [
+      "7I",
+      "HCP 12"
     ],
     dataLabelingTitle: "Iron Technique",
     labelProperties: [
@@ -92,17 +90,16 @@ const videoData = [
   },
   {
     id: "video-003",
-    title: "Bunker Shot Technique",
-    description: "Demonstration of proper bunker shot technique to effectively escape greenside sand traps",
+    title: "Robert Chen - SW Bunker Shot",
+    description: "Check if sand entry point is correct and provide feedback on the follow-through technique.",
     thumbnailUrl: "https://images.unsplash.com/photo-1592919505780-303950717480",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
     duration: "0:52",
     dateAdded: "2024-03-05",
     status: "Not Started",
-    categories: [
-      "Short Game",
-      "Bunker Play",
-      "Sand Shots"
+    tags: [
+      "SW",
+      "HCP 18"
     ],
     dataLabelingTitle: "Sand Technique",
     labelProperties: [
@@ -126,17 +123,16 @@ const videoData = [
   },
   {
     id: "video-004",
-    title: "Putting Stroke Analysis",
-    description: "Detailed breakdown of a proper putting stroke with emphasis on path, face control, and tempo",
+    title: "Emma Davis - Putter 8-foot Break",
+    description: "Please review the stroke path and face alignment at impact. Is the tempo consistent through the stroke?",
     thumbnailUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2e414",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
     duration: "0:41",
     dateAdded: "2024-01-28",
     status: "Not Started",
-    categories: [
-      "Putting",
-      "Green Reading",
-      "Stroke Analysis"
+    tags: [
+      "PT",
+      "HCP 20"
     ],
     dataLabelingTitle: "Putting Elements",
     labelProperties: [
@@ -160,17 +156,16 @@ const videoData = [
   },
   {
     id: "video-005",
-    title: "Pitch Shot - 40 Yard Shot",
-    description: "Technique demonstration for a controlled 40-yard pitch shot with proper distance control and spin",
+    title: "James Rodriguez - PW Half Strength",
+    description: "Can you check if hand position at impact is correct? Also review if loft presentation is appropriate for a half swing.",
     thumbnailUrl: "https://images.unsplash.com/photo-1576690234871-28f376265de8",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
     duration: "0:37",
     dateAdded: "2024-02-18",
     status: "Not Started",
-    categories: [
-      "Short Game",
-      "Pitch Shots",
-      "Wedge Play"
+    tags: [
+      "PW",
+      "HCP 7"
     ],
     dataLabelingTitle: "Pitch Shot Technique",
     labelProperties: [

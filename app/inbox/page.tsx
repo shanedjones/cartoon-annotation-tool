@@ -14,7 +14,7 @@ interface Video {
   duration: string;
   dateAdded: string;
   status: 'Not Started' | 'Completed' | 'Archived';
-  categories: string[];
+  tags: string[];
   metrics: Record<string, string | number>;
 }
 
@@ -73,7 +73,7 @@ export default function InboxPage() {
     const results = videosToFilter.filter(video => 
       video.title.toLowerCase().includes(lowerCaseSearch) || 
       video.description.toLowerCase().includes(lowerCaseSearch) ||
-      video.categories.some(category => category.toLowerCase().includes(lowerCaseSearch))
+      video.tags.some(tag => tag.toLowerCase().includes(lowerCaseSearch))
     );
     
     setFilteredVideos(results);
@@ -182,7 +182,7 @@ export default function InboxPage() {
                   Status
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Categories
+                  Tags
                 </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -211,14 +211,14 @@ export default function InboxPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex flex-wrap gap-1">
-                      {video.categories.slice(0, 2).map((category, index) => (
+                      {video.tags.slice(0, 2).map((tag, index) => (
                         <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          {category}
+                          {tag}
                         </span>
                       ))}
-                      {video.categories.length > 2 && (
+                      {video.tags.length > 2 && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          +{video.categories.length - 2} more
+                          +{video.tags.length - 2} more
                         </span>
                       )}
                     </div>

@@ -1,7 +1,19 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
+import { useVideoSource, useVideoControls } from '../contexts/VideoContext';
+
+// Add a utility function to check if a URL is a cross-origin URL
+const isCrossOriginUrl = (url: string): boolean => {
+  try {
+    if (typeof window === 'undefined') return false;
+    const urlObj = new URL(url, window.location.href);
+    return urlObj.origin !== window.location.origin;
+  } catch (e) {
+    return false;
+  }
+};
 
 // Define the types of events we want to record
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
@@ -45,7 +57,8 @@ interface VideoPlayerImperativeHandle {
   annotationCanvas: any;
 }
 
-const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerProps>(({ 
+// Define the VideoPlayer component with proper memoization
+const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerProps>(({ 
   isRecording = false, 
   isReplaying = false,
   onRecordAction,
@@ -64,8 +77,12 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   const [annotationTool, setAnnotationTool] = useState<DrawingTool>('freehand');
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [shouldClearCanvas, setShouldClearCanvas] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isVideoCached, setIsVideoCached] = useState(false);
+  const [cachedVideoSrc, setCachedVideoSrc] = useState<string | null>(null);
+  const [isLoadStarted, setIsLoadStarted] = useState(false);
   
-  // Use timeline context
+  // Use contexts
   const { updatePosition } = useTimeline();
   const { updateClearTime } = useLastClearTime();
   
@@ -83,33 +100,130 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     }
   }, [isRecording]);
   
-  // Force update duration when video is loaded
+  // Use the video context hooks with try/catch to handle case where context might not be available
+  let effectiveUrl, isContextLoading, videoControls;
+  try {
+    const videoSource = useVideoSource();
+    effectiveUrl = videoSource?.effectiveUrl;
+    isContextLoading = videoSource?.isLoading;
+    
+    videoControls = useVideoControls();
+  } catch (error) {
+    console.warn('Video context not available:', error);
+    effectiveUrl = null;
+    isContextLoading = false;
+    videoControls = null;
+  }
+  
+  // Create a local video blob cache if needed (fallback if context isn't working)
+  const localBlobCache = useRef<Record<string, string>>({});
+  
+  // Debug info about video URLs
   useEffect(() => {
-    if (videoRef.current) {
-      if (videoRef.current.readyState >= 2) {
-        console.log('Video ready, setting duration from useEffect:', videoRef.current.duration);
-        setDuration(videoRef.current.duration);
-      }
-      
-      // Add extra event listener for duration availability
-      const onDurationAvailable = () => {
-        console.log('Duration available event triggered:', videoRef.current?.duration);
-        if (videoRef.current) {
+    console.log('VideoPlayer URLs:', { 
+      propUrl: videoUrl,
+      effectiveUrl,
+      cachedVideoSrc
+    });
+  }, [videoUrl, effectiveUrl, cachedVideoSrc]);
+  
+  // States for error handling
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Directly handle loading videos with improved error handling
+  useEffect(() => {
+    // Skip if no URL or already started loading
+    if (!videoUrl || isLoadStarted) return;
+    
+    console.log('Starting video loading process for:', videoUrl);
+    setIsLoading(true);
+    setIsLoadStarted(true);
+    setHasError(false); // Reset error state
+    setErrorMessage('');
+    
+    // Wait for the video context to handle caching
+    if (effectiveUrl) {
+      // Cache resolution successful
+      console.log('Cache resolution successful, using URL:', effectiveUrl);
+      setCachedVideoSrc(effectiveUrl);
+      setIsLoading(false);
+      setIsVideoCached(true);
+    } else {
+      // Wait for context to resolve
+      // Don't set video src yet
+      console.log('Waiting for video context to resolve cache status');
+    }
+  }, [videoUrl, effectiveUrl, isLoadStarted]);
+  
+  // Handle cache failures by checking context error status
+  useEffect(() => {
+    const videoSource = useVideoSource();
+    // Check if the context has an error
+    if (videoSource?.hasError && videoUrl && isLoadStarted) {
+      console.error('Video caching failed for:', videoUrl);
+      setHasError(true);
+      setErrorMessage(videoSource.errorMessage || 'Unable to load video. Please contact technical support.');
+      setIsLoading(false);
+    }
+  }, [videoUrl, isLoadStarted]);
+  
+  // Consolidated video loading event handling
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    // Create a single handler for all loading-related events
+    const handleVideoLoad = () => {
+      if (videoRef.current) {
+        const readyState = videoRef.current.readyState;
+        console.log('Video load event triggered - readyState:', readyState);
+        
+        // Set duration if available
+        if (readyState >= 1 && videoRef.current.duration) {
           setDuration(videoRef.current.duration);
         }
-      };
-      
-      videoRef.current.addEventListener('loadeddata', onDurationAvailable);
-      videoRef.current.addEventListener('canplay', onDurationAvailable);
-      
-      return () => {
-        if (videoRef.current) {
-          videoRef.current.removeEventListener('loadeddata', onDurationAvailable);
-          videoRef.current.removeEventListener('canplay', onDurationAvailable);
+        
+        // Update loading state based on readiness
+        if (readyState >= 2 && isLoading) {
+          setIsLoading(false);
         }
-      };
+        
+        // Mark as cached once canplaythrough fires
+        if (readyState >= 4 && !isVideoCached) {
+          setIsVideoCached(true);
+          
+          // Store in local cache if using direct URL mode
+          if (videoUrl && !cachedVideoSrc) {
+            console.log('Video ready for playthrough, marking as cached:', videoUrl);
+            // Use our local cache ref to store this information
+            localBlobCache.current[videoUrl] = videoUrl;
+          }
+        }
+      }
+    };
+    
+    // Add listeners for all relevant events
+    videoRef.current.addEventListener('loadedmetadata', handleVideoLoad);
+    videoRef.current.addEventListener('loadeddata', handleVideoLoad);
+    videoRef.current.addEventListener('canplay', handleVideoLoad);
+    videoRef.current.addEventListener('canplaythrough', handleVideoLoad);
+    videoRef.current.addEventListener('durationchange', handleVideoLoad);
+    
+    // Initial check in case events already fired
+    if (videoRef.current.readyState >= 2) {
+      handleVideoLoad();
     }
-  }, [videoRef.current]);
+    
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener('loadedmetadata', handleVideoLoad);
+        videoRef.current.removeEventListener('loadeddata', handleVideoLoad);
+        videoRef.current.removeEventListener('canplay', handleVideoLoad);
+        videoRef.current.removeEventListener('canplaythrough', handleVideoLoad);
+        videoRef.current.removeEventListener('durationchange', handleVideoLoad);
+      }
+    };
+  }, [videoRef.current, isLoading, isVideoCached, videoUrl, cachedVideoSrc]);
   
   // Pass video element reference to parent component
   useEffect(() => {
@@ -252,9 +366,11 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     if (videoRef.current) {
       if (playing) {
         videoRef.current.pause();
+        videoControls?.pause?.(); // Update context if method exists
         recordAction('pause');
       } else {
         videoRef.current.play();
+        videoControls?.play?.(); // Update context if method exists
         recordAction('play');
       }
       setPlaying(!playing);
@@ -263,15 +379,21 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      // Update the component state to reflect the current video time
-      setCurrentTime(videoRef.current.currentTime);
+      // Update both component state and context to reflect the current video time
+      const time = videoRef.current.currentTime;
+      setCurrentTime(time);
+      // Only call updateTime if it exists (using optional chaining)
+      videoControls?.updateTime?.(time);
     }
   };
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       console.log('Video metadata loaded, duration:', videoRef.current.duration);
-      setDuration(videoRef.current.duration);
+      const duration = videoRef.current.duration;
+      setDuration(duration);
+      // Only call updateDuration if it exists (using optional chaining)
+      videoControls?.updateDuration?.(duration);
     }
   };
   
@@ -279,7 +401,10 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
   const handleDurationChange = () => {
     if (videoRef.current) {
       console.log('Video duration changed:', videoRef.current.duration);
-      setDuration(videoRef.current.duration);
+      const duration = videoRef.current.duration;
+      setDuration(duration);
+      // Only call updateDuration if it exists (using optional chaining)
+      videoControls?.updateDuration?.(duration);
     }
   };
 
@@ -311,6 +436,8 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
       const previousRate = videoRef.current.playbackRate;
       videoRef.current.playbackRate = rate;
       setPlaybackRate(rate);
+      // Update context if the method exists
+      videoControls?.setPlaybackRate?.(rate);
       recordAction('playbackRate', { from: previousRate, to: rate });
     }
   };
@@ -331,6 +458,8 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
       const newTime = Math.max(0, Math.min(duration, time));
       videoRef.current.currentTime = newTime;
       setCurrentTime(newTime);
+      // Update the video context, only if the method exists
+      videoControls?.seek?.(newTime);
       return { previousTime, newTime };
     }
     return null;
@@ -376,11 +505,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
     };
   }, [duration, playing, isRecording, currentTime]);
 
-  // Expose the video element and annotation canvas to parent component
-  React.useImperativeHandle(ref, () => ({
-    video: videoRef.current,
-    annotationCanvas: annotationCanvasRef.current
-  }));
+  // First useImperativeHandle is removed as it's duplicated below
 
   // Expose handlers for AnnotationCanvas 
   const handleManualAnnotation = (path: DrawingPath) => {
@@ -466,16 +591,36 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
             <span className="animate-pulse mr-1">●</span> Recording
           </div>
         )}
+        {isLoading && (
+          <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-30">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mb-2"></div>
+            <p className="text-white font-medium">Loading video...</p>
+            <p className="text-white text-sm mt-1">{isVideoCached ? 'Video will be cached for future viewing' : 'Please wait while the video loads'}</p>
+          </div>
+        )}
+        {hasError && (
+          <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-30">
+            <div className="text-red-500 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+            </div>
+            <p className="text-white text-lg font-bold mb-2">Video Error</p>
+            <p className="text-white text-center max-w-md px-4">{errorMessage}</p>
+            <p className="text-white text-sm mt-4">Please contact support at support@example.com</p>
+          </div>
+        )}
         <video
           ref={videoRef}
           className="w-full aspect-video"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onDurationChange={handleDurationChange}
-          src={videoUrl || null}
+          src={cachedVideoSrc}
           playsInline
           preload="metadata"
           muted
+          // Only use cachedVideoSrc which is set after caching completes
         />
         
         {videoDimensions.width > 0 && videoDimensions.height > 0 && (
@@ -623,9 +768,22 @@ const VideoPlayer = React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerPro
       </div>
     </div>
   );
-});
+}));
 
 // Add displayName for better debugging in React DevTools
 VideoPlayer.displayName = 'VideoPlayer';
 
-export default VideoPlayer;
+// Custom comparison function for memoization
+const arePropsEqual = (prevProps: VideoPlayerProps, nextProps: VideoPlayerProps) => {
+  // Only re-render if these props changed
+  return (
+    prevProps.videoUrl === nextProps.videoUrl &&
+    prevProps.isRecording === nextProps.isRecording &&
+    prevProps.isReplaying === nextProps.isReplaying &&
+    // Simplistic comparison of replay annotations (optimally would do deep compare)
+    prevProps.replayAnnotations === nextProps.replayAnnotations
+  );
+};
+
+// Export with proper memo implementation
+export default React.memo(VideoPlayer, arePropsEqual);
