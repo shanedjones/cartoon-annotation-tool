@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadAudioBlob, ensureContainer } from '@/src/utils/azureStorage';
 
-// Initialize the container when the server starts
-ensureContainer().catch(err => {
-  console.error('Failed to initialize Azure Storage container:', err);
-});
+// Container initialization will be done at runtime during the first request
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Ensure container exists at runtime, during the request
+    await ensureContainer().catch(err => {
+      console.error('Failed to initialize Azure Storage container:', err);
+    });
+
     // Get the form data from the request
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
