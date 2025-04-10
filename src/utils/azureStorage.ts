@@ -26,6 +26,7 @@ const initializeStorageClient = () => {
 // Create the container if it doesn't exist
 export const ensureContainer = async (): Promise<void> => {
   try {
+    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
     const { containerClient } = initializeStorageClient();
     // Create container without specifying public access level
     await containerClient.createIfNotExists();
