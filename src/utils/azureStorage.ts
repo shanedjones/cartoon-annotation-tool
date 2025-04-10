@@ -1,16 +1,16 @@
 import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
 import { v4 as uuidv4 } from 'uuid';
 
-// Azure Storage account configuration
-const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
-const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
-
 // Initialize the BlobServiceClient
 let blobServiceClient: BlobServiceClient;
 let containerClient: ContainerClient;
 
 // Initialize the storage client
 const initializeStorageClient = () => {
+  // Get connection string at runtime from environment
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
+  
   if (!connectionString) {
     throw new Error('Azure Storage connection string is not configured');
   }

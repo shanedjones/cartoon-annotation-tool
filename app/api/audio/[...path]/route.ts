@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BlobServiceClient } from '@azure/storage-blob';
 
-// Azure Storage account configuration from environment variables
-const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
-const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
-
 export async function GET(
   request: NextRequest,
   context: any
 ) {
   try {
+    // Get storage configuration at runtime
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
+    
     if (!connectionString) {
       return NextResponse.json(
         { error: 'Azure Storage connection string not configured' },
