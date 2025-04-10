@@ -6,9 +6,16 @@ import { uploadAudioBlob, ensureContainer } from '@/src/utils/azureStorage';
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // Ensure container exists at runtime, during the request
-    await ensureContainer().catch(err => {
+    try {
+      await ensureContainer();
+      console.log('Container initialization successful');
+    } catch (err) {
       console.error('Failed to initialize Azure Storage container:', err);
-    });
+      return NextResponse.json(
+        { error: `Failed to initialize storage: ${err instanceof Error ? err.message : 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
 
     // Get the form data from the request
     const formData = await request.formData();

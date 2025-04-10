@@ -15,12 +15,22 @@ const initializeStorageClient = () => {
     throw new Error('Azure Storage connection string is not configured');
   }
   
-  if (!blobServiceClient) {
-    blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-    containerClient = blobServiceClient.getContainerClient(containerName);
+  try {
+    if (!blobServiceClient) {
+      console.log('Initializing Azure Storage client with connection string');
+      blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+      containerClient = blobServiceClient.getContainerClient(containerName);
+    }
+    
+    return { blobServiceClient, containerClient };
+  } catch (error) {
+    console.error('Error initializing storage client:', error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to initialize Azure Storage: ${error.message}`);
+    } else {
+      throw new Error('Failed to initialize Azure Storage with unknown error');
+    }
   }
-  
-  return { blobServiceClient, containerClient };
 };
 
 // Create the container if it doesn't exist
@@ -47,10 +57,12 @@ export const uploadAudioBlob = async (
       throw new Error('Invalid audio blob provided');
     }
     
+    console.log(`Starting upload for session: ${sessionId}`);
     const { containerClient } = initializeStorageClient();
     
     // Generate a unique filename
     const blobName = `${sessionId}/${uuidv4()}.webm`;
+    console.log(`Generated blob name: ${blobName}`);
     
     // Get a block blob client
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
@@ -62,6 +74,8 @@ export const uploadAudioBlob = async (
       throw new Error('Failed to convert blob to array buffer');
     }
     
+    console.log(`Uploading blob with size: ${arrayBuffer.byteLength} bytes`);
+    
     // Upload the blob
     const uploadOptions = {
       blobHTTPHeaders: {
@@ -72,15 +86,17 @@ export const uploadAudioBlob = async (
     await blockBlobClient.uploadData(arrayBuffer, uploadOptions);
     console.log(`Audio blob uploaded: ${blobName}`);
     
-    // Create a Shared Access Signature (SAS) URL with read permissions that expires in 24 hours
-    const expiresOn = new Date();
-    expiresOn.setDate(expiresOn.getDate() + 1); // 1 day from now
+    // Get the direct URL for the blob
+    const blobUrl = blockBlobClient.url;
     
-    const sasUrl = blockBlobClient.url;
-    console.log(`Generated SAS URL for blob: ${sasUrl}`);
+    if (!blobUrl) {
+      throw new Error('Failed to generate URL for uploaded blob');
+    }
+    
+    console.log(`Generated URL for blob: ${blobUrl}`);
     
     // Return the URL for the uploaded blob
-    return sasUrl;
+    return blobUrl;
   } catch (error) {
     console.error('Error uploading audio blob:', error);
     throw error;
@@ -90,20 +106,47 @@ export const uploadAudioBlob = async (
 // Download a blob from storage
 export const downloadAudioBlob = async (blobUrl: string): Promise<Blob> => {
   try {
+    if (!blobUrl || typeof blobUrl !== 'string') {
+      throw new Error(`Invalid blob URL: ${blobUrl}`);
+    }
+    
+    console.log(`Attempting to download blob from URL: ${blobUrl}`);
+    
     // Extract the blob name from the URL
-    const url = new URL(blobUrl);
-    const pathParts = url.pathname.split('/');
-    const blobName = pathParts.slice(2).join('/'); // Skip the first two segments (/container/blob)
-    
-    const { containerClient } = initializeStorageClient();
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-    
-    // Download the blob
-    const downloadResponse = await blockBlobClient.download();
-    
-    // Convert the stream to a blob
-    const data = await streamToBlob(downloadResponse.readableStreamBody);
-    return data;
+    try {
+      const url = new URL(blobUrl);
+      const pathParts = url.pathname.split('/');
+      
+      // Ensure we have a valid path
+      if (pathParts.length < 3) {
+        throw new Error(`Invalid URL pathname: ${url.pathname}`);
+      }
+      
+      const blobName = pathParts.slice(2).join('/'); // Skip the first two segments (/container/blob)
+      console.log(`Extracted blob name: ${blobName}`);
+      
+      const { containerClient } = initializeStorageClient();
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+      
+      // Download the blob
+      const downloadResponse = await blockBlobClient.download();
+      console.log(`Blob download response received, converting to blob...`);
+      
+      // Convert the stream to a blob
+      const data = await streamToBlob(downloadResponse.readableStreamBody);
+      return data;
+    } catch (urlError) {
+      console.error('Error parsing URL:', urlError);
+      
+      // Fallback to direct fetch
+      console.log('Attempting direct fetch as fallback...');
+      const response = await fetch(blobUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error, status: ${response.status}`);
+      }
+      const blob = await response.blob();
+      return blob;
+    }
   } catch (error) {
     console.error('Error downloading audio blob:', error);
     throw error;
