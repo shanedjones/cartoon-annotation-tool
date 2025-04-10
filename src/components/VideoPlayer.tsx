@@ -53,7 +53,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   setVideoRef,
   replayAnnotations = [],
   onAnnotationAdded,
-  videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+  videoUrl = "",
   onLoadingStateChange
 }: VideoPlayerProps, ref) => {
   // Component state
