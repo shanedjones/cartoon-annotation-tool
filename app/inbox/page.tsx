@@ -100,7 +100,7 @@ export default function InboxPage() {
       session.swings.some(swing => 
         swing.title.toLowerCase().includes(lowerCaseSearch) || 
         swing.description.toLowerCase().includes(lowerCaseSearch) ||
-        swing.tags.some(tag => tag.toLowerCase().includes(lowerCaseSearch))
+        (swing.tags && Array.isArray(swing.tags) && swing.tags.some(tag => tag.toLowerCase().includes(lowerCaseSearch)))
       )
     );
     
