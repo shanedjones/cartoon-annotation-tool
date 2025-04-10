@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     AZURE_STORAGE_CONNECTION_STRING: process.env.AZURE_STORAGE_CONNECTION_STRING,
     AZURE_STORAGE_CONTAINER_NAME: process.env.AZURE_STORAGE_CONTAINER_NAME,
   },
+  output: 'standalone',
 };
 
 export default nextConfig;
