@@ -11,6 +11,8 @@ const initializeStorageClient = () => {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
   
+  console.log(`DEBUG - initializeStorageClient() - container name: "${containerName}"`);
+  
   if (!connectionString) {
     throw new Error('Azure Storage connection string is not configured');
   }
@@ -18,8 +20,25 @@ const initializeStorageClient = () => {
   try {
     if (!blobServiceClient) {
       console.log('Initializing Azure Storage client with connection string');
-      blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-      containerClient = blobServiceClient.getContainerClient(containerName);
+      
+      try {
+        // Log the formation of the storage client
+        console.log(`DEBUG - Creating BlobServiceClient from connection string`);
+        blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+        console.log(`DEBUG - BlobServiceClient created successfully`);
+        
+        console.log(`DEBUG - Creating container client for "${containerName}"`);
+        containerClient = blobServiceClient.getContainerClient(containerName);
+        console.log(`DEBUG - Container client URL: ${containerClient.url}`);
+      } catch (innerError) {
+        console.error(`DEBUG - Error during client creation: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`);
+        if (innerError instanceof Error && innerError.message.includes('Invalid URL')) {
+          console.error(`DEBUG - URL construction error details:`, 
+            `Container name: "${containerName}"`,
+            `Connection string format: ${connectionString.startsWith('DefaultEndpointsProtocol') ? 'Starts correctly' : 'Invalid start'}`);
+        }
+        throw innerError;
+      }
     }
     
     return { blobServiceClient, containerClient };
@@ -36,13 +55,38 @@ const initializeStorageClient = () => {
 // Create the container if it doesn't exist
 export const ensureContainer = async (): Promise<void> => {
   try {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
     const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
+    
+    console.log(`DEBUG - Container name: "${containerName}"`);
+    console.log(`DEBUG - Connection string format check: ${connectionString.includes('DefaultEndpointsProtocol') ? 'Valid format' : 'Invalid format'}`);
+    
+    if (connectionString.includes('DefaultEndpointsProtocol')) {
+      // Log the parts of the connection string to debug issues
+      const parts = connectionString.split(';').reduce((acc, part) => {
+        const [key, value] = part.split('=');
+        if (key && value) {
+          acc[key] = key === 'AccountKey' ? `${value.substring(0, 5)}...` : value;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+      console.log(`DEBUG - Connection string parts: ${JSON.stringify(parts)}`);
+    }
+    
     const { containerClient } = initializeStorageClient();
+    
+    // Log the container URL
+    console.log(`DEBUG - Container URL: ${containerClient.url}`);
+    
     // Create container without specifying public access level
     await containerClient.createIfNotExists();
     console.log(`Container "${containerName}" is ready`);
   } catch (error) {
     console.error('Error ensuring container exists:', error);
+    if (error instanceof Error) {
+      console.error(`DEBUG - Error message: ${error.message}`);
+      console.error(`DEBUG - Error stack: ${error.stack}`);
+    }
     throw error;
   }
 };
