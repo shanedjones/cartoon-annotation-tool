@@ -37,6 +37,7 @@ interface VideoPlayerProps {
   replayAnnotations?: DrawingPath[];
   onAnnotationAdded?: (annotation: DrawingPath) => void;
   videoUrl?: string;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
 interface VideoPlayerImperativeHandle {
@@ -52,7 +53,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   setVideoRef,
   replayAnnotations = [],
   onAnnotationAdded,
-  videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+  videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+  onLoadingStateChange
 }: VideoPlayerProps, ref) => {
   // Component state
   const [playing, setPlaying] = useState(false);
@@ -126,6 +128,13 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     };
   }, [setVideoRef, videoRef.current]);
   
+  // Notify parent component of loading state changes
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoading);
+    }
+  }, [isLoading, onLoadingStateChange]);
+
   // Update video dimensions when video metadata is loaded
   useEffect(() => {
     const updateVideoDimensions = () => {

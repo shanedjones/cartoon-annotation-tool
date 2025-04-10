@@ -363,6 +363,7 @@ interface VideoPlayerWrapperProps {
   onCategoriesCleared?: () => void;
   onCategoriesLoaded?: (categories: Record<string, number>) => void;
   onReplayModeChange?: (isReplay: boolean) => void;
+  onVideoLoadingChange?: (isLoading: boolean) => void;
   videoUrl?: string;
   videoId?: string;
   contentToReview?: any; // Allow passing the full content object for display
@@ -375,6 +376,7 @@ export default function VideoPlayerWrapper({
   onCategoriesCleared,
   onCategoriesLoaded,
   onReplayModeChange,
+  onVideoLoadingChange,
   videoUrl,
   videoId = 'sample-video',
   contentToReview,
@@ -408,6 +410,7 @@ export default function VideoPlayerWrapper({
   console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
   const [feedbackData, setFeedbackData] = useState<FeedbackData>({
     sessionId: '',
@@ -1056,6 +1059,12 @@ export default function VideoPlayerWrapper({
                 };
               }) || feedbackData.annotations || []}
             videoUrl={videoUrl}
+            onLoadingStateChange={(isLoading) => {
+              setIsVideoLoading(isLoading);
+              if (onVideoLoadingChange) {
+                onVideoLoadingChange(isLoading);
+              }
+            }}
             onRecordAction={(action) => {
               // Forward video actions to the orchestrator
               if (orchestratorRef.current && mode === 'record' && isActive) {

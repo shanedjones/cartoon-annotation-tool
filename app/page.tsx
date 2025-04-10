@@ -128,6 +128,7 @@ export default function Home() {
   const [hasRecordedSession, setHasRecordedSession] = useState(false);
   const [isCompletedVideo, setIsCompletedVideo] = useState(false);
   const [isSessionReady, setIsSessionReady] = useState(false);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
   
   // Get formatted category label
   const getCategoryLabel = (category: string) => {
@@ -458,10 +459,21 @@ export default function Home() {
             <div className="flex space-x-2">
               <button
                 onClick={() => document.getElementById(isClient && isRecording ? 'stopButton' : 'startRecordingButton')?.click()}
-                disabled={isReplayMode}
-                className={isReplayMode ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" : isClient && isRecording ? "bg-gray-700 text-white py-2 px-4 rounded-md" : "bg-red-500 text-white py-2 px-4 rounded-md"}
+                disabled={isReplayMode || (isVideoLoading && !isRecording)}
+                className={
+                  isReplayMode || (isVideoLoading && !isRecording) 
+                    ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
+                    : isClient && isRecording 
+                      ? "bg-gray-700 text-white py-2 px-4 rounded-md" 
+                      : "bg-red-500 text-white py-2 px-4 rounded-md"
+                }
               >
-                {isClient && isRecording ? "Stop" : "Record"}
+                {isClient && isRecording 
+                  ? "Stop" 
+                  : isVideoLoading && !isRecording
+                    ? "Loading video, please wait..." 
+                    : "Record"
+                }
               </button>
               
               <button
@@ -591,6 +603,7 @@ export default function Home() {
               onCategoriesCleared={clearCategories}
               onCategoriesLoaded={handleCategoryAddedDuringReplay}
               onReplayModeChange={handleReplayModeChange}
+              onVideoLoadingChange={setIsVideoLoading}
               videoUrl={contentToReview.videoUrl}
               videoId={contentToReview.videoTitle?.replace(/\s+/g, '-').toLowerCase()}
               contentToReview={contentToReview}
