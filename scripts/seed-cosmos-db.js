@@ -142,7 +142,7 @@ const assessmentData = [
     date: "2024-01-15",
     timeWindow: "10:00 AM - 10:45 AM",
     status: "Not Started",
-    location: "Oak Ridge Golf Club",
+    location: "Store ID: 10345 Bay ID: 3",
     coach: "David Smith",
     swings: generateSwings("001")
   },
@@ -156,7 +156,7 @@ const assessmentData = [
     date: "2024-02-10",
     timeWindow: "2:30 PM - 3:15 PM",
     status: "Not Started",
-    location: "Pine Valley Golf Resort",
+    location: "Store ID: 20789 Bay ID: 1",
     coach: "Lisa Chen",
     swings: generateSwings("002")
   },
@@ -170,7 +170,7 @@ const assessmentData = [
     date: "2024-03-05",
     timeWindow: "9:15 AM - 10:00 AM",
     status: "Not Started",
-    location: "Meadowbrook Golf Academy",
+    location: "Store ID: 35421 Bay ID: 7",
     coach: "Mark Wilson",
     swings: generateSwings("003")
   },
@@ -184,7 +184,7 @@ const assessmentData = [
     date: "2024-01-28",
     timeWindow: "1:00 PM - 1:45 PM",
     status: "Not Started",
-    location: "Westview Golf Course",
+    location: "Store ID: 48976 Bay ID: 2",
     coach: "Jennifer Adams",
     swings: generateSwings("004")
   },
@@ -198,7 +198,7 @@ const assessmentData = [
     date: "2024-02-18",
     timeWindow: "3:30 PM - 4:15 PM",
     status: "Not Started",
-    location: "Highland Links Golf Club",
+    location: "Store ID: 52314 Bay ID: 5",
     coach: "Richard Taylor",
     swings: generateSwings("005")
   }
