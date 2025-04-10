@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # Define output file
-OUTPUT_FILE="cartoon-annotation-code-export.txt"
+OUTPUT_FILE="annotation-code-export.txt"
 
 # Start with a clean output file
-echo "# Cartoon Annotation Tool - Complete Source Code Export" > $OUTPUT_FILE
 echo "# Generated on $(date)" >> $OUTPUT_FILE
 echo "# This file contains all source code from the project" >> $OUTPUT_FILE
 echo "" >> $OUTPUT_FILE

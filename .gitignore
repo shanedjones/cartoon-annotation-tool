@@ -40,4 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-cartoon-annotation-code-export.txt
+annotation-code-export.txt

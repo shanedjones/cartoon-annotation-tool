@@ -1,6 +1,6 @@
 # Deploying to Azure App Service with Azure Container Registry
 
-This guide explains how to deploy the Cartoon Annotation Tool application to Azure App Service using Azure Container Registry (ACR).
+This guide explains how to deploy the Annotation Tool application to Azure App Service using Azure Container Registry (ACR).
 
 ## Prerequisites
 
@@ -42,56 +42,56 @@ az login
 2. **Create a Resource Group**:
 
 ```bash
-az group create --name cartoon-annotation-rg --location eastus
+az group create --name annotation-tool-rg --location eastus
 ```
 
 3. **Create an Azure Container Registry**:
 
 ```bash
-az acr create --resource-group cartoon-annotation-rg --name cartoonannotationacr --sku Basic
+az acr create --resource-group annotation-tool-rg --name annotationtoolacr --sku Basic
 ```
 
 4. **Log in to ACR**:
 
 ```bash
-az acr login --name cartoonannotationacr
+az acr login --name annotationtoolacr
 ```
 
 5. **Build and push your Docker image**:
 
 ```bash
-az acr build --registry cartoonannotationacr --image cartoon-annotation:latest .
+az acr build --registry annotationtoolacr --image annotation-tool:latest .
 ```
 
 6. **Create an App Service Plan**:
 
 ```bash
-az appservice plan create --name cartoon-annotation-plan --resource-group cartoon-annotation-rg --sku B1 --is-linux
+az appservice plan create --name annotation-tool-plan --resource-group annotation-tool-rg --sku B1 --is-linux
 ```
 
 7. **Create a Web App**:
 
 ```bash
-az webapp create --resource-group cartoon-annotation-rg --plan cartoon-annotation-plan --name cartoon-annotation-app --deployment-container-image-name cartoonannotationacr.azurecr.io/cartoon-annotation:latest
+az webapp create --resource-group annotation-tool-rg --plan annotation-tool-plan --name annotation-tool-app --deployment-container-image-name annotationtoolacr.azurecr.io/annotation-tool:latest
 ```
 
 8. **Configure system-assigned identity and ACR pull rights**:
 
 ```bash
 # Enable managed identity
-az webapp identity assign --resource-group cartoon-annotation-rg --name cartoon-annotation-app
+az webapp identity assign --resource-group annotation-tool-rg --name annotation-tool-app
 
 # Get the principal ID
-PRINCIPAL_ID=$(az webapp identity show --resource-group cartoon-annotation-rg --name cartoon-annotation-app --query principalId --output tsv)
+PRINCIPAL_ID=$(az webapp identity show --resource-group annotation-tool-rg --name annotation-tool-app --query principalId --output tsv)
 
 # Assign ACR pull role
-ACR_ID=$(az acr show --name cartoonannotationacr --resource-group cartoon-annotation-rg --query id --output tsv)
+ACR_ID=$(az acr show --name annotationtoolacr --resource-group annotation-tool-rg --query id --output tsv)
 az role assignment create --assignee $PRINCIPAL_ID --scope $ACR_ID --role AcrPull
 
 # Configure container settings to use managed identity
-az webapp config container set --resource-group cartoon-annotation-rg --name cartoon-annotation-app \
-  --docker-registry-server-url https://cartoonannotationacr.azurecr.io \
-  --docker-custom-image-name cartoonannotationacr.azurecr.io/cartoon-annotation:latest \
+az webapp config container set --resource-group annotation-tool-rg --name annotation-tool-app \
+  --docker-registry-server-url https://annotationtoolacr.azurecr.io \
+  --docker-custom-image-name annotationtoolacr.azurecr.io/annotation-tool:latest \
   --docker-registry-server-user "" \
   --docker-registry-server-password ""
 ```
@@ -99,7 +99,7 @@ az webapp config container set --resource-group cartoon-annotation-rg --name car
 9. **Configure environment variables**:
 
 ```bash
-az webapp config appsettings set --resource-group cartoon-annotation-rg --name cartoon-annotation-app --settings \
+az webapp config appsettings set --resource-group annotation-tool-rg --name annotation-tool-app --settings \
   NODE_ENV=production \
   PORT=3000 \
   WEBSITES_PORT=3000 \
@@ -109,7 +109,7 @@ az webapp config appsettings set --resource-group cartoon-annotation-rg --name c
   COSMOS_CONTAINER_ID=your_cosmos_container_id \
   AZURE_STORAGE_CONNECTION_STRING=your_storage_connection_string \
   AZURE_STORAGE_CONTAINER_NAME=your_storage_container_name \
-  NEXTAUTH_URL=https://cartoon-annotation-app.azurewebsites.net \
+  NEXTAUTH_URL=https://annotation-tool-app.azurewebsites.net \
   NEXTAUTH_SECRET=your_nextauth_secret
 ```
 
@@ -120,8 +120,8 @@ To set up continuous deployment using GitHub Actions:
 1. **Create Azure Service Principal**:
 
 ```bash
-az ad sp create-for-rbac --name "cartoon-annotation-cicd" --role contributor \
-  --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/cartoon-annotation-rg \
+az ad sp create-for-rbac --name "annotation-tool-cicd" --role contributor \
+  --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/annotation-tool-rg \
   --sdk-auth
 ```
 
@@ -130,8 +130,8 @@ az ad sp create-for-rbac --name "cartoon-annotation-cicd" --role contributor \
 Navigate to your GitHub repository > Settings > Secrets and add the following secrets:
 
 - `AZURE_CREDENTIALS`: The JSON output from the service principal creation
-- `ACR_USERNAME`: ACR username (can be found with `az acr credential show --name cartoonannotationacr --query username`)
-- `ACR_PASSWORD`: ACR password (can be found with `az acr credential show --name cartoonannotationacr --query passwords[0].value`)
+- `ACR_USERNAME`: ACR username (can be found with `az acr credential show --name annotationtoolacr --query username`)
+- `ACR_PASSWORD`: ACR password (can be found with `az acr credential show --name annotationtoolacr --query passwords[0].value`)
 - `COSMOS_ENDPOINT`: Your Cosmos DB endpoint
 - `COSMOS_KEY`: Your Cosmos DB key
 - `COSMOS_DATABASE_ID`: Your Cosmos DB database ID
@@ -149,17 +149,17 @@ The GitHub Actions workflow will automatically trigger when you push to the main
 1. **Check Web App Logs**:
 
 ```bash
-az webapp log tail --resource-group cartoon-annotation-rg --name cartoon-annotation-app
+az webapp log tail --resource-group annotation-tool-rg --name annotation-tool-app
 ```
 
 2. **View Deployment History**:
 
 ```bash
-az webapp deployment list --resource-group cartoon-annotation-rg --name cartoon-annotation-app
+az webapp deployment list --resource-group annotation-tool-rg --name annotation-tool-app
 ```
 
 3. **Restart the Web App**:
 
 ```bash
-az webapp restart --resource-group cartoon-annotation-rg --name cartoon-annotation-app
+az webapp restart --resource-group annotation-tool-rg --name annotation-tool-app
 ```

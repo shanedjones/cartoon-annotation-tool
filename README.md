@@ -1,6 +1,6 @@
 # Session Annotation Tool
 
-A Next.js application for recording, annotating, and replaying video sessions with synchronized audio, video, drawing capabilities, and animation category tagging.
+A Next.js application for recording, annotating, and replaying video sessions with synchronized audio, video, drawing capabilities, and annotation category tagging.
 
 ## Overview
 
@@ -8,10 +8,10 @@ This tool allows users to:
 - Browse videos in an inbox with filtering and search capabilities
 - Record synchronized audio while watching and interacting with videos
 - Add visual annotations and drawings directly on the video
-- Tag animations with specific categories (e.g., Artistic Style, Character Design)
+- Tag annotations with specific categories (e.g., Artistic Style, Character Design)
 - Capture all video player interactions (play, pause, seek, etc.)
 - Replay entire sessions with perfect audio-video-annotation synchronization
-- View selected animation categories during replay
+- View selected annotation categories during replay
 - Save and load feedback sessions as JSON files
 - Store video data in Azure Cosmos DB
 
@@ -19,8 +19,8 @@ This tool allows users to:
 
 1. **Clone the repository**
    ```
-   git clone https://github.com/shanedjones/cartoon-annotation-tool
-   cd cartoon-annotation-tool
+   git clone https://github.com/shanedjones/annotation-tool
+   cd annotation-tool
    ```
 
 2. **Install dependencies**
@@ -30,8 +30,8 @@ This tool allows users to:
 
 3. **Set up Azure Cosmos DB**
    - Create an Azure Cosmos DB account with SQL API
-   - Create a database named `cartoon-db`
-   - Create a container named `cartoons` with `/id` as the partition key
+   - Create a database named `annotation-db`
+   - Create a container named `annotations` with `/id` as the partition key
    - Copy your Cosmos DB endpoint and key from the Azure portal
 
 4. **Set up Azure Blob Storage**
@@ -45,8 +45,8 @@ This tool allows users to:
    # Azure Cosmos DB Configuration
    COSMOS_ENDPOINT=https://your-cosmos-account.documents.azure.com:443/
    COSMOS_KEY=your-primary-key
-   COSMOS_DATABASE_ID=cartoon-db
-   COSMOS_CONTAINER_ID=cartoons
+   COSMOS_DATABASE_ID=annotation-db
+   COSMOS_CONTAINER_ID=annotations
    
    # Azure Storage Configuration
    AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=your-account;AccountKey=your-key;EndpointSuffix=core.windows.net
@@ -90,8 +90,8 @@ This tool allows users to:
 - Provides global access for category change recording
 - Serves as the main entry point for the application
 
-### Animation Categories
-- Allows tagging of animation with predefined categories
+### Annotation Categories
+- Allows tagging of annotations with predefined categories
 - Categories can be selected/deselected during recording
 - Categories are stored as both timeline events and session metadata
 - During replay, all selected categories are shown in a list view
@@ -204,18 +204,18 @@ The application uses two main data structures:
 1. Audio is recorded using the MediaRecorder API
 2. Video interactions (play, pause, seek) are captured as events
 3. Drawing annotations are captured with timestamps
-4. Animation category selections are recorded in real-time
+4. Annotation category selections are recorded in real-time
 5. All events are synchronized to a common timeline
 
 ### Replaying Sessions
 1. Audio playback drives the main timeline
 2. Video events are replayed at their recorded times
 3. Annotations appear at their recorded timestamps
-4. Animation categories selected during recording are displayed
+4. Annotation categories selected during recording are displayed
 5. All components reset properly when replay completes
 
-### Animation Categories
-1. Five key categories for animation analysis:
+### Annotation Categories
+1. Five key categories for annotation analysis:
    - Artistic Style
    - Character Design
    - Motion Dynamics
@@ -234,7 +234,7 @@ The application uses two main data structures:
 ## Project Structure
 
 ```
-cartoon-annotation/
+annotation-tool/
 ├── app/                  # Next.js app directory
 │   ├── page.tsx          # Main application page
 │   ├── layout.tsx        # App layout
@@ -281,7 +281,7 @@ cartoon-annotation/
 - Improved marker/comment system
 - Video source selection
 - Multiple annotation layers
-- Custom animation categories
+- Custom annotation categories
 - Categorization analytics and reporting
 - Category-based filtering during replay
 - Export to video format
