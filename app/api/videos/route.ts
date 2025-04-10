@@ -1,33 +1,8 @@
 import { NextResponse } from 'next/server';
 import { CosmosClient } from '@azure/cosmos';
 
-// Validate required environment variables
-if (!process.env.COSMOS_ENDPOINT) {
-  throw new Error('COSMOS_ENDPOINT environment variable is required');
-}
-
-if (!process.env.COSMOS_KEY) {
-  throw new Error('COSMOS_KEY environment variable is required');
-}
-
-if (!process.env.COSMOS_DATABASE_ID) {
-  throw new Error('COSMOS_DATABASE_ID environment variable is required');
-}
-
-if (!process.env.COSMOS_CONTAINER_ID) {
-  throw new Error('COSMOS_CONTAINER_ID environment variable is required');
-}
-
-// Cosmos DB connection configuration
-const endpoint = process.env.COSMOS_ENDPOINT;
-const key = process.env.COSMOS_KEY;
-const databaseId = process.env.COSMOS_DATABASE_ID;
-const containerId = process.env.COSMOS_CONTAINER_ID;
-
-// Initialize the Cosmos client
-const client = new CosmosClient({ endpoint, key });
-const database = client.database(databaseId);
-const container = database.container(containerId);
+// Connection and validation will be done inside the handler functions
+// to prevent issues during build time
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -35,6 +10,34 @@ export async function GET(request: Request) {
   const status = searchParams.get('status');
 
   try {
+    // Validate required environment variables
+    if (!process.env.COSMOS_ENDPOINT) {
+      throw new Error('COSMOS_ENDPOINT environment variable is required');
+    }
+
+    if (!process.env.COSMOS_KEY) {
+      throw new Error('COSMOS_KEY environment variable is required');
+    }
+
+    if (!process.env.COSMOS_DATABASE_ID) {
+      throw new Error('COSMOS_DATABASE_ID environment variable is required');
+    }
+
+    if (!process.env.COSMOS_CONTAINER_ID) {
+      throw new Error('COSMOS_CONTAINER_ID environment variable is required');
+    }
+
+    // Cosmos DB connection configuration
+    const endpoint = process.env.COSMOS_ENDPOINT;
+    const key = process.env.COSMOS_KEY;
+    const databaseId = process.env.COSMOS_DATABASE_ID;
+    const containerId = process.env.COSMOS_CONTAINER_ID;
+
+    // Initialize the Cosmos client
+    const client = new CosmosClient({ endpoint, key });
+    const database = client.database(databaseId);
+    const container = database.container(containerId);
+    
     let querySpec;
     
     if (id) {
@@ -91,6 +94,34 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    // Validate required environment variables
+    if (!process.env.COSMOS_ENDPOINT) {
+      throw new Error('COSMOS_ENDPOINT environment variable is required');
+    }
+
+    if (!process.env.COSMOS_KEY) {
+      throw new Error('COSMOS_KEY environment variable is required');
+    }
+
+    if (!process.env.COSMOS_DATABASE_ID) {
+      throw new Error('COSMOS_DATABASE_ID environment variable is required');
+    }
+
+    if (!process.env.COSMOS_CONTAINER_ID) {
+      throw new Error('COSMOS_CONTAINER_ID environment variable is required');
+    }
+
+    // Cosmos DB connection configuration
+    const endpoint = process.env.COSMOS_ENDPOINT;
+    const key = process.env.COSMOS_KEY;
+    const databaseId = process.env.COSMOS_DATABASE_ID;
+    const containerId = process.env.COSMOS_CONTAINER_ID;
+
+    // Initialize the Cosmos client
+    const client = new CosmosClient({ endpoint, key });
+    const database = client.database(databaseId);
+    const container = database.container(containerId);
+    
     const data = await request.json();
     
     // Check if we're submitting a session or an individual swing
@@ -159,6 +190,34 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    // Validate required environment variables
+    if (!process.env.COSMOS_ENDPOINT) {
+      throw new Error('COSMOS_ENDPOINT environment variable is required');
+    }
+
+    if (!process.env.COSMOS_KEY) {
+      throw new Error('COSMOS_KEY environment variable is required');
+    }
+
+    if (!process.env.COSMOS_DATABASE_ID) {
+      throw new Error('COSMOS_DATABASE_ID environment variable is required');
+    }
+
+    if (!process.env.COSMOS_CONTAINER_ID) {
+      throw new Error('COSMOS_CONTAINER_ID environment variable is required');
+    }
+
+    // Cosmos DB connection configuration
+    const endpoint = process.env.COSMOS_ENDPOINT;
+    const key = process.env.COSMOS_KEY;
+    const databaseId = process.env.COSMOS_DATABASE_ID;
+    const containerId = process.env.COSMOS_CONTAINER_ID;
+
+    // Initialize the Cosmos client
+    const client = new CosmosClient({ endpoint, key });
+    const database = client.database(databaseId);
+    const container = database.container(containerId);
+    
     const data = await request.json();
     
     if (!data.id) {

@@ -16,7 +16,7 @@ export interface FeedbackSession {
   endTime?: number;
   audioTrack: AudioTrack;
   events: TimelineEvent[];
-  categories?: Record<string, boolean>;
+  categories?: Record<string, number | boolean>;
 }
 
 /**
@@ -44,7 +44,7 @@ export interface TimelineEvent {
  */
 interface FeedbackOrchestratorProps {
   // Video component ref
-  videoElementRef: React.RefObject<HTMLVideoElement>;
+  videoElementRef: React.RefObject<HTMLVideoElement | null>;
   // Annotation canvas component ref and methods
   canvasRef: React.RefObject<any>;
   drawAnnotation: (path: DrawingPath) => void;
@@ -58,7 +58,7 @@ interface FeedbackOrchestratorProps {
   // Operation mode
   mode: 'record' | 'replay';
   // Callback for when categories are loaded during replay
-  onCategoriesLoaded?: (categories: Record<string, boolean>) => void;
+  onCategoriesLoaded?: (categories: Record<string, number | boolean>) => void;
 }
 
 /**
@@ -437,8 +437,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         
         // Ensure all category values are numbers, not null
         if (currentSessionData.categories) {
-          Object.keys(currentSessionData.categories).forEach(key => {
-            const value = currentSessionData.categories[key];
+          // Use type assertion to help TypeScript understand the structure
+          const cats = currentSessionData.categories as Record<string, number | boolean>;
+          Object.keys(cats).forEach(key => {
+            const value = cats[key];
             // Only include ratings that have a positive numeric value
             if (typeof value === 'number' && value > 0) {
               categories[key] = value;
@@ -1157,14 +1159,20 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         setCurrentSession({ ...session });
       }
       
+      // Create a boolean version for compatibility with components expecting boolean values
+      const booleanCategories: Record<string, boolean> = {};
+      Object.entries(categoriesState).forEach(([key, value]) => {
+        booleanCategories[key] = value > 0;
+      });
+      
       // Notify parent right away
-      onCategoriesLoaded(categoriesState);
+      onCategoriesLoaded(booleanCategories);
       
       // Also schedule a delayed notification to ensure component has mounted
       setTimeout(() => {
         if (onCategoriesLoaded) {
           console.log('Delayed call to onCategoriesLoaded with:', categoriesState);
-          onCategoriesLoaded(categoriesState);
+          onCategoriesLoaded(booleanCategories);
         }
       }, 100);
     } else {

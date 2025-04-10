@@ -623,10 +623,32 @@ export default function AudioTestPage() {
         };
         
         // Add event listeners to the audio element
-        audioRef.current.addEventListener('play', audioPlayHandler);
-        audioRef.current.addEventListener('ended', audioEndHandler);
+        if (audioRef.current) {
+          audioRef.current.addEventListener('play', audioPlayHandler);
+          audioRef.current.addEventListener('ended', audioEndHandler);
+        } else {
+          resolve({
+            success: false,
+            details: 'Audio element not available. Synchronization test aborted.'
+          });
+          return;
+        }
         
         // Start playing the video, which should trigger the audio
+        if (!videoPlayerRef.current) {
+          // Clean up audio listeners first
+          if (audioRef.current) {
+            audioRef.current.removeEventListener('play', audioPlayHandler);
+            audioRef.current.removeEventListener('ended', audioEndHandler);
+          }
+          
+          resolve({
+            success: false,
+            details: 'Video element not available. Synchronization test aborted.'
+          });
+          return;
+        }
+        
         const videoPlayPromise = videoPlayerRef.current.play();
         
         videoPlayPromise.catch(error => {

@@ -160,13 +160,13 @@ function sessionReducer(state: SessionState, action: SessionActionType): Session
 }
 
 // Helper function to convert category ratings to dictionary
-function convertCategoryRatingsToDict(ratings: CategoryRatings): Dictionary<boolean> {
-  const result: Dictionary<boolean> = {};
+function convertCategoryRatingsToDict(ratings: CategoryRatings): Dictionary<number | boolean> {
+  const result: Dictionary<number | boolean> = {};
   
   Object.entries(ratings).forEach(([category, rating]) => {
     // Only include categories with non-null values
     if (rating !== null) {
-      result[category] = true;
+      result[category] = rating; // Preserve the numeric rating
     }
   });
   
@@ -174,13 +174,21 @@ function convertCategoryRatingsToDict(ratings: CategoryRatings): Dictionary<bool
 }
 
 // Helper function to convert dictionary to category ratings
-function convertDictToCategoryRatings(dict: Dictionary<boolean>): CategoryRatings {
+function convertDictToCategoryRatings(dict: Dictionary<number | boolean>): CategoryRatings {
   const result: CategoryRatings = {};
   
   Object.entries(dict).forEach(([category, value]) => {
-    // Convert boolean values to ratings
-    if (value === true) {
-      result[category] = 5; // Default to highest rating
+    // Handle both boolean and number values
+    if (typeof value === 'boolean') {
+      // Convert boolean values to ratings
+      if (value === true) {
+        result[category] = 5; // Default to highest rating
+      } else {
+        result[category] = null;
+      }
+    } else if (typeof value === 'number') {
+      // Numbers can be directly used
+      result[category] = value > 0 ? value : null;
     } else {
       result[category] = null;
     }

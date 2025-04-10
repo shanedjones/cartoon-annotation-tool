@@ -2,6 +2,7 @@
  * Type definitions for media (audio/video) handling
  */
 import { Timestamp, VideoPosition, EntityId, TimelinePosition, Duration } from './common';
+import { RecordedAction } from './timeline';
 
 /**
  * Represents a chunk of recorded audio

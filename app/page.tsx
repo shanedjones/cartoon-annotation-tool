@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import VideoPlayerWrapper from "../src/components/VideoPlayerWrapper";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
+import type { FeedbackSession } from "@/src/components/FeedbackOrchestrator";
 import { useSearchParams } from 'next/navigation';
 
-export default function Home() {
+// Wrapper component for functionality that requires search params
+function HomeContent() {
   // Interface for review content configuration
   interface DataLabelingProperty {
     id: string;
@@ -57,7 +59,10 @@ export default function Home() {
           const selectedVideo = videos[0];
           
           // Convert video data to ReviewContent format
-          const metricsArray = Object.entries(selectedVideo.metrics).map(([name, value]) => ({ name, value }));
+          const metricsArray = Object.entries(selectedVideo.metrics).map(([name, value]) => ({ 
+            name, 
+            value: typeof value === 'string' || typeof value === 'number' ? value : String(value) 
+          }));
           
           setContentToReview({
             videoUrl: selectedVideo.videoUrl,
@@ -83,8 +88,9 @@ export default function Home() {
             // If status is "Completed", make session available for replay but don't auto-start
             if (selectedVideo.status === "Completed") {
               console.log("Completed review found, making session available for replay");
-              window.__hasRecordedSession = true;
-              window.__isCompletedVideo = true; // Mark as already completed
+              // Use type assertion to add custom properties to window
+              (window as any).__hasRecordedSession = true;
+              (window as any).__isCompletedVideo = true; // Mark as already completed
               const event = new CustomEvent('session-available');
               window.dispatchEvent(event);
             }
@@ -108,21 +114,9 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   
   // State for category list with ratings that will be shown during replay
-  const [categoryList, setCategoryList] = useState<{name: string, rating: number}[]>([]);
+  const [categoryList, setCategoryList] = useState<{id?: string, name: string, rating: number}[]>([]);
   
-  // Define window type with our custom properties
-  declare global {
-    interface Window {
-      __videoPlayerWrapper?: {
-        recordCategoryChange: (category: string, rating: number) => void;
-        isRecording: boolean;
-      };
-      __hasRecordedSession?: boolean;
-      __isCompletedVideo?: boolean;
-      __sessionReady?: boolean;
-      __isReplaying?: boolean;
-    }
-  }
+  // Use type assertions instead of global declarations
   
   // State tracking
   const [hasRecordedSession, setHasRecordedSession] = useState(false);
@@ -337,7 +331,7 @@ export default function Home() {
   }, [contentToReview]);
   
   // Save the review session to Cosmos DB when a recording is completed
-  const onSessionComplete = useCallback(async (session) => {
+  const onSessionComplete = useCallback(async (session: FeedbackSession) => {
     console.log('Session complete:', session);
     
     // If this is a review of a specific swing from the inbox, save the session to Cosmos DB
@@ -530,7 +524,7 @@ export default function Home() {
                             key={star}
                             type="button"
                             onClick={() => handleCategoryChange(property.id, star)}
-                            className={categories[property.id] >= star ? "text-xl px-1 text-yellow-400" : "text-xl px-1 text-gray-300"}
+                            className={(categories[property.id] ?? 0) >= star ? "text-xl px-1 text-yellow-400" : "text-xl px-1 text-gray-300"}
                           >
                             ★
                           </button>
@@ -553,7 +547,7 @@ export default function Home() {
                                 // Find if we have a rating for this category from replay data
                                 // First check by ID (most reliable)
                                 const ratingCategoryById = categoryList.find(cat => 
-                                  cat.id === property.id
+                                  cat.id && cat.id === property.id
                                 );
                                 
                                 // Then check by name if ID match failed
@@ -668,5 +662,14 @@ export default function Home() {
         </div>
       </main>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary for useSearchParams
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

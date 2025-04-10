@@ -135,7 +135,7 @@ export interface FeedbackSession {
   /** Timeline events */
   events: TimelineEvent[];
   /** Category ratings */
-  categories?: Dictionary<boolean>;
+  categories?: Dictionary<number | boolean>;
 }
 
 /**
@@ -159,5 +159,5 @@ export interface FeedbackOrchestratorProps {
   /** Current operation mode */
   mode: 'record' | 'replay';
   /** Callback when categories are loaded during replay */
-  onCategoriesLoaded?: (categories: Dictionary<boolean>) => void;
+  onCategoriesLoaded?: (categories: Dictionary<number | boolean>) => void;
 }

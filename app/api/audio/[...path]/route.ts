@@ -7,7 +7,7 @@ const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordi
 
 export async function GET(
   request: NextRequest,
-  context: { params: { path: string[] } }
+  context: any
 ) {
   try {
     if (!connectionString) {

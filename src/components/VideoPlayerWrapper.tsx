@@ -319,7 +319,10 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
         videoTime: 0, // Will need proper conversion
         details: { ...event.payload }
       };
-      delete action.details.action;
+      
+      if (action.details) {
+        delete action.details.action;
+      }
       legacyData.actions.push(action);
     } 
     else if (event.type === 'annotation') {
@@ -398,7 +401,7 @@ export default function VideoPlayerWrapper({
   // Set video URL in context only when videoUrl prop changes
   useEffect(() => {
     // Only update if URL actually changed to prevent infinite loops
-    if (videoUrl && videoContext.setVideoUrl && videoUrl !== prevUrlRef.current) {
+    if (videoUrl && videoUrl !== prevUrlRef.current) {
       console.log('VideoPlayerWrapper: Setting video URL in context:', videoUrl);
       
       // Update URL in context
@@ -423,6 +426,8 @@ export default function VideoPlayerWrapper({
   
   // References
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Create a properly typed ref for the FeedbackOrchestrator
+  const orchestratorVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const orchestratorRef = useRef<any>(null);
   const annotationCanvasComponentRef = useRef<any>(null);
@@ -430,6 +435,10 @@ export default function VideoPlayerWrapper({
   // Function to set the video reference from the child component
   const setVideoElementRef = useCallback((el: HTMLVideoElement | null) => {
     videoRef.current = el;
+    // Also update the orchestrator video ref when we get a valid element
+    if (el) {
+      orchestratorVideoRef.current = el;
+    }
   }, []);
   
   // Start recording
@@ -898,18 +907,7 @@ export default function VideoPlayerWrapper({
     };
   }, [isActive, mode]);
 
-  // Define window type with our custom property
-  declare global {
-    interface Window {
-      __videoPlayerWrapper?: {
-        recordCategoryChange: (category: string, rating: number) => void;
-        isRecording: boolean;
-      };
-      __globalTimePosition?: number; // Global timeline position in milliseconds
-      __lastClearTime?: number; // When the canvas was last cleared (global timeline time)
-      __hasRecordedSession?: boolean;
-    }
-  }
+  // Using the Window interface defined in src/types/global.d.ts
   
   // Expose methods to the parent component and notify about mode changes
   useEffect(() => {
@@ -1096,7 +1094,7 @@ export default function VideoPlayerWrapper({
           
           {/* Initialize the Orchestrator */}
           <FeedbackOrchestrator
-          videoElementRef={videoRef}
+          videoElementRef={orchestratorVideoRef}
           canvasRef={canvasRef}
           drawAnnotation={drawAnnotation}
           clearAnnotations={clearAnnotations}
@@ -1125,7 +1123,12 @@ export default function VideoPlayerWrapper({
                 
                 // Delay slightly to ensure UI state is updated properly after clearing
                 setTimeout(() => {
-                  onCategoriesLoaded(loadedCategories);
+                  // Convert boolean values to numbers (1 for true, 0 for false)
+                  const numberCategories: Record<string, number> = {};
+                  Object.entries(loadedCategories).forEach(([key, value]) => {
+                    numberCategories[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as number;
+                  });
+                  onCategoriesLoaded(numberCategories);
                 }, 100);
               } else {
                 console.log('WRAPPER: No checked categories or no callback available');
@@ -1152,7 +1155,7 @@ export default function VideoPlayerWrapper({
                 <p><strong>Category Ratings:</strong></p>
                 <ul className="list-none space-y-2">
                   {Object.entries(currentSession.categories)
-                    .filter(([_, rating]) => rating !== null && rating > 0)
+                    .filter(([_, rating]) => rating !== null && (typeof rating === 'boolean' ? rating : rating > 0))
                     .map(([category, rating]) => (
                       <li key={category}>
                         <div>

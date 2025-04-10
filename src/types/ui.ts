@@ -52,7 +52,7 @@ export interface VideoPlayerWrapperProps {
   /** Callback when categories are cleared */
   onCategoriesCleared?: () => void;
   /** Callback when categories are loaded */
-  onCategoriesLoaded?: (categories: Dictionary<number>) => void;
+  onCategoriesLoaded?: (categories: Dictionary<number | boolean>) => void;
   /** Callback when replay mode changes */
   onReplayModeChange?: (isReplay: boolean) => void;
   /** URL to the video */

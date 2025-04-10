@@ -262,7 +262,7 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
         
         <div className="p-4 border-t border-gray-200 flex justify-end space-x-2">
           <button
-            onClick={onClose}
+            onClick={(e) => onClose()}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md"
           >
             Cancel
