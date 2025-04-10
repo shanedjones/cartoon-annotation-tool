@@ -1058,6 +1058,7 @@ export default function VideoPlayerWrapper({
               }) || feedbackData.annotations || []}
             videoUrl={videoUrl}
             onLoadingStateChange={(isLoading) => {
+              console.log('Video loading state changed:', isLoading);
               setIsVideoLoading(isLoading);
               if (onVideoLoadingChange) {
                 onVideoLoadingChange(isLoading);

@@ -90,10 +90,20 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
   }, [isRecording]);
   
+  // Track previous URL to detect changes
+  const prevUrlRef = useRef(videoUrl);
+  
   // Directly handle loading videos with improved error handling
   useEffect(() => {
     // Skip if no URL
     if (!videoUrl) return;
+    
+    // Reset loading flags if URL changed
+    if (prevUrlRef.current !== videoUrl) {
+      console.log('Video URL changed, resetting loading state');
+      setIsLoadStarted(false);
+      prevUrlRef.current = videoUrl;
+    }
     
     // Set loading state if not already loading
     if (!isLoadStarted) {
@@ -106,14 +116,28 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       // In a real implementation, we would check cache here
       // For now, directly set the cached source to the original URL
       setCachedVideoSrc(videoUrl);
-      
-      // Simulate loading completion
-      setTimeout(() => {
-        setIsLoading(false);
-        setIsVideoCached(true);
-      }, 1000);
     }
   }, [videoUrl, isLoadStarted]);
+  
+  // Handle video loading errors
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    const handleError = () => {
+      console.error('Video loading error');
+      setIsLoading(false);
+      setHasError(true);
+      setErrorMessage('Failed to load the video. Please try again or contact support.');
+    };
+    
+    videoRef.current.addEventListener('error', handleError);
+    
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener('error', handleError);
+      }
+    };
+  }, [videoRef.current]);
   
   // Pass video element reference to parent component
   useEffect(() => {
@@ -280,6 +304,17 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       const duration = videoRef.current.duration;
       setDuration(duration);
     }
+  };
+  
+  // Handle when video is fully loaded and can play through
+  const handleCanPlayThrough = () => {
+    console.log('Video can play through, finishing loading state');
+    // Add a small delay to ensure video is really ready to play smoothly
+    // This prevents the loading spinner from disappearing too quickly
+    setTimeout(() => {
+      setIsLoading(false);
+      setIsVideoCached(true);
+    }, 250);
   };
   
   // Add additional event handler for duration change
@@ -487,9 +522,10 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onDurationChange={handleDurationChange}
+          onCanPlayThrough={handleCanPlayThrough}
           src={cachedVideoSrc}
           playsInline
-          preload="metadata"
+          preload="auto"
           muted
         />
         

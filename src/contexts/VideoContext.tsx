@@ -405,7 +405,12 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
         // Only clear loading state if we're still loading the same URL
         if (loadingUrlRef.current === state.videoUrl) {
           loadingUrlRef.current = null;
-          dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
+          
+          // We don't automatically set isLoading to false here anymore
+          // Instead, the VideoPlayer component will handle this when the
+          // video element fires the 'canplaythrough' event, ensuring the
+          // loading state accurately reflects when the video is actually
+          // ready to play without buffering
         }
       }
     };
