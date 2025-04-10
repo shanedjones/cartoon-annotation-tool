@@ -501,7 +501,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-30">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mb-2"></div>
             <p className="text-white font-medium">Loading video...</p>
-            <p className="text-white text-sm mt-1">{isVideoCached ? 'Video will be cached for future viewing' : 'Please wait while the video loads'}</p>
+            <p className="text-white text-sm mt-1">{isVideoCached ? 'Video will be cached for future viewing' : 'Please wait while the video loads, this can take a few minutes...'}</p>
           </div>
         )}
         {hasError && (

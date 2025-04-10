@@ -58,8 +58,8 @@ interface AnnotationContextType {
 const initialState: AnnotationState = {
   annotations: [],
   lastClearTime: 0,
-  currentColor: '#ff0000', // Default red
-  currentWidth: 3, // Default medium width
+  currentColor: '#ffff00', // Default yellow
+  currentWidth: 1, // Default thin width
   isEnabled: true,
   isReplaying: false,
 };

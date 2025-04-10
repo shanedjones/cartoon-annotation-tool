@@ -44,8 +44,8 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   isReplaying = false,
   onAnnotationAdded,
   replayAnnotations = [],
-  toolColor = '#ff0000',
-  toolWidth = 4,
+  toolColor = '#ffff00',
+  toolWidth = 1,
   toolType = 'freehand',
   clearCanvas = false,
   onClearComplete
