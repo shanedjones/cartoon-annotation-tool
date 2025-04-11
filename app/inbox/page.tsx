@@ -206,14 +206,14 @@ export default function InboxPage() {
           <input
             type="text"
             placeholder="Search athletes, locations, coaches..."
-            className="w-full px-4 py-2 border rounded-md"
+            className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="sm:w-48">
           <select
-            className="w-full px-4 py-2 border rounded-md"
+            className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -227,78 +227,69 @@ export default function InboxPage() {
 
       {/* Sessions list */}
       {filteredSessions.length === 0 ? (
-        <div className="bg-gray-100 rounded-lg p-8 text-center">
-          <p className="text-lg text-gray-600">No assessment sessions found matching your filters.</p>
+        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-8 text-center">
+          <p className="text-lg text-gray-600 dark:text-gray-300">No assessment sessions found matching your filters.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow-md">
+        <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th scope="col" className="w-10 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="w-10 px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Athlete
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Date & Time
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Location
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Swings
                 </th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredSessions.map((session) => (
                 <React.Fragment key={session.id}>
-                  <tr className={`hover:bg-gray-50 ${expandedSession === session.id ? 'bg-blue-50' : ''}`}>
+                  <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${expandedSession === session.id ? 'bg-gray-100 dark:bg-gray-700' : ''}`}>
                     <td className="px-3 py-4 whitespace-nowrap text-center">
                       <button
                         onClick={() => toggleSessionExpand(session.id)}
-                        className="p-1 rounded-full hover:bg-gray-100 focus:outline-none"
+                        className="w-7 h-7 flex items-center justify-center rounded-full shadow-sm focus:outline-none transition-colors !bg-white dark:!bg-blue-600 border border-gray-200 dark:border-blue-500 !text-gray-700 dark:!text-white"
                         aria-label={expandedSession === session.id ? "Collapse" : "Expand"}
                       >
-                        <svg 
-                          className={`h-5 w-5 text-gray-500 transform transition-transform ${expandedSession === session.id ? 'rotate-90' : ''}`} 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          viewBox="0 0 20 20" 
-                          fill="currentColor"
-                        >
-                          <path 
-                            fillRule="evenodd" 
-                            d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" 
-                            clipRule="evenodd" 
-                          />
-                        </svg>
+                        <span className="text-base font-bold text-gray-700 dark:text-white">
+                          {expandedSession === session.id ? '−' : '+'}
+                        </span>
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="ml-0">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {session.athlete?.name || 'Unknown Athlete'}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-gray-500 dark:text-gray-300">
                             Handicap: {session.athlete?.handicap || 'N/A'} | {session.athlete?.gender || 'Unknown'}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{session.date ? formatDate(session.date) : 'No date'}</div>
-                      <div className="text-sm text-gray-500">{session.timeWindow || 'No time specified'}</div>
+                      <div className="text-sm text-gray-900 dark:text-white">{session.date ? formatDate(session.date) : 'No date'}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-300">{session.timeWindow || 'No time specified'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                       {session.location || 'No location'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -306,13 +297,13 @@ export default function InboxPage() {
                         {session.status || 'Not Started'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                       {session.swings?.length || 0} {(session.swings?.length || 0) === 1 ? 'swing' : 'swings'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                       <button
                         onClick={() => openAssessmentReview(session.id, session.athlete?.name || 'Unknown Athlete')}
-                        className="text-indigo-600 hover:text-indigo-900"
+                        className="px-3 py-1 rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900 dark:text-indigo-200 dark:hover:bg-indigo-800 transition-colors"
                       >
                         Review Assessment
                       </button>
@@ -321,18 +312,18 @@ export default function InboxPage() {
                   
                   {/* Expanded swing rows */}
                   {expandedSession === session.id && (session.swings || []).map((swing) => (
-                    <tr key={swing.id} className="bg-gray-50">
-                      <td className="px-3 text-gray-500 text-center">
+                    <tr key={swing.id} className="bg-gray-50 dark:bg-gray-700">
+                      <td className="px-3 text-gray-500 dark:text-gray-300 text-center">
                         <div className="ml-2 w-5"></div>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{swing.title}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{swing.title}</div>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-500">{swing.duration}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-300">{swing.duration}</span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-500">-</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-300">-</span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(swing.status)}`}>
@@ -340,23 +331,23 @@ export default function InboxPage() {
                         </span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-500">-</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-300">-</span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
                         {swing.status === 'Completed' ? (
-                          <Link
-                            href={`/?videoId=${swing.id}&replay=true`}
-                            className="text-green-600 hover:text-green-900"
+                          <button
+                            onClick={() => window.location.href = `/?videoId=${swing.id}&replay=true`}
+                            className="px-3 py-1 rounded-md !bg-green-100 !text-green-700 hover:!bg-green-200 dark:!bg-indigo-900 dark:!text-indigo-200 dark:hover:!bg-indigo-800 transition-colors"
                           >
                             Replay
-                          </Link>
+                          </button>
                         ) : (
-                          <Link
-                            href={`/?videoId=${swing.id}`}
-                            className="text-blue-600 hover:text-blue-900"
+                          <button
+                            onClick={() => window.location.href = `/?videoId=${swing.id}`}
+                            className="px-3 py-1 rounded-md !bg-blue-100 !text-blue-700 hover:!bg-blue-200 dark:!bg-indigo-900 dark:!text-indigo-200 dark:hover:!bg-indigo-800 transition-colors"
                           >
                             Review
-                          </Link>
+                          </button>
                         )}
                       </td>
                     </tr>

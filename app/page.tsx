@@ -500,31 +500,31 @@ function HomeContent() {
         
         {/* Display video title and description from URL parameter */}
         {videoId && contentToReview && (
-          <div className="bg-blue-50 p-4 rounded-lg mb-4">
-            <h2 className="text-xl font-semibold">{contentToReview.videoTitle}</h2>
-            <p className="text-gray-600">{contentToReview.videoDescription}</p>
+          <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
+            <h2 className="text-xl font-semibold dark:text-white">{contentToReview.videoTitle}</h2>
+            <p className="text-gray-600 dark:text-gray-300">{contentToReview.videoDescription}</p>
           </div>
         )}
         
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Categories Section */}
           {contentToReview && <div className="lg:w-1/5">
-            <div className="p-4 border rounded-lg bg-gray-50 h-full">
-              <h2 className="text-xl font-semibold mb-3">{contentToReview.dataLabelingTitle}</h2>
+            <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 h-full">
+              <h2 className="text-xl font-semibold mb-3 dark:text-white">{contentToReview.dataLabelingTitle}</h2>
               
               {/* Show rating stars during recording mode */}
               {!isReplayMode ? (
                 <div className="space-y-3">
                   {contentToReview.labelProperties?.map((property) => (
                     <div key={property.id}>
-                      <div className="mb-1">{property.label}</div>
+                      <div className="mb-1 dark:text-white">{property.label}</div>
                       <div className="flex items-center">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button
                             key={star}
                             type="button"
                             onClick={() => handleCategoryChange(property.id, star)}
-                            className={(categories[property.id] ?? 0) >= star ? "text-xl px-1 text-yellow-400" : "text-xl px-1 text-gray-300"}
+                            className={(categories[property.id] ?? 0) >= star ? "text-xl px-1 text-yellow-400" : "text-xl px-1 text-gray-300 dark:text-gray-600"}
                           >
                             ★
                           </button>
@@ -541,7 +541,7 @@ function HomeContent() {
                       <ul className="space-y-3">
                         {contentToReview.labelProperties?.map((property) => (
                           <li key={property.id}>
-                            <div className="font-medium">{property.label}</div>
+                            <div className="font-medium dark:text-white">{property.label}</div>
                             <div className="flex text-yellow-400 mt-1 text-base">
                               {[1, 2, 3, 4, 5].map((star) => {
                                 // Find if we have a rating for this category from replay data
@@ -571,7 +571,7 @@ function HomeContent() {
                                 }
                                 
                                 return (
-                                  <span key={star} className={star <= rating ? "text-yellow-400" : "text-gray-300"}>
+                                  <span key={star} className={star <= rating ? "text-yellow-400" : "text-gray-300 dark:text-gray-600"}>
                                     ★
                                   </span>
                                 );
@@ -580,7 +580,7 @@ function HomeContent() {
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         {categoryList.length > 0 ? `${categoryList.length} ${categoryList.length === 1 ? 'category' : 'categories'} rated` : 'No ratings yet'}
                       </p>
                     </>
@@ -603,14 +603,14 @@ function HomeContent() {
               contentToReview={contentToReview}
               initialSession={savedReviewSession}
               onSessionComplete={onSessionComplete}
-            /> : <div className="flex items-center justify-center h-64 bg-gray-100 rounded-lg">
-              <p className="text-gray-500">Please select a video to review</p>
+            /> : <div className="flex items-center justify-center h-64 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-500 dark:text-gray-400">Please select a video to review</p>
             </div>}
             
             {/* Session Data Controls */}
             {hasRecordedSession && (
-              <div className="mt-4 p-4 border rounded-lg bg-gray-50">
-                <h3 className="text-lg font-semibold mb-2">Recorded Session</h3>
+              <div className="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+                <h3 className="text-lg font-semibold mb-2 dark:text-white">Recorded Session</h3>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => document.getElementById('downloadDataButton')?.click()}
@@ -646,13 +646,13 @@ function HomeContent() {
           {/* Key Metrics Section */}
           {contentToReview?.keyMetrics && contentToReview.keyMetrics.length > 0 && (
             <div className="lg:w-1/5">
-              <div className="p-4 border rounded-lg bg-gray-50 h-full">
-                <h2 className="text-xl font-semibold mb-3">{contentToReview.keyMetricsTitle || "Key Metrics"}</h2>
+              <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 h-full">
+                <h2 className="text-xl font-semibold mb-3 dark:text-white">{contentToReview.keyMetricsTitle || "Key Metrics"}</h2>
                 <div className="flex flex-col gap-3">
                   {contentToReview.keyMetrics.map((metric, index) => (
-                    <div key={index} className="p-2 bg-white rounded shadow-sm">
-                      <span className="block text-xs text-gray-500">{metric.name}</span>
-                      <span className="text-lg font-semibold">{metric.value}</span>
+                    <div key={index} className="p-2 bg-white dark:bg-gray-700 rounded shadow-sm">
+                      <span className="block text-xs text-gray-500 dark:text-gray-300">{metric.name}</span>
+                      <span className="text-lg font-semibold dark:text-white">{metric.value}</span>
                     </div>
                   ))}
                 </div>
