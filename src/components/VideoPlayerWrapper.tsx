@@ -7,8 +7,11 @@ import type { RecordedAction, FeedbackData } from './VideoPlayer';
 import type { DrawingPath } from './AnnotationCanvas';
 import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
-import { AppProviders } from '../contexts/AppProviders';
-import { useVideoSource, useVideo } from '../contexts/VideoContext';
+import { AppStateProvider } from '../state';
+import { useTimeline, useTimelineActions } from '../state/timeline/hooks';
+import { useSession, useSessionActions } from '../state/session/hooks';
+import { useVideo, useMediaActions } from '../state/media/hooks';
+import { useAnnotation, useAnnotationActions } from '../state/annotation/hooks';
 
 // Import the AudioChunk type from the AudioRecorder component
 import type { AudioChunk } from './AudioRecorder';
@@ -386,17 +389,27 @@ export default function VideoPlayerWrapper({
   initialSession,
   onSessionComplete
 }: VideoPlayerWrapperProps) {
-  // Wrap in try/catch in case we're not in a provider
-  let videoContext;
-  try {
-    videoContext = useVideo();
-  } catch (error) {
-    console.warn('VideoContext not available:', error);
-    videoContext = { setVideoUrl: () => {}, state: {} };
-  }
+  // Access state from context hooks
+  const { sessionHistory, status, isReplaying, isRecording } = useSession();
+  const sessionActions = useSessionActions();
+  const { currentSrc, isPlaying } = useVideo();
+  const mediaActions = useMediaActions();
+  const { position } = useTimeline();
+  const timelineActions = useTimelineActions();
+  const annotation = useAnnotation();
+  const annotationActions = useAnnotationActions();
+  
+  // Calculate derived values
+  const hasRecordingHistory = sessionHistory.length > 0;
   
   // Track previous URL to prevent unnecessary context updates
   const prevUrlRef = useRef(videoUrl);
+  const recordingStartTimeRef = useRef<number | null>(null);
+  
+  // Helper function to generate IDs for timeline events
+  const generateId = () => {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  };
   
   // Set video URL in context only when videoUrl prop changes
   useEffect(() => {
@@ -405,15 +418,20 @@ export default function VideoPlayerWrapper({
       console.log('VideoPlayerWrapper: Setting video URL in context:', videoUrl);
       
       // Update URL in context
-      videoContext.setVideoUrl(videoUrl);
+      mediaActions.setVideoUrl(videoUrl);
       prevUrlRef.current = videoUrl;
     }
-  }, [videoUrl]);
+  }, [videoUrl, mediaActions]);
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
-  const [mode, setMode] = useState<'record' | 'replay'>('record');
-  const [isActive, setIsActive] = useState(false);
+  
+  // Use component state for UI control but derive values from context when possible
+  // Use local mode state but update from context when appropriate
+  const [mode, setMode] = useState<'record' | 'replay'>(isReplaying ? 'replay' : 'record');
+  const [isActive, setIsActive] = useState(isRecording || isReplaying);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+  
+  // Keep local session state for backward compatibility
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
   const [feedbackData, setFeedbackData] = useState<FeedbackData>({
     sessionId: '',
@@ -423,6 +441,19 @@ export default function VideoPlayerWrapper({
     annotations: [],
     audioChunks: [],
   });
+  
+  // Sync mode and isActive with context values
+  useEffect(() => {
+    if (isReplaying && mode !== 'replay') {
+      setMode('replay');
+    } else if (isRecording && mode !== 'record') {
+      setMode('record');
+    }
+    
+    if ((isRecording || isReplaying) !== isActive) {
+      setIsActive(isRecording || isReplaying);
+    }
+  }, [isRecording, isReplaying, mode, isActive]);
   
   // References
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -443,6 +474,13 @@ export default function VideoPlayerWrapper({
   
   // Start recording
   const startRecording = useCallback(() => {
+    // Set the recording start time reference
+    recordingStartTimeRef.current = Date.now();
+    
+    // Use the state action to start recording
+    sessionActions.startRecording(videoId);
+    
+    // Keep using setMode for component UI state
     setMode('record');
     
     // Clear any existing annotations before starting
@@ -459,18 +497,26 @@ export default function VideoPlayerWrapper({
       videoRef.current.currentTime = 0;
     }
     
+    // Still use orchestrator directly for backward compatibility
     if (orchestratorRef.current) {
       orchestratorRef.current.startRecordingSession();
       setIsActive(true);
     }
-  }, []);
+  }, [sessionActions, videoId]);
   
   // Stop recording
   const stopRecording = useCallback(() => {
+    // Use state action to stop recording with current time
+    const currentTime = Date.now();
+    sessionActions.stopRecording(currentTime);
+    
+    // Reset recording start time reference
+    recordingStartTimeRef.current = null;
+    
     if (orchestratorRef.current) {
       console.log('Stopping recording session');
       
-      // End recording session
+      // End recording session through orchestrator for backward compatibility
       orchestratorRef.current.endRecordingSession();
       setIsActive(false);
       
@@ -481,7 +527,7 @@ export default function VideoPlayerWrapper({
         
         // If it's playing, pause it
         if (!videoRef.current.paused) {
-          videoRef.current.pause();
+          mediaActions.pause(); // Use context action
         }
       }
       
@@ -498,19 +544,16 @@ export default function VideoPlayerWrapper({
         onCategoriesCleared();
       }
       
-      // Make sure session availability is updated immediately
-      if (typeof window !== 'undefined') {
-        window.__hasRecordedSession = true;
-        console.log('Session available flag set to true after stopping recording');
-        
-        // Dispatch a custom event to notify about session availability
-        window.dispatchEvent(new Event('session-available'));
-      }
+      // Session availability is now fully managed through state
+      // No need for custom events or window global sync
     }
-  }, [onCategoriesCleared, currentSession]);
+  }, [sessionActions, mediaActions, onCategoriesCleared]);
   
   // Start replaying the recorded session with optimized state changes
   const startReplay = useCallback(() => {
+    // Use state action to start replay
+    sessionActions.startReplay();
+    
     // Prepare everything before changing state
     // This prevents multiple re-renders
     
@@ -567,10 +610,13 @@ export default function VideoPlayerWrapper({
     } else {
       alert('No recorded session to replay. Record a session first.');
     }
-  }, [currentSession, onCategoriesCleared]);
+  }, [currentSession, sessionActions, onCategoriesCleared]);
   
   // Stop replay
   const stopReplay = useCallback(() => {
+    // Use state action to stop replay
+    sessionActions.stopReplay();
+    
     if (orchestratorRef.current) {
       orchestratorRef.current.stopReplay();
       setIsActive(false);
@@ -582,7 +628,7 @@ export default function VideoPlayerWrapper({
         
         // If it's playing, pause it
         if (!videoRef.current.paused) {
-          videoRef.current.pause();
+          mediaActions.pause(); // Use context action
         }
       }
       
@@ -594,7 +640,7 @@ export default function VideoPlayerWrapper({
         }
       }
     }
-  }, []);
+  }, [sessionActions, mediaActions]);
   
   // Handle session completion
   const handleSessionComplete = useCallback((session: FeedbackSession) => {
@@ -820,6 +866,22 @@ export default function VideoPlayerWrapper({
   
   // Method to record a category change
   const recordCategoryChange = useCallback((category: string, rating: number) => {
+    console.log(`Recording category change: ${category} = ${rating}`);
+      
+    // Use the state action to record the category change
+    sessionActions.setCategory(category, rating);
+    
+    // Add to timeline events
+    if (recordingStartTimeRef.current) {
+      timelineActions.addEvent({
+        id: generateId(),
+        type: 'category',
+        time: Date.now() - recordingStartTimeRef.current,
+        data: { category, rating }
+      });
+    }
+    
+    // Also use orchestrator for backward compatibility
     if (orchestratorRef.current) {
       console.log(`Recording category change in orchestrator: ${category} = ${rating}`);
       
@@ -844,9 +906,9 @@ export default function VideoPlayerWrapper({
       // Always store category changes, even if not actively recording
       orchestratorRef.current.handleCategoryEvent(category, rating);
     } else {
-      console.warn('Unable to record category change - orchestrator not available');
+      console.warn('Orchestrator not available, but category still saved in state');
     }
-  }, [mode, isActive, currentSession, videoId]);
+  }, [mode, isActive, currentSession, videoId, sessionActions, timelineActions]);
   
   // Get a reference to the annotation canvas via the video player
   const getVideoPlayerRef = useCallback((videoPlayerInstance: any) => {
@@ -912,16 +974,6 @@ export default function VideoPlayerWrapper({
   // Expose methods to the parent component and notify about mode changes
   useEffect(() => {
     // This runs once when the component mounts and when dependencies change
-    if (typeof window !== 'undefined') {
-      // Set global reference available to parent component
-      window.__videoPlayerWrapper = {
-        recordCategoryChange,
-        isRecording: mode === 'record' && isActive
-      };
-      
-      // Update session availability flag
-      window.__hasRecordedSession = currentSession !== null;
-    }
     
     // Notify parent component about replay mode changes
     if (onReplayModeChange) {
@@ -930,13 +982,13 @@ export default function VideoPlayerWrapper({
       onReplayModeChange(isReplay);
     }
     
+    // Note: We no longer need to set window globals directly
+    // The compatibility layer handles this synchronization for us
+    
     return () => {
-      // Clean up on unmount
-      if (typeof window !== 'undefined' && window.__videoPlayerWrapper) {
-        delete window.__videoPlayerWrapper;
-      }
+      // Clean up is now handled by the compatibility layer
     };
-  }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
+  }, [mode, isActive, onReplayModeChange, currentSession]);
   
   // Load session but only start replay if not a completed video
   useEffect(() => {
@@ -953,33 +1005,35 @@ export default function VideoPlayerWrapper({
           orchestratorRef.current.loadSession(initialSession);
           
           // Check if this is a new session or a completed video
-          if (typeof window !== 'undefined' && !window.__isCompletedVideo) {
+          // Get the completed status from context instead of window globals
+          const isCompletedVideo = status === 'idle';
+          
+          if (!isCompletedVideo) {
             console.log("Auto-starting replay for new session");
             // For new reviews, we auto-start and switch to replay mode
             setMode('replay');
+            // Use the context action
+            sessionActions.startReplay();
+            // Also use the orchestrator for backward compatibility
             orchestratorRef.current.startReplay();
             setIsActive(true);
           } else {
             console.log("Completed video review - replay is ready but not auto-started");
-            // For completed videos, just set ready flag but don't change mode yet
-            if (typeof window !== 'undefined') {
-              window.__sessionReady = true;
-              // Dispatch event to notify UI
-              window.dispatchEvent(new Event('session-ready'));
-            }
+            // For completed videos, only need to update state
+            // Session ready is now managed through state
           }
         }
       }, 1500);
     }
-  }, [initialSession]);
+  }, [initialSession, status, sessionActions]);
   
-  // Get the effective URL from the context with fallback
+  // Get the video state from context with fallback
   let contextVideoUrl;
   try {
-    const videoSource = useVideoSource();
-    contextVideoUrl = videoSource?.effectiveUrl;
+    const videoState = useVideo();
+    contextVideoUrl = videoState?.currentSrc;
   } catch (error) {
-    console.warn('VideoSource not available:', error);
+    console.warn('Video state not available:', error);
     contextVideoUrl = videoUrl; // Fallback to prop
   }
   
@@ -1065,30 +1119,76 @@ export default function VideoPlayerWrapper({
               }
             }}
             onRecordAction={(action) => {
-              // Forward video actions to the orchestrator
-              if (orchestratorRef.current && mode === 'record' && isActive) {
+              // Forward video actions to both state system and orchestrator
+              if (mode === 'record' && isActive) {
                 switch(action.type) {
                   case 'play':
+                    mediaActions.play();
+                    if (orchestratorRef.current) orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                    break;
                   case 'pause':
+                    mediaActions.pause();
+                    if (orchestratorRef.current) orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                    break;
                   case 'seek':
+                    mediaActions.seek(action.details?.to || 0);
+                    if (orchestratorRef.current) orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                    break;
                   case 'playbackRate':
+                    mediaActions.setPlaybackRate(action.details?.to || 1);
+                    if (orchestratorRef.current) orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                    break;
                   case 'keyboardShortcut':
-                    orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                    // Add to timeline events via context
+                    timelineActions.addEvent({
+                      id: generateId(),
+                      type: 'video',
+                      time: Date.now() - (recordingStartTimeRef.current || 0),
+                      data: { action: action.type, ...action.details }
+                    });
+                    if (orchestratorRef.current) orchestratorRef.current.handleVideoEvent(action.type, action.details);
                     break;
                   case 'annotation':
                     if (action.details?.clear) {
-                      orchestratorRef.current.handleAnnotationEvent('clear');
+                      // Add to timeline events via context
+                      timelineActions.addEvent({
+                        id: generateId(),
+                        type: 'annotation',
+                        time: Date.now() - (recordingStartTimeRef.current || 0),
+                        data: { action: 'clear' }
+                      });
+                      // Also update via annotationActions
+                      annotationActions.clearAnnotations();
+                      if (orchestratorRef.current) orchestratorRef.current.handleAnnotationEvent('clear');
                     } else if (action.details?.path) {
-                      orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
+                      // Add to timeline events via context
+                      timelineActions.addEvent({
+                        id: generateId(),
+                        type: 'annotation',
+                        time: Date.now() - (recordingStartTimeRef.current || 0),
+                        data: { action: 'draw', path: action.details.path }
+                      });
+                      // Also update via annotationActions
+                      annotationActions.addAnnotation(action.details.path);
+                      if (orchestratorRef.current) orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
                     }
                     break;
                 }
               }
             }}
             onAnnotationAdded={(annotation) => {
-              // Forward annotation events to the orchestrator
-              if (orchestratorRef.current && mode === 'record' && isActive) {
-                orchestratorRef.current.handleAnnotationEvent('draw', annotation);
+              // Forward annotation events to both state system and orchestrator
+              if (mode === 'record' && isActive) {
+                // Add to timeline events via context
+                timelineActions.addEvent({
+                  id: generateId(),
+                  type: 'annotation',
+                  time: Date.now() - (recordingStartTimeRef.current || 0),
+                  data: { action: 'draw', path: annotation }
+                });
+                // Also update via annotationActions
+                annotationActions.addAnnotation(annotation);
+                if (orchestratorRef.current) orchestratorRef.current.handleAnnotationEvent('draw', annotation);
               }
             }}
           />

@@ -2,12 +2,27 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, useAuthActions } from '../state/auth/hooks';
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, status, signout } = useAuth();
+  
+  // Try to access auth state, but handle case where context isn't available
+  let user = null;
+  let status = 'unauthenticated';
+  let signout = () => {};
+  
+  try {
+    const authState = useAuth();
+    user = authState.user;
+    status = authState.status;
+    
+    const authActions = useAuthActions();
+    signout = authActions.signout;
+  } catch (error) {
+    console.warn('Auth context not available in Navbar:', error);
+  }
   
   // Check if the path is active
   const isActive = (path: string) => pathname === path;

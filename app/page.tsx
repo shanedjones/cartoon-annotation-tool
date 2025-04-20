@@ -1,9 +1,9 @@
 'use client';
 
 import Link from "next/link";
-import VideoPlayerWrapper from "../src/components/VideoPlayerWrapper";
+import VideoPlayerWrapper from "@/components/VideoPlayerWrapper";
 import { useState, useCallback, useEffect, Suspense } from "react";
-import type { FeedbackSession } from "@/src/components/FeedbackOrchestrator";
+import type { FeedbackSession } from "@/components/FeedbackOrchestrator";
 import { useSearchParams } from 'next/navigation';
 
 // Wrapper component for functionality that requires search params

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import AssessmentReviewModal from '@/src/components/AssessmentReviewModal';
+import AssessmentReviewModal from '@/components/AssessmentReviewModal';
 
 // Define the assessment session interface
 interface Athlete {

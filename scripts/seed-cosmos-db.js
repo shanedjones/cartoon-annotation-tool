@@ -116,7 +116,7 @@ function generateSwings(sessionId, startIndex = 1) {
         title: `${club} - ${strength}`,
         description: description,
         thumbnailUrl: `https://images.unsplash.com/photo-${Math.floor(Math.random() * 1000000000)}`,
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
+        videoUrl: "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4",
         duration: `0:${Math.floor(Math.random() * 20) + 30}`,
         status: "Not Started",
         dataLabelingTitle: dataLabelingTitle,

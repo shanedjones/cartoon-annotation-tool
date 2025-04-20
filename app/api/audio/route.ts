@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadAudioBlob, ensureContainer } from '@/src/utils/azureStorage';
+import { uploadAudioBlob, ensureContainer } from '@/utils/azureStorage';
 
 // Container initialization will be done at runtime during the first request
 

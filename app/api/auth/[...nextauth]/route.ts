@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcrypt";
 
 // Import auth helpers
-import { findUserByEmail } from "@/src/lib/auth";
+import { findUserByEmail } from "@/lib/auth";
 
 const authOptions = {
   providers: [

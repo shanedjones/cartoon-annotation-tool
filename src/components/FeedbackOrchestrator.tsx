@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
+import { useTimeline, useTimelineActions } from '../state/timeline/hooks';
+import { useAnnotation, useAnnotationActions } from '../state/annotation/hooks';
+import { useSession, useSessionActions } from '../state/session/hooks';
+import { useVideo, useMediaActions } from '../state/media/hooks';
 import type { AudioChunk } from './AudioRecorder';
 import type { DrawingPath } from './AnnotationCanvas';
 import type { RecordedAction } from './VideoPlayer';
@@ -82,9 +85,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const [replayProgress, setReplayProgress] = useState(0);
   const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null);
   
-  // Use timeline context
-  const { updatePosition, resetTimelinePosition } = useTimeline();
-  const { updateClearTime } = useLastClearTime();
+  // Use state hooks
+  const timeline = useTimeline();
+  const timelineActions = useTimelineActions();
+  const annotation = useAnnotation();
+  const annotationActions = useAnnotationActions();
+  const session = useSession();
+  const sessionActions = useSessionActions();
+  const video = useVideo();
+  const mediaActions = useMediaActions();
+  
+  // We no longer need a separate updateClearTime function since we're using annotationActions.setLastClearTime directly
+  // This comment is kept to document the migration approach
+  
+  // Note: We have removed the resetTimelinePosition function in favor of 
+  // directly using timelineActions.setPosition(0) for clarity
   
   // Refs for tracking internal state
   const recordingStartTimeRef = useRef<number | null>(null);
@@ -95,9 +110,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const pendingEventsRef = useRef<TimelineEvent[]>([]);
   const replayTimeoutIdsRef = useRef<number[]>([]);
   
-  // Create a stable event execution function using useState first
-  // This ensures it's defined before other functions that depend on it
-  const [executeEvent] = useState(() => (event: TimelineEvent) => {
+  // Create a stable event execution function using state hooks
+  // This needs to be defined inside the component but can't be a callback due to dependencies
+  const executeEvent = useCallback((event: TimelineEvent) => {
     console.log(`Executing ${event.type} event:`, event.payload);
     
     switch (event.type) {
@@ -114,14 +129,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           
           switch (payload.action) {
             case 'play':
+              // Update state first, then try the direct method as fallback
+              mediaActions.play();
               video.play().catch(err => console.warn('Failed to play video:', err));
               break;
             case 'pause':
+              // Update state first, then try the direct method as fallback
+              mediaActions.pause();
               video.pause();
               break;
             case 'seek':
               if (payload.to !== undefined) {
-                // Seek to the target time in the video
+                // Update state and direct video element
+                mediaActions.seek(payload.to);
+                
+                // Keep the direct update for backward compatibility
                 const prevTime = video.currentTime;
                 video.currentTime = payload.to;
                 console.log(`Replayed seek: ${prevTime.toFixed(2)}s → ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
@@ -129,6 +151,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
               break;
             case 'playbackRate':
               if (payload.to !== undefined) {
+                // Update state first
+                mediaActions.setPlaybackRate(payload.to);
+                
+                // Keep the direct update for backward compatibility
                 const prevRate = video.playbackRate;
                 video.playbackRate = payload.to;
                 console.log(`Replayed rate change: ${prevRate}x → ${payload.to}x (at global time ${event.timeOffset}ms)`);
@@ -137,14 +163,26 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
             // Handle keyboard shortcuts too
             case 'keyboardShortcut':
               if (payload.action === 'forward' && payload.to !== undefined) {
+                // Update state first
+                mediaActions.seek(payload.to);
+                
+                // Keep direct update for backward compatibility
                 video.currentTime = payload.to;
                 console.log(`Replayed forward: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
               } else if (payload.action === 'rewind' && payload.to !== undefined) {
+                // Update state first
+                mediaActions.seek(payload.to);
+                
+                // Keep direct update for backward compatibility
                 video.currentTime = payload.to;
                 console.log(`Replayed rewind: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
               } else if (payload.action === 'play') {
+                // Update state first
+                mediaActions.play();
                 video.play().catch(err => console.warn('Failed to play video:', err));
               } else if (payload.action === 'pause') {
+                // Update state first
+                mediaActions.pause();
                 video.pause();
               }
               break;
@@ -173,6 +211,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                   };
                   
                   console.log(`Executing drawing at global time ${event.timeOffset}ms`);
+                  // Also add the annotation to the state
+                  annotationActions.addPath(pathWithTiming.points || [], event.timeOffset);
+                  // Call the draw annotation function for backward compatibility
                   drawAnnotation(pathWithTiming);
                 } catch (error) {
                   console.error('Error during annotation drawing:', error);
@@ -182,8 +223,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
             case 'clear':
               try {
                 console.log(`Executing canvas clear at global time ${event.timeOffset}ms`);
-                // Record the global time when the clear happened in context
-                updateClearTime(event.timeOffset);
+                // Record the global time when the clear happened in the annotation state
+                annotationActions.setLastClearTime(event.timeOffset);
+                // Call the clearAnnotations function for backward compatibility
                 clearAnnotations();
               } catch (error) {
                 console.error('Error during annotation clearing:', error);
@@ -201,7 +243,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         console.log(`Processing category event during replay: ${event.payload?.category} = ${event.payload?.rating}`);
         break;
     }
-  });
+  }, [videoElementRef, mediaActions, drawAnnotation, clearAnnotations, annotationActions]);
   
   /**
    * Assign priorities to events based on their type
@@ -473,6 +515,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       const startTime = Date.now();
       recordingStartTimeRef.current = startTime;
       
+      // Update all relevant state domains
+      timelineActions.setRecordingStartTime(startTime);
+      timelineActions.startRecording();
+      sessionActions.startRecording('video-' + generateId());
+      
       console.log(`Starting recording session at ${new Date(startTime).toISOString()}`);
       recorder.start();
       
@@ -493,7 +540,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       console.error('Failed to start recording session:', error);
       alert(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [isActive, generateId, onAudioRecorded, onSessionComplete]);
+  }, [isActive, generateId, onAudioRecorded, onSessionComplete, timelineActions, sessionActions]);
   
   /**
    * End the current recording session
@@ -513,12 +560,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       streamRef.current = null;
     }
     
-    // Reset recording state
+    // Reset recording state in both component and timeline state
     setIsActive(false);
     recordingStartTimeRef.current = null;
     
+    // Update all state domains that recording has stopped
+    timelineActions.stopRecording();
+    timelineActions.setRecordingStartTime(null);
+    sessionActions.stopRecording(Date.now());
+    annotationActions.reset();
+    
+    // Pause video if it's playing
+    mediaActions.pause();
+    
     // Note: Video reset and annotation clearing are now handled by VideoPlayerWrapper
-  }, [isActive]);
+  }, [isActive, timelineActions, sessionActions, annotationActions, mediaActions]);
   
   /**
    * Record a timeline event during recording
@@ -547,11 +603,20 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       priority
     };
     
+    // Add to the timeline state directly
+    timelineActions.addEvent({
+      id: event.id,
+      time: timeOffset,
+      type: event.type,
+      data: { ...payload, duration }
+    });
+    
+    // Also maintain backward compatibility with eventsRef
     eventsRef.current.push(event);
     console.log(`Recorded ${type} event at ${timeOffset}ms:`, payload);
     
     return event;
-  }, [isActive, generateId]);
+  }, [isActive, generateId, timelineActions]);
   
   /**
    * Handle video events (play, pause, seek, etc.)
@@ -595,15 +660,15 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   }, [recordEvent]);
   
   /**
-   * Record a category change - store only in categories object, not as events
+   * Record a category change - use the state system
    */
   const handleCategoryEvent = useCallback((category: string, rating: number) => {
     console.log(`Recording category change: ${category} = ${rating}`);
     
-    // Allow category updates even when not recording
-    // This ensures category changes are saved regardless of recording state
+    // Use the session state actions to update the category
+    sessionActions.setCategory(category, rating);
     
-    // Update the session's categories directly
+    // For backward compatibility, maintain the local component state too
     setCurrentSession(prevSession => {
       if (!prevSession) {
         // Create initial session if none exists
@@ -626,7 +691,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         [category]: rating
       };
       
-      console.log('Updated categories object:', updatedCategories);
+      console.log('Updated categories object in component state:', updatedCategories);
       
       // Update existing session - only update categories, don't add to events
       return {
@@ -635,21 +700,30 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       };
     });
     
-    // Log the current session after update (for debugging)
-    setTimeout(() => {
-      console.log('Current session after category update:', currentSession);
-    }, 50);
+    // Also add to timeline events for consistency
+    if (isActive && recordingStartTimeRef.current) {
+      const timeOffset = Date.now() - recordingStartTimeRef.current;
+      
+      // Add the category event to the timeline
+      timelineActions.addEvent({
+        id: generateId(),
+        time: timeOffset,
+        type: 'category',
+        data: { category, rating }
+      });
+    }
     
-    console.log(`Updated session categories with ${category}: ${rating}`);
-  }, [generateId, currentSession]);
+    console.log(`Updated session categories with ${category} = ${rating}`);
+  }, [generateId, currentSession, sessionActions, timelineActions, isActive]);
   
   /**
    * Complete the replay process
    */
   const completeReplay = useCallback(() => {
-    // Reset global timeline position and last clear time when replay completes
-    resetTimelinePosition();
-    console.log('Timeline position and lastClearTime reset to 0ms via context at completion');
+    // Reset timeline position and last clear time using state actions
+    timelineActions.setPosition(0);
+    annotationActions.setLastClearTime(0);
+    console.log('Timeline position and lastClearTime reset to 0ms via state actions at completion');
     
     // Clean up audio player
     if (audioPlayer) {
@@ -709,7 +783,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       console.log('Replay progress reset to 0');
     }, 1500);
     
-  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);
+  }, [audioPlayer, videoElementRef, clearAnnotations, timelineActions, annotationActions]);
   
   /**
    * Helper function to simulate timeline without audio
@@ -733,12 +807,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       
       // Use requestAnimationFrame for smoother updates
       requestAnimationFrame(() => {
-        // Update global timeline position via context
-        updatePosition(elapsed);
+        // Update global timeline position via state hooks
+        timelineActions.setPosition(elapsed);
         
         // Log global time position every second to avoid flooding logs
         if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
-          console.log(`Timeline position updated via context (simulated): ${elapsed}ms`);
+          console.log(`Timeline position updated via state hooks (simulated): ${elapsed}ms`);
         }
         
         // Use Promise.resolve().then to ensure position updates complete before event processing
@@ -758,7 +832,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Store the interval ID for cleanup
     replayTimeoutIdsRef.current.push(timelineInterval as unknown as number);
-  }, [updatePosition, processPendingEvents, completeReplay]);
+  }, [timelineActions, processPendingEvents, completeReplay]);
   
   /**
    * Start replay of a feedback session
@@ -766,9 +840,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const startReplay = useCallback(() => {
     if (!currentSession || isActive) return;
     
-    // Reset global timeline position and last clear time at the start of replay
-    resetTimelinePosition();
-    console.log('Timeline position and lastClearTime reset to 0ms via context');
+    // Reset timeline position and last clear time using state actions
+    timelineActions.setPosition(0);
+    annotationActions.setLastClearTime(0);
+    console.log('Timeline position and lastClearTime reset to 0ms via state actions');
     
     setIsActive(true);
     setReplayProgress(0);
@@ -879,12 +954,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           
           // Use requestAnimationFrame for smoother updates
           requestAnimationFrame(() => {
-            // Update global timeline position via context
-            updatePosition(currentTime);
+            // Update global timeline position via state hooks
+            timelineActions.setPosition(currentTime);
             
             // Log global time position every 250ms (to avoid flooding logs)
             if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
-              console.log(`Timeline position updated via context: ${currentTime}ms`);
+              console.log(`Timeline position updated via timeline state: ${currentTime}ms`);
             }
             
             // Use Promise.resolve().then to ensure position updates complete before event processing
@@ -980,7 +1055,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Use the dedicated helper function for simulated timeline
       simulateTimelineWithoutAudio(currentSession);
     }
-  }, [currentSession, isActive, resetTimelinePosition, updatePosition, processPendingEvents, completeReplay, simulateTimelineWithoutAudio]);
+  }, [currentSession, isActive, timelineActions, annotationActions, processPendingEvents, completeReplay, simulateTimelineWithoutAudio]);
   
   /**
    * Stop the current replay
@@ -990,9 +1065,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     console.log('Stopping replay session');
     
-    // Reset global timeline position and last clear time when stopping replay
-    resetTimelinePosition();
-    console.log('Timeline position and lastClearTime reset to 0ms via context');
+    // Reset timeline position and last clear time using state actions
+    timelineActions.setPosition(0);
+    annotationActions.setLastClearTime(0);
+    console.log('Timeline position and lastClearTime reset to 0ms via state actions');
     
     // Clean up audio player
     if (audioPlayer) {
@@ -1044,7 +1120,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Reset replay state
     setIsActive(false);
     setReplayProgress(0);
-  }, [isActive, audioPlayer, resetTimelinePosition, videoElementRef, clearAnnotations]);
+  }, [isActive, audioPlayer, timelineActions, annotationActions, videoElementRef, clearAnnotations]);
   
   /**
    * Load a session for replay
@@ -1056,10 +1132,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // If we have audio chunks with blobUrl from Azure Storage, preload them and convert to proxy URLs
     if (session.audioTrack && session.audioTrack.chunks && session.audioTrack.chunks.length > 0) {
-      // Set flag that session is loading
-      if (typeof window !== 'undefined') {
-        window.__sessionReady = false;
-      }
+      // Update state that session is loading
+      sessionActions.setStatus('loading');
       
       for (let i = 0; i < session.audioTrack.chunks.length; i++) {
         const chunk = session.audioTrack.chunks[i];
@@ -1096,11 +1170,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         }
       }
       
-      // Mark session as ready after processing all chunks
-      if (typeof window !== 'undefined') {
-        window.__sessionReady = true;
-        window.dispatchEvent(new Event('session-ready'));
-      }
+      // Mark session as ready in state after processing all chunks
+      sessionActions.setStatus('idle');
     }
     
     setCurrentSession(session);
@@ -1157,6 +1228,13 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       if (Object.keys(categoriesState).length > 0) {
         session.categories = { ...categoriesState };
         setCurrentSession({ ...session });
+        
+        // Update each category in the state system
+        Object.entries(categoriesState).forEach(([category, rating]) => {
+          if (typeof rating === 'number' && rating > 0) {
+            sessionActions.setCategory(category, rating);
+          }
+        });
       }
       
       // Create a boolean version for compatibility with components expecting boolean values
@@ -1180,7 +1258,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         categoriesState: Object.keys(categoriesState).length
       });
     }
-  }, [onCategoriesLoaded]);
+  }, [onCategoriesLoaded, sessionActions]);
   
   /**
    * Clean up resources when component unmounts
@@ -1210,8 +1288,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       
       // Clear any timeouts
       replayTimeoutIdsRef.current.forEach(id => window.clearTimeout(id));
+      
+      // Reset state
+      timelineActions.reset();
     };
-  }, [audioPlayer]);
+  }, [audioPlayer, timelineActions]);
   
   // Expose imperative methods to parent component using the ref
   useImperativeHandle(ref, () => ({
