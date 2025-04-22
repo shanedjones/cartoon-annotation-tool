@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { useTimeline } from 'src/contexts/TimelineContext';
-import { uploadAudioToStorage } from 'src/utils/audioStorage';
-import { useLastClearTime } from 'src/hooks/useLastClearTime';
-import type { AudioChunk } from 'src/components/AudioRecorder';
-import type { DrawingPath } from 'src/components/AnnotationCanvas';
-import type { RecordedAction } from 'src/components/VideoPlayer';
+import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
+import type { AudioChunk } from './AudioRecorder';
+import type { DrawingPath } from './AnnotationCanvas';
+import type { RecordedAction } from './VideoPlayer';
 
 /**
  * Main feedback session structure
@@ -1059,7 +1057,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // If we have audio chunks with blobUrl from Azure Storage, preload them and convert to proxy URLs
     if (session.audioTrack && session.audioTrack.chunks && session.audioTrack.chunks.length > 0) {
       // Set flag that session is loading
-      
+      if (typeof window !== 'undefined') {
+        window.__sessionReady = false;
+      }
       
       for (let i = 0; i < session.audioTrack.chunks.length; i++) {
         const chunk = session.audioTrack.chunks[i];
@@ -1086,7 +1086,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
               // Keep original URL if conversion fails
             }
             
-            
+            if (typeof window !== 'undefined') {
+              console.log('Using proxy URL to avoid CORS issues:', session.audioTrack.chunks[i].blobUrl);
+            }
           } catch (error) {
             console.error('Error processing audio blob URL:', error);
             // Continue with next chunk
@@ -1095,7 +1097,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       }
       
       // Mark session as ready after processing all chunks
-      
+      if (typeof window !== 'undefined') {
+        window.__sessionReady = true;
+        window.dispatchEvent(new Event('session-ready'));
+      }
     }
     
     setCurrentSession(session);

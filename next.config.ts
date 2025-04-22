@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -12,15 +11,6 @@ const nextConfig: NextConfig = {
     AZURE_STORAGE_CONTAINER_NAME: process.env.AZURE_STORAGE_CONTAINER_NAME,
   },
   output: 'standalone',
-  
-  // Support for absolute imports
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'src': path.resolve(__dirname, 'src'),
-    };
-    return config;
-  },
 };
 
 export default nextConfig;

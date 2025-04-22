@@ -374,7 +374,7 @@ interface VideoPlayerWrapperProps {
   onSessionComplete?: (session: FeedbackSession) => void; // Callback when session is complete
 }
 
-function VideoPlayerWrapper({ 
+export default function VideoPlayerWrapper({ 
   categories = {}, 
   onCategoriesCleared,
   onCategoriesLoaded,
@@ -499,7 +499,13 @@ function VideoPlayerWrapper({
       }
       
       // Make sure session availability is updated immediately
-      
+      if (typeof window !== 'undefined') {
+        window.__hasRecordedSession = true;
+        console.log('Session available flag set to true after stopping recording');
+        
+        // Dispatch a custom event to notify about session availability
+        window.dispatchEvent(new Event('session-available'));
+      }
     }
   }, [onCategoriesCleared, currentSession]);
   
@@ -620,7 +626,13 @@ function VideoPlayerWrapper({
     setFeedbackData(legacyData);
     
     // Update session availability flag immediately
-    
+    if (typeof window !== 'undefined') {
+      window.__hasRecordedSession = true;
+      console.log('Session available flag set to true');
+      
+      // Dispatch a custom event to notify about session availability
+      window.dispatchEvent(new Event('session-available'));
+    }
     
     console.log('Session completed with categories:', sessionWithCategories);
     
@@ -899,6 +911,18 @@ function VideoPlayerWrapper({
   
   // Expose methods to the parent component and notify about mode changes
   useEffect(() => {
+    // This runs once when the component mounts and when dependencies change
+    if (typeof window !== 'undefined') {
+      // Set global reference available to parent component
+      window.__videoPlayerWrapper = {
+        recordCategoryChange,
+        isRecording: mode === 'record' && isActive
+      };
+      
+      // Update session availability flag
+      window.__hasRecordedSession = currentSession !== null;
+    }
+    
     // Notify parent component about replay mode changes
     if (onReplayModeChange) {
       const isReplay = mode === 'replay';
@@ -908,8 +932,11 @@ function VideoPlayerWrapper({
     
     return () => {
       // Clean up on unmount
+      if (typeof window !== 'undefined' && window.__videoPlayerWrapper) {
+        delete window.__videoPlayerWrapper;
+      }
     };
-  }, [mode, onReplayModeChange]);
+  }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
   
   // Load session but only start replay if not a completed video
   useEffect(() => {
@@ -935,7 +962,11 @@ function VideoPlayerWrapper({
           } else {
             console.log("Completed video review - replay is ready but not auto-started");
             // For completed videos, just set ready flag but don't change mode yet
-            
+            if (typeof window !== 'undefined') {
+              window.__sessionReady = true;
+              // Dispatch event to notify UI
+              window.dispatchEvent(new Event('session-ready'));
+            }
           }
         }
       }, 1500);
@@ -1184,5 +1215,3 @@ function VideoPlayerWrapper({
     </div>
   );
 }
-
-export default VideoPlayerWrapper;

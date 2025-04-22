@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { useTimeline } from '../contexts/TimelineContext';
+import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 
 export interface Point {
   x: number;

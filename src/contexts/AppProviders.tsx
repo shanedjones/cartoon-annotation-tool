@@ -1,12 +1,11 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { TimelineProvider } from 'src/contexts/TimelineContext';
-import { AnnotationProvider } from 'src/contexts/AnnotationContext';
-import { VideoProvider } from 'src/contexts/VideoContext';
-import { SessionProvider } from 'src/contexts/SessionContext';
-import { AuthSessionProvider, AuthProvider } from 'src/contexts/AuthContext';
-import { LastClearTimeProvider } from 'src/hooks/useLastClearTime';
+import { TimelineProvider } from './TimelineContext';
+import { AnnotationProvider } from './AnnotationContext';
+import { VideoProvider } from './VideoContext';
+import { SessionProvider } from './SessionContext';
+import { AuthSessionProvider, AuthProvider } from './AuthContext';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -22,13 +21,11 @@ export function AppProviders({ children, initialVideoUrl = '' }: AppProvidersPro
       <AuthProvider>
         <SessionProvider>
           <TimelineProvider>
-            <LastClearTimeProvider>
-              <AnnotationProvider>
-                <VideoProvider initialUrl={initialVideoUrl}>
-                  {children}
-                </VideoProvider>
-              </AnnotationProvider>
-            </LastClearTimeProvider>
+            <AnnotationProvider>
+              <VideoProvider initialUrl={initialVideoUrl}>
+                {children}
+              </VideoProvider>
+            </AnnotationProvider>
           </TimelineProvider>
         </SessionProvider>
       </AuthProvider>
@@ -39,9 +36,8 @@ export function AppProviders({ children, initialVideoUrl = '' }: AppProvidersPro
 /**
  * Export individual providers and hooks for direct imports
  */
-export * from 'src/contexts/TimelineContext';
-export * from 'src/contexts/AnnotationContext';
-export * from 'src/contexts/VideoContext';
-export * from 'src/contexts/SessionContext';
-export * from 'src/contexts/AuthContext';
-export * from 'src/hooks/useLastClearTime';
+export * from './TimelineContext';
+export * from './AnnotationContext';
+export * from './VideoContext';
+export * from './SessionContext';
+export * from './AuthContext';
