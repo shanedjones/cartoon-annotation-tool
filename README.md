@@ -250,12 +250,48 @@ annotation-tool/
 │   │   ├── VideoPlayer.tsx            # Custom video player
 │   │   ├── AnnotationCanvas.tsx       # Drawing component
 │   │   └── AudioRecorder.tsx          # Audio recording/playback
-│   └── contexts/         # React contexts for state management
+│   ├── contexts/         # Legacy React contexts (being migrated)
+│   ├── state/            # New state management system
+│   │   ├── annotation/   # Annotation state domain
+│   │   ├── auth/         # Authentication state domain
+│   │   ├── media/        # Media (video/audio) state domain
+│   │   ├── session/      # Session state domain
+│   │   ├── timeline/     # Timeline state domain
+│   │   ├── compatibility.tsx # Legacy system compatibility
+│   │   └── store.tsx     # Root state provider
+│   ├── types/            # TypeScript type definitions
+│   └── utils/            # Utility functions
 ├── scripts/
 │   └── seed-cosmos-db.js # Database seeding script
 ├── public/               # Static assets
 └── package.json          # Dependencies and scripts
 ```
+
+## State Management
+
+The application is transitioning from a context-based state system to a more comprehensive state management architecture:
+
+### New State System
+
+- Organized by domain (auth, session, timeline, annotation, media)
+- Custom hook-based API for accessing state and dispatching actions
+- Centralized store with type-safe providers
+- Bidirectional compatibility layer with legacy window globals
+- Improved performance through selective rendering
+
+### Migration Status
+
+- Core state architecture complete
+- Some components partially migrated:
+  - VideoPlayer: Uses media state for playback controls
+  - AnnotationCanvas: Uses annotation state for drawing actions
+  - AudioRecorder: Uses audio state for recording controls
+- Still to complete:
+  - Remove remaining direct DOM manipulation
+  - Eliminate window global usage
+  - Add performance optimizations
+
+For more details, see [STATE_MIGRATION.md](./STATE_MIGRATION.md).
 
 ## Technical Details
 
@@ -265,7 +301,7 @@ annotation-tool/
 - **Backend API**: Next.js API routes
 - **Audio**: Uses MediaRecorder API with format detection and Azure Storage integration
 - **Drawing**: HTML5 Canvas for vector drawing
-- **State Management**: React's Context and Refs for cross-component communication
+- **State Management**: Custom state system with domain-specific providers and hooks
 - **Styling**: Tailwind CSS for responsive design
 
 ## Browser Compatibility
@@ -277,6 +313,11 @@ annotation-tool/
 
 ## Potential Future Enhancements
 
+- Complete the state management migration:
+  - Finish migrating all components to the new state system
+  - Eliminate direct DOM manipulation in favor of state-driven updates
+  - Remove remaining global window variables
+  - Implement performance optimizations (memoization, selective rendering)
 - Visual timeline editor for post-recording edits
 - Improved marker/comment system
 - Video source selection

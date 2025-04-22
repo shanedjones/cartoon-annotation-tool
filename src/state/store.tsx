@@ -9,6 +9,7 @@ import { SessionProvider } from './session/context';
 import { MediaProvider } from './media/context';
 import { TimelineProvider } from './timeline/context';
 import { AnnotationProvider } from './annotation/context';
+import { GlobalCompatibilityProvider } from './compatibility';
 
 // Create a context for potential app-wide state/actions
 const AppStateContext = createContext<AppState | null>(null);
@@ -31,7 +32,9 @@ export function AppStateProvider({ children, initialState, initialVideoUrl = '' 
           <TimelineProvider>
             <AnnotationProvider>
               <MediaProvider>
-                {children}
+                <GlobalCompatibilityProvider>
+                  {children}
+                </GlobalCompatibilityProvider>
               </MediaProvider>
             </AnnotationProvider>
           </TimelineProvider>

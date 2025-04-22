@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { useTimeline, useTimelinePosition } from '../state/timeline/hooks';
-import { useAnnotation, useAnnotationActions, useVisibleAnnotations } from '../state/annotation/hooks';
+import { useTimeline, useTimelinePosition, useAnnotation, useAnnotationActions, useVisibleAnnotations } from '@/state';
 
 export interface Point {
   x: number;
@@ -51,17 +50,26 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   clearCanvas = false,
   onClearComplete
 }, ref) => {
-  // Get current position from timeline context
+  // Get state from context
   const timelineState = useTimeline();
   const { position: timelinePosition } = useTimelinePosition();
+  const annotationState = useAnnotation();
+  const annotationActions = useAnnotationActions();
+  
+  // Get annotations from state or props
+  const stateAnnotations = useVisibleAnnotations(timelinePosition);
 
   // Internal state for drawing
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
-  const [annotations, setAnnotations] = useState<DrawingPath[]>([]);
-  const [lastClearTime, setLastClearTime] = useState<number>(0);
+  // Use state annotations if available, otherwise use local state
+  const [localAnnotations, setLocalAnnotations] = useState<DrawingPath[]>([]);
+  const annotations = isReplaying ? replayAnnotations : stateAnnotations.length > 0 ? stateAnnotations : localAnnotations;
   const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  
+  // Use last clear time from state if available
+  const lastClearTime = annotationState.lastClearTime || 0;
 
   // Use timelinePosition if currentTime is not directly provided
   const effectiveCurrentTime = currentTime || timelinePosition;
@@ -90,21 +98,28 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   // Clear all annotations from the canvas
   const clearCanvasDrawings = useCallback(() => {
     if (effectiveCurrentTime) {
-      setLastClearTime(effectiveCurrentTime);
+      // Update state with the current clear time
+      annotationActions.setLastClearTime(effectiveCurrentTime);
+      annotationActions.clearPaths(effectiveCurrentTime);
     }
     
-    // Clear annotations state and redraw empty canvas
-    setAnnotations([]);
+    // Also clear local annotations and redraw empty canvas
+    setLocalAnnotations([]);
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
     }
-  }, [width, height, effectiveCurrentTime]);
+  }, [width, height, effectiveCurrentTime, annotationActions]);
 
   // Add a manual annotation (used for replay)
   const handleManualAnnotation = useCallback((path: DrawingPath) => {
-    setAnnotations(prev => [...prev, path]);
-  }, []);
+    if (!isReplaying) {
+      // Add to shared state if not in replay mode
+      annotationActions.addAnnotation(path);
+    }
+    // Also maintain local state for backward compatibility
+    setLocalAnnotations(prev => [...prev, path]);
+  }, [annotationActions, isReplaying]);
 
   // Handle mouse down / touch start
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -180,8 +195,11 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         tool: toolType
       };
       
-      // Add to annotations
-      setAnnotations(prev => [...prev, newPath]);
+      // Add to state system
+      annotationActions.addAnnotation(newPath);
+      
+      // Also maintain local state for backward compatibility
+      setLocalAnnotations(prev => [...prev, newPath]);
       
       // Notify parent component
       if (onAnnotationAdded && isRecording) {
@@ -191,7 +209,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       // Reset current path
       setCurrentPath([]);
     }
-  }, [isDrawing, isEnabled, isReplaying, currentPath, toolColor, toolWidth, effectiveCurrentTime, toolType, onAnnotationAdded, isRecording]);
+  }, [isDrawing, isEnabled, isReplaying, currentPath, toolColor, toolWidth, effectiveCurrentTime, toolType, onAnnotationAdded, isRecording, annotationActions]);
 
   // Handle pointer cancel
   const handlePointerCancel = useCallback(() => {

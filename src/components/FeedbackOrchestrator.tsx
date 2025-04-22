@@ -36,9 +36,9 @@ export interface AudioTrack {
 export interface TimelineEvent {
   id: string;
   type: 'video' | 'annotation' | 'marker' | 'category';
-  timeOffset: number; // milliseconds from audio start
+  time: number; // milliseconds from audio start (previous timeOffset)
   duration?: number; // for events with duration
-  payload: any; // specific data based on type
+  data: any; // specific data based on type (previous payload)
   priority?: number; // priority level for sorting when timestamps match
 }
 
@@ -113,16 +113,16 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   // Create a stable event execution function using state hooks
   // This needs to be defined inside the component but can't be a callback due to dependencies
   const executeEvent = useCallback((event: TimelineEvent) => {
-    console.log(`Executing ${event.type} event:`, event.payload);
+    console.log(`Executing ${event.type} event:`, event.data);
     
     switch (event.type) {
       case 'video':
         if (videoElementRef.current) {
           const video = videoElementRef.current;
-          const payload = event.payload;
+          const payload = event.data;
           
           // Log the global timeline position for this video event
-          console.log(`Executing video ${payload.action} at global time ${event.timeOffset}ms`, {
+          console.log(`Executing video ${payload.action} at global time ${event.time}ms`, {
             videoCurrentTime: video.currentTime,
             eventDetails: payload
           });
@@ -146,7 +146,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                 // Keep the direct update for backward compatibility
                 const prevTime = video.currentTime;
                 video.currentTime = payload.to;
-                console.log(`Replayed seek: ${prevTime.toFixed(2)}s → ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+                console.log(`Replayed seek: ${prevTime.toFixed(2)}s → ${payload.to.toFixed(2)}s (at global time ${event.time}ms)`);
               }
               break;
             case 'playbackRate':
@@ -157,7 +157,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                 // Keep the direct update for backward compatibility
                 const prevRate = video.playbackRate;
                 video.playbackRate = payload.to;
-                console.log(`Replayed rate change: ${prevRate}x → ${payload.to}x (at global time ${event.timeOffset}ms)`);
+                console.log(`Replayed rate change: ${prevRate}x → ${payload.to}x (at global time ${event.time}ms)`);
               }
               break;
             // Handle keyboard shortcuts too
@@ -168,14 +168,14 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                 
                 // Keep direct update for backward compatibility
                 video.currentTime = payload.to;
-                console.log(`Replayed forward: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+                console.log(`Replayed forward: to ${payload.to.toFixed(2)}s (at global time ${event.time}ms)`);
               } else if (payload.action === 'rewind' && payload.to !== undefined) {
                 // Update state first
                 mediaActions.seek(payload.to);
                 
                 // Keep direct update for backward compatibility
                 video.currentTime = payload.to;
-                console.log(`Replayed rewind: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
+                console.log(`Replayed rewind: to ${payload.to.toFixed(2)}s (at global time ${event.time}ms)`);
               } else if (payload.action === 'play') {
                 // Update state first
                 mediaActions.play();
@@ -191,7 +191,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         break;
       case 'annotation':
         if (drawAnnotation && clearAnnotations) {
-          const payload = event.payload;
+          const payload = event.data;
           
           switch (payload.action) {
             case 'draw':
@@ -200,19 +200,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                   // Create a copy of the path to preserve original properties
                   const pathWithTiming = { 
                     ...payload.path,
-                    // Ensure the timeOffset from the event is used for replay timing
+                    // Ensure the time from the event is used for replay timing
                     // This ensures the annotation appears at the correct time during replay
-                    timeOffset: event.timeOffset,
-                    // Always prefer the global timeline (event.timeOffset) for synchronization
+                    time: event.time,
+                    // For backward compatibility with older code
+                    timeOffset: event.time,
+                    // Always prefer the global timeline for synchronization
                     // This ensures annotations are synchronized to the global timeline, not video time
-                    globalTimeOffset: event.timeOffset,
+                    globalTimeOffset: event.time,
                     // Keep videoTime for backward compatibility
-                    videoTime: event.timeOffset
+                    videoTime: event.time
                   };
                   
-                  console.log(`Executing drawing at global time ${event.timeOffset}ms`);
+                  console.log(`Executing drawing at global time ${event.time}ms`);
                   // Also add the annotation to the state
-                  annotationActions.addPath(pathWithTiming.points || [], event.timeOffset);
+                  annotationActions.addPath(pathWithTiming.points || [], event.time);
                   // Call the draw annotation function for backward compatibility
                   drawAnnotation(pathWithTiming);
                 } catch (error) {
@@ -222,9 +224,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
               break;
             case 'clear':
               try {
-                console.log(`Executing canvas clear at global time ${event.timeOffset}ms`);
+                console.log(`Executing canvas clear at global time ${event.time}ms`);
                 // Record the global time when the clear happened in the annotation state
-                annotationActions.setLastClearTime(event.timeOffset);
+                annotationActions.setLastClearTime(event.time);
                 // Call the clearAnnotations function for backward compatibility
                 clearAnnotations();
               } catch (error) {
@@ -236,11 +238,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         break;
       case 'marker':
         // Could display a marker UI
-        console.log('Marker:', event.payload.text);
+        console.log('Marker:', event.data?.text);
         break;
       case 'category':
         // We're now handling all categories at the start of replay instead of during timeline events
-        console.log(`Processing category event during replay: ${event.payload?.category} = ${event.payload?.rating}`);
+        console.log(`Processing category event during replay: ${event.data?.category} = ${event.data?.rating}`);
         break;
     }
   }, [videoElementRef, mediaActions, drawAnnotation, clearAnnotations, annotationActions]);
@@ -279,12 +281,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Also log how many events are still pending
       if (pendingEventsRef.current.length > 0) {
         const nextEvent = pendingEventsRef.current[0];
-        console.log(`Next event: ${nextEvent.type} at ${(nextEvent.timeOffset / 1000).toFixed(1)}s (in ${((nextEvent.timeOffset - currentTimeMs) / 1000).toFixed(1)}s)`);
+        console.log(`Next event: ${nextEvent.type} at ${(nextEvent.time / 1000).toFixed(1)}s (in ${((nextEvent.time - currentTimeMs) / 1000).toFixed(1)}s)`);
       }
     }
     
     pendingEventsRef.current.forEach(event => {
-      if (event.timeOffset <= currentTimeMs) {
+      if (event.time <= currentTimeMs) {
         eventsToExecute.push(event);
       } else {
         remainingEvents.push(event);
@@ -299,12 +301,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Sort events by timestamp first, then by priority
     eventsToExecute.sort((a, b) => {
-      // First sort by timeOffset
-      if (a.timeOffset !== b.timeOffset) {
-        return a.timeOffset - b.timeOffset;
+      // First sort by time 
+      if (a.time !== b.time) {
+        return a.time - b.time;
       }
       
-      // If same timeOffset, sort by priority
+      // If same time, sort by priority
       return assignEventPriority(a) - assignEventPriority(b);
     });
     
@@ -313,16 +315,16 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       eventsToExecute: eventsToExecute.map(e => ({
         id: e.id, 
         type: e.type, 
-        timeOffset: e.timeOffset,
+        time: e.time,
         priority: assignEventPriority(e),
-        action: e.type === 'annotation' ? e.payload.action : 
-              (e.type === 'video' ? e.payload.action : 'none'),
+        action: e.type === 'annotation' ? e.data?.action : 
+              (e.type === 'video' ? e.data?.action : 'none'),
         // Add more detailed information about video events
         details: e.type === 'video' ? {
-          action: e.payload.action,
-          from: e.payload.from,
-          to: e.payload.to,
-          globalTimeOffset: e.payload.globalTimeOffset
+          action: e.data?.action,
+          from: e.data?.from,
+          to: e.data?.to,
+          time: e.time
         } : undefined
       })),
       remainingCount: pendingEventsRef.current.length
@@ -583,7 +585,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     if (!isActive || !recordingStartTimeRef.current) return;
     
     const now = Date.now();
-    const timeOffset = now - recordingStartTimeRef.current;
+    const currentTime = now - recordingStartTimeRef.current;
     
     // Assign default priority based on event type
     let priority: number;
@@ -597,23 +599,23 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     const event: TimelineEvent = {
       id: generateId(),
       type,
-      timeOffset,
+      time: currentTime,
       duration,
-      payload,
+      data: payload,
       priority
     };
     
     // Add to the timeline state directly
     timelineActions.addEvent({
       id: event.id,
-      time: timeOffset,
+      time: currentTime,
       type: event.type,
       data: { ...payload, duration }
     });
     
     // Also maintain backward compatibility with eventsRef
     eventsRef.current.push(event);
-    console.log(`Recorded ${type} event at ${timeOffset}ms:`, payload);
+    console.log(`Recorded ${type} event at ${currentTime}ms:`, payload);
     
     return event;
   }, [isActive, generateId, timelineActions]);
@@ -642,7 +644,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // For debugging during development
     if (event) {
       console.log(`Annotation event recorded with ID: ${event.id}`, {
-        timeOffset: event.timeOffset,
+        time: event.time,
         eventCount: eventsRef.current.length
       });
     } else {
@@ -702,12 +704,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Also add to timeline events for consistency
     if (isActive && recordingStartTimeRef.current) {
-      const timeOffset = Date.now() - recordingStartTimeRef.current;
+      const currentTime = Date.now() - recordingStartTimeRef.current;
       
       // Add the category event to the timeline
       timelineActions.addEvent({
         id: generateId(),
-        time: timeOffset,
+        time: currentTime,
         type: 'category',
         data: { category, rating }
       });
@@ -793,7 +795,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Calculate the total duration from events or use a default
     const totalDuration = session.events.length > 0 
-      ? Math.max(...session.events.map(e => e.timeOffset)) + 5000
+      ? Math.max(...session.events.map(e => e.time)) + 5000
       : 30000; // Default 30s if no events
     
     console.log(`Simulating timeline for ${totalDuration}ms`);
@@ -857,12 +859,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Create a copy of events to process and sort them by timestamp first, then by type priority
     pendingEventsRef.current = [...currentSession.events].sort((a, b) => {
-      // First sort by timeOffset
-      if (a.timeOffset !== b.timeOffset) {
-        return a.timeOffset - b.timeOffset;
+      // First sort by time 
+      if (a.time !== b.time) {
+        return a.time - b.time;
       }
       
-      // If same timeOffset, sort by priority (add priorities if they don't exist)
+      // If same time, sort by priority (add priorities if they don't exist)
       const priorityA = a.priority ?? (a.type === 'video' ? 1 : 
                         a.type === 'annotation' ? 2 : 
                         a.type === 'marker' ? 3 : 
@@ -1178,7 +1180,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Detailed log of all events to debug
     session.events.forEach((event, index) => {
-      console.log(`Event ${index}: type=${event.type}, timeOffset=${event.timeOffset}, payload=`, event.payload);
+      console.log(`Event ${index}: type=${event.type}, time=${event.time}, data=`, event.data);
     });
     
     // Combine both approaches for most reliable category data
@@ -1204,11 +1206,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Add or update categories from events
     allCategoryEvents.forEach(event => {
-      if (event.payload?.category && typeof event.payload.rating === 'number' && event.payload.rating > 0) {
+      if (event.data?.category && typeof event.data.rating === 'number' && event.data.rating > 0) {
         // Only add if not already present (prefer session.categories) or if it's zero in categories
-        if (!categoriesState[event.payload.category] || categoriesState[event.payload.category] === 0) {
-          categoriesState[event.payload.category] = event.payload.rating;
-          console.log(`Added category from event: ${event.payload.category} = ${event.payload.rating}`);
+        if (!categoriesState[event.data.category] || categoriesState[event.data.category] === 0) {
+          categoriesState[event.data.category] = event.data.rating;
+          console.log(`Added category from event: ${event.data.category} = ${event.data.rating}`);
         }
       }
     });
@@ -1260,11 +1262,27 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     }
   }, [onCategoriesLoaded, sessionActions]);
   
+  // Create a ref to track if cleanup has been performed
+  const hasCleanedUpRef = useRef(false);
+  
   /**
    * Clean up resources when component unmounts
    */
+  // This effect only handles cleanup
   useEffect(() => {
+    // Capturing timelineActions in a variable to prevent stale closure issues
+    const actions = timelineActions;
+    
     return () => {
+      // Prevent duplicate timeline resets - only execute once
+      if (hasCleanedUpRef.current) {
+        console.log('Cleanup already performed, skipping');
+        return;
+      }
+      
+      console.log('Performing FeedbackOrchestrator cleanup');
+      hasCleanedUpRef.current = true;
+      
       // Stop recording if active
       if (audioRecorderRef.current && audioRecorderRef.current.state !== 'inactive') {
         audioRecorderRef.current.stop();
@@ -1289,10 +1307,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Clear any timeouts
       replayTimeoutIdsRef.current.forEach(id => window.clearTimeout(id));
       
-      // Reset state
-      timelineActions.reset();
+      // IMPORTANT: We're NOT resetting the timeline state on component unmount anymore
+      // This appears to be causing circular rendering and maximum update depth errors
+      console.log('Cleanup complete - timeline state reset SKIPPED to prevent infinite updates');
     };
-  }, [audioPlayer, timelineActions]);
+  }, [audioPlayer]);
   
   // Expose imperative methods to parent component using the ref
   useImperativeHandle(ref, () => ({

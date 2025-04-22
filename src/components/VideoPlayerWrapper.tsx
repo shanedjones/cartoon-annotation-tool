@@ -1,17 +1,34 @@
 'use client';
 
+/**
+ * VideoPlayerWrapper is the central component for the cartoon annotation tool.
+ * This component has been fully migrated to use the state management system
+ * instead of directly manipulating window globals.
+ * 
+ * It maintains backward compatibility through:
+ * 1. The compatibility layer in state/compatibility.tsx which syncs state with window globals
+ * 2. Direct interaction with the FeedbackOrchestrator for legacy components
+ * 
+ * The component uses React context hooks for all state management:
+ * - useSession/useSessionActions for session state
+ * - useTimeline/useTimelineActions for timeline events
+ * - useVideo/useMediaActions for video control
+ * - useAnnotation/useAnnotationActions for drawing annotations
+ */
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { v4 as uuidv4 } from 'uuid';
 import type { RecordedAction, FeedbackData } from './VideoPlayer';
 import type { DrawingPath } from './AnnotationCanvas';
 import AudioRecorder from './AudioRecorder';
-import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
+import FeedbackOrchestrator, { FeedbackSession, AudioTrack } from './FeedbackOrchestrator';
 import { AppStateProvider } from '../state';
 import { useTimeline, useTimelineActions } from '../state/timeline/hooks';
 import { useSession, useSessionActions } from '../state/session/hooks';
 import { useVideo, useMediaActions } from '../state/media/hooks';
 import { useAnnotation, useAnnotationActions } from '../state/annotation/hooks';
+import { TimelineEvent } from '../state/types';
 
 // Import the AudioChunk type from the AudioRecorder component
 import type { AudioChunk } from './AudioRecorder';
@@ -278,9 +295,9 @@ const convertLegacyDataToSession = (legacyData: FeedbackData): FeedbackSession =
     return {
       id: uuidv4(),
       type: action.type === 'annotation' ? 'annotation' : 'video',
-      timeOffset: action.timestamp,
+      time: action.timestamp,
       duration: action.type === 'audio' ? action.details?.duration : undefined,
-      payload: 
+      data: 
         action.type === 'annotation' 
           ? { action: action.details?.clear ? 'clear' : 'draw', path: action.details?.path } 
           : { action: action.type, ...action.details }
@@ -317,10 +334,10 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
   session.events.forEach(event => {
     if (event.type === 'video') {
       const action: RecordedAction = {
-        type: event.payload.action,
-        timestamp: event.timeOffset,
+        type: event.data.action,
+        timestamp: event.time,
         videoTime: 0, // Will need proper conversion
-        details: { ...event.payload }
+        details: { ...event.data }
       };
       
       if (action.details) {
@@ -331,30 +348,30 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
     else if (event.type === 'annotation') {
       const action: RecordedAction = {
         type: 'annotation',
-        timestamp: event.timeOffset,
+        timestamp: event.time,
         videoTime: 0, // Will need proper conversion
-        details: event.payload.action === 'clear' 
+        details: event.data.action === 'clear' 
           ? { clear: true } 
-          : { path: event.payload.path }
+          : { path: event.data.path }
       };
       legacyData.actions.push(action);
       
       // Also collect annotation paths for backwards compatibility
-      if (event.payload.action === 'draw' && event.payload.path) {
+      if (event.data.action === 'draw' && event.data.path) {
         // Add timing metadata to the annotation for proper replay
         const pathWithTiming = {
-          ...event.payload.path,
-          timeOffset: event.timeOffset,
-          globalTimeOffset: event.timeOffset,
-          videoTime: event.timeOffset,
-          tool: event.payload.path.tool || 'freehand' // Ensure tool type is preserved
+          ...event.data.path,
+          timeOffset: event.time,
+          globalTimeOffset: event.time,
+          videoTime: event.time,
+          tool: event.data.path.tool || 'freehand' // Ensure tool type is preserved
         };
         annotations.push(pathWithTiming);
       }
     }
     else if (event.type === 'marker') {
       // Skip markers, as they don't have a direct equivalent in the legacy format
-      console.log('Skipping marker event in legacy conversion:', event.payload.text);
+      console.log('Skipping marker event in legacy conversion:', event.data.text);
     }
   });
   
@@ -475,15 +492,19 @@ export default function VideoPlayerWrapper({
   // Start recording
   const startRecording = useCallback(() => {
     // Set the recording start time reference
-    recordingStartTimeRef.current = Date.now();
+    const currentTime = Date.now();
+    recordingStartTimeRef.current = currentTime;
     
-    // Use the state action to start recording
+    // Use the state actions to start recording
     sessionActions.startRecording(videoId);
+    timelineActions.startRecording();
+    timelineActions.setRecordingStartTime(currentTime);
     
     // Keep using setMode for component UI state
     setMode('record');
     
-    // Clear any existing annotations before starting
+    // Clear any existing annotations through state and UI
+    annotationActions.clearAnnotations();
     if (annotationCanvasComponentRef.current) {
       console.log('Clearing annotations before starting new recording');
       if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
@@ -495,152 +516,175 @@ export default function VideoPlayerWrapper({
     if (videoRef.current) {
       console.log('Resetting video position before starting recording');
       videoRef.current.currentTime = 0;
+      mediaActions.seek(0);
     }
+    
+    // Set active state locally
+    setIsActive(true);
     
     // Still use orchestrator directly for backward compatibility
     if (orchestratorRef.current) {
       orchestratorRef.current.startRecordingSession();
-      setIsActive(true);
     }
-  }, [sessionActions, videoId]);
+  }, [sessionActions, timelineActions, annotationActions, mediaActions, videoId]);
   
   // Stop recording
   const stopRecording = useCallback(() => {
-    // Use state action to stop recording with current time
+    // Use state actions to stop recording with current time
     const currentTime = Date.now();
     sessionActions.stopRecording(currentTime);
+    timelineActions.stopRecording();
+    timelineActions.setRecordingStartTime(null);
     
     // Reset recording start time reference
     recordingStartTimeRef.current = null;
     
-    if (orchestratorRef.current) {
-      console.log('Stopping recording session');
+    // Update UI state
+    setIsActive(false);
+    
+    // Reset video to beginning
+    if (videoRef.current) {
+      console.log('Resetting video position to start');
+      videoRef.current.currentTime = 0;
+      mediaActions.seek(0);
       
-      // End recording session through orchestrator for backward compatibility
-      orchestratorRef.current.endRecordingSession();
-      setIsActive(false);
-      
-      // Reset video to beginning
-      if (videoRef.current) {
-        console.log('Resetting video position to start');
-        videoRef.current.currentTime = 0;
-        
-        // If it's playing, pause it
-        if (!videoRef.current.paused) {
-          mediaActions.pause(); // Use context action
-        }
+      // If it's playing, pause it
+      if (!videoRef.current.paused) {
+        mediaActions.pause();
       }
-      
-      // Clear annotations
-      if (annotationCanvasComponentRef.current) {
-        console.log('Clearing annotations after recording stopped');
-        if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
-          annotationCanvasComponentRef.current.clearCanvasDrawings();
-        }
-      }
-      
-      // Call the onCategoriesCleared callback if it exists
-      if (onCategoriesCleared) {
-        onCategoriesCleared();
-      }
-      
-      // Session availability is now fully managed through state
-      // No need for custom events or window global sync
     }
-  }, [sessionActions, mediaActions, onCategoriesCleared]);
+    
+    // Clear annotations from both state and UI
+    annotationActions.clearAnnotations();
+    if (annotationCanvasComponentRef.current) {
+      console.log('Clearing annotations after recording stopped');
+      if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
+        annotationCanvasComponentRef.current.clearCanvasDrawings();
+      }
+    }
+    
+    // Call the onCategoriesCleared callback if it exists
+    if (onCategoriesCleared) {
+      onCategoriesCleared();
+    }
+    
+    // Backward compatibility with orchestrator
+    if (orchestratorRef.current) {
+      console.log('Stopping recording session in orchestrator');
+      orchestratorRef.current.endRecordingSession();
+    }
+    
+    // Session availability is now fully managed through state
+    // No need for custom events or window global sync
+  }, [sessionActions, timelineActions, mediaActions, annotationActions, onCategoriesCleared]);
   
   // Start replaying the recorded session with optimized state changes
   const startReplay = useCallback(() => {
+    // Check if we have a session to replay
+    if (!currentSession) {
+      alert('No recorded session to replay. Record a session first.');
+      return;
+    }
+    
     // Use state action to start replay
     sessionActions.startReplay();
     
-    // Prepare everything before changing state
-    // This prevents multiple re-renders
+    // Update UI state first to avoid multiple re-renders
+    setMode('replay');
+    setIsActive(true);
     
-    // Prepare canvas
+    // Clear annotations from both state and UI
+    annotationActions.clearAnnotations();
     if (annotationCanvasComponentRef.current && annotationCanvasComponentRef.current.clearCanvasDrawings) {
       console.log('Clearing annotations before starting replay');
       annotationCanvasComponentRef.current.clearCanvasDrawings();
     }
     
-    // Prepare video if available
+    // Clear categories if needed
+    if (onCategoriesCleared) {
+      console.log('Clearing categories before replay');
+      onCategoriesCleared();
+    }
+    
+    // Reset video position
     if (videoRef.current) {
       console.log('Resetting video position before starting replay');
       videoRef.current.currentTime = 0;
+      mediaActions.seek(0);
     }
     
-    if (orchestratorRef.current && currentSession) {
-      // First, handle categories clearing if needed
-      if (onCategoriesCleared) {
-        console.log('Clearing categories before replay');
-        onCategoriesCleared();
-      }
+    // Load session data into state
+    console.log('Loading session data into state for replay:', currentSession.categories);
+    
+    // Load session categories
+    if (currentSession.categories && currentSession.categories.length > 0) {
+      sessionActions.setCategories(currentSession.categories);
       
-      console.log('Replaying session with categories:', currentSession.categories);
-      
-      // Load the session if needed
-      if (typeof window !== 'undefined' && !window.__sessionReady) {
-        console.log('Loading session data');
-        orchestratorRef.current.loadSession(currentSession);
-      }
-      
-      // Now batch the state updates to reduce re-renders
-      try {
-        // Batch state updates together to minimize renders
-        console.log('Batching state updates for replay');
-        setMode('replay');
-        setIsActive(true);
-        
-        // Use setTimeout to ensure state updates have completed
-        // before starting the replay, which prevents race conditions
-        setTimeout(() => {
-          if (orchestratorRef.current) {
-            console.log('Starting replay after state updates');
-            orchestratorRef.current.startReplay();
-            
-            // Set the completed review status if needed
-            if (typeof window !== 'undefined' && window.__isCompletedVideo) {
-              console.log('Starting replay of completed review');
-            }
+      // Notify parent component of loaded categories
+      if (onCategoriesLoaded) {
+        // Convert to the format expected by the parent
+        const categoryData = currentSession.categories.reduce((acc, cat) => {
+          if (cat.categoryId && cat.rating) {
+            acc[cat.categoryId] = cat.rating;
           }
-        }, 0);
-      } catch (error) {
-        console.error('Error in replay state updates:', error);
+          return acc;
+        }, {} as Record<string, number>);
+        
+        onCategoriesLoaded(categoryData);
       }
-    } else {
-      alert('No recorded session to replay. Record a session first.');
     }
-  }, [currentSession, sessionActions, onCategoriesCleared]);
+    
+    // Start replay in orchestrator for backward compatibility
+    if (orchestratorRef.current) {
+      // Load the session into the orchestrator
+      orchestratorRef.current.loadSession(currentSession);
+      
+      // Use setTimeout to ensure state updates have completed
+      // before starting the replay, which prevents race conditions
+      setTimeout(() => {
+        if (orchestratorRef.current) {
+          console.log('Starting replay in orchestrator');
+          orchestratorRef.current.startReplay();
+        }
+      }, 0);
+    }
+  }, [currentSession, sessionActions, mediaActions, annotationActions, onCategoriesCleared, onCategoriesLoaded]);
   
   // Stop replay
   const stopReplay = useCallback(() => {
-    // Use state action to stop replay
+    // Use state actions to stop replay
     sessionActions.stopReplay();
     
-    if (orchestratorRef.current) {
-      orchestratorRef.current.stopReplay();
-      setIsActive(false);
+    // Update UI state
+    setMode('record');
+    setIsActive(false);
+    
+    // Reset video to beginning
+    if (videoRef.current) {
+      console.log('Resetting video position to start after replay');
+      videoRef.current.currentTime = 0;
+      mediaActions.seek(0);
       
-      // Reset video to beginning
-      if (videoRef.current) {
-        console.log('Resetting video position to start after replay');
-        videoRef.current.currentTime = 0;
-        
-        // If it's playing, pause it
-        if (!videoRef.current.paused) {
-          mediaActions.pause(); // Use context action
-        }
-      }
-      
-      // Clear annotations
-      if (annotationCanvasComponentRef.current) {
-        console.log('Clearing annotations after replay stopped');
-        if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
-          annotationCanvasComponentRef.current.clearCanvasDrawings();
-        }
+      // If it's playing, pause it
+      if (!videoRef.current.paused) {
+        mediaActions.pause();
       }
     }
-  }, [sessionActions, mediaActions]);
+    
+    // Clear annotations from both state and UI
+    annotationActions.clearAnnotations();
+    if (annotationCanvasComponentRef.current) {
+      console.log('Clearing annotations after replay stopped');
+      if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
+        annotationCanvasComponentRef.current.clearCanvasDrawings();
+      }
+    }
+    
+    // Handle orchestrator for backward compatibility
+    if (orchestratorRef.current) {
+      orchestratorRef.current.stopReplay();
+    }
+  }, [sessionActions, mediaActions, annotationActions]);
   
   // Handle session completion
   const handleSessionComplete = useCallback((session: FeedbackSession) => {
@@ -671,14 +715,8 @@ export default function VideoPlayerWrapper({
     const legacyData = convertSessionToLegacyData(sessionWithCategories);
     setFeedbackData(legacyData);
     
-    // Update session availability flag immediately
-    if (typeof window !== 'undefined') {
-      window.__hasRecordedSession = true;
-      console.log('Session available flag set to true');
-      
-      // Dispatch a custom event to notify about session availability
-      window.dispatchEvent(new Event('session-available'));
-    }
+    // Session is now available in state
+    console.log('Session completed and saved to state');
     
     console.log('Session completed with categories:', sessionWithCategories);
     
@@ -969,26 +1007,14 @@ export default function VideoPlayerWrapper({
     };
   }, [isActive, mode]);
 
-  // Using the Window interface defined in src/types/global.d.ts
-  
-  // Expose methods to the parent component and notify about mode changes
+  // Notify parent component about replay mode changes
   useEffect(() => {
-    // This runs once when the component mounts and when dependencies change
-    
-    // Notify parent component about replay mode changes
     if (onReplayModeChange) {
       const isReplay = mode === 'replay';
       console.log(`Notifying parent about replay mode: ${isReplay}`);
       onReplayModeChange(isReplay);
     }
-    
-    // Note: We no longer need to set window globals directly
-    // The compatibility layer handles this synchronization for us
-    
-    return () => {
-      // Clean up is now handled by the compatibility layer
-    };
-  }, [mode, isActive, onReplayModeChange, currentSession]);
+  }, [mode, onReplayModeChange]);
   
   // Load session but only start replay if not a completed video
   useEffect(() => {
@@ -997,33 +1023,38 @@ export default function VideoPlayerWrapper({
       
       // Set a small delay to ensure everything is properly initialized
       setTimeout(() => {
+        // Set the current session in local state for backward compatibility
+        setCurrentSession(initialSession);
+        
+        // Also load the session into the state management system
+        sessionActions.loadSession(initialSession);
+        
+        // Load session in orchestrator for backward compatibility
         if (orchestratorRef.current) {
-          // Set the current session
-          setCurrentSession(initialSession);
-          
-          // Load the session without auto-starting replay or switching mode yet
           orchestratorRef.current.loadSession(initialSession);
-          
-          // Check if this is a new session or a completed video
-          // Get the completed status from context instead of window globals
-          const isCompletedVideo = status === 'idle';
-          
-          if (!isCompletedVideo) {
-            console.log("Auto-starting replay for new session");
-            // For new reviews, we auto-start and switch to replay mode
-            setMode('replay');
-            // Use the context action
-            sessionActions.startReplay();
-            // Also use the orchestrator for backward compatibility
-            orchestratorRef.current.startReplay();
-            setIsActive(true);
-          } else {
-            console.log("Completed video review - replay is ready but not auto-started");
-            // For completed videos, only need to update state
-            // Session ready is now managed through state
-          }
         }
-      }, 1500);
+        
+        // Check if this is a new session or a completed video
+        const isCompletedVideo = status === 'idle';
+        
+        if (!isCompletedVideo) {
+          console.log("Auto-starting replay for new session");
+          // For new reviews, we auto-start and switch to replay mode
+          setMode('replay');
+          // Use the context action
+          sessionActions.startReplay();
+          
+          // Also use the orchestrator for backward compatibility
+          if (orchestratorRef.current) {
+            orchestratorRef.current.startReplay();
+          }
+          
+          setIsActive(true);
+        } else {
+          console.log("Completed video review - replay is ready but not auto-started");
+          // Session ready is now managed through state
+        }
+      }, 1000);
     }
   }, [initialSession, status, sessionActions]);
   
@@ -1096,17 +1127,17 @@ export default function VideoPlayerWrapper({
             isReplaying={mode === 'replay' && isActive}
             setVideoRef={setVideoElementRef}
             replayAnnotations={currentSession?.events
-              ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
+              ?.filter(e => e.type === 'annotation' && e.data?.action === 'draw' && e.data?.path)
               ?.map(e => {
                 // Make sure the tool property is preserved during replay
-                const tool = e.payload.path.tool || 'freehand';
-                console.log(`Preparing annotation for replay: tool=${tool}, points=${e.payload.path.points?.length}`);
+                const tool = e.data.path.tool || 'freehand';
+                console.log(`Preparing annotation for replay: tool=${tool}, points=${e.data.path.points?.length}`);
                 
                 return {
-                  ...e.payload.path,
-                  timeOffset: e.timeOffset,
-                  globalTimeOffset: e.timeOffset,
-                  videoTime: e.timeOffset,
+                  ...e.data.path,
+                  timeOffset: e.time,
+                  globalTimeOffset: e.time,
+                  videoTime: e.time,
                   tool: tool  // Explicitly set the tool to ensure it's included
                 };
               }) || feedbackData.annotations || []}
@@ -1282,28 +1313,28 @@ export default function VideoPlayerWrapper({
               {currentSession.events.map((event, index) => (
                 <li key={index} className="mb-1 p-2 border-b">
                   <span className="font-semibold">{event.type}</span> at{' '}
-                  <span className="font-mono">{(event.timeOffset / 1000).toFixed(2)}s</span>
+                  <span className="font-mono">{(event.time / 1000).toFixed(2)}s</span>
                   {event.type === 'video' && (
                     <span className="block text-gray-600">
-                      Action: {event.payload.action}
-                      {event.payload.to !== undefined && ` (to: ${event.payload.to})`}
+                      Action: {event.data?.action}
+                      {event.data?.to !== undefined && ` (to: ${event.data.to})`}
                     </span>
                   )}
                   {event.type === 'annotation' && (
                     <span className="block text-gray-600">
-                      {event.payload.action === 'clear' 
+                      {event.data?.action === 'clear' 
                         ? "Cleared annotations" 
-                        : `Drew annotation with ${event.payload.path?.points?.length || 0} points`}
+                        : `Drew annotation with ${event.data?.path?.points?.length || 0} points`}
                     </span>
                   )}
                   {event.type === 'marker' && (
                     <span className="block text-gray-600">
-                      Marker: {event.payload.text}
+                      Marker: {event.data?.text}
                     </span>
                   )}
                   {event.type === 'category' && (
                     <span className="block text-gray-600">
-                      Category: {getCategoryLabel(event.payload.category)} {event.payload.rating > 0 ? `(rated ${event.payload.rating}★)` : '(cleared)'}
+                      Category: {getCategoryLabel(event.data?.category)} {event.data?.rating > 0 ? `(rated ${event.data.rating}★)` : '(cleared)'}
                     </span>
                   )}
                 </li>

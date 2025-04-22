@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useAudio, useMediaActions, useTimeline } from '@/state';
 
 export interface AudioChunk {
   blob: Blob | string;      // The audio data as Blob or string (for serialization)
@@ -27,9 +28,17 @@ export default function AudioRecorder({
   onAudioChunk,
   replayAudioChunks = []
 }: AudioRecorderProps) {
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  // Get state from context
+  const audioState = useAudio();
+  const mediaActions = useMediaActions();
+  const timelineState = useTimeline();
+  
+  // Map state from context where applicable
+  const isRecordingAudio = audioState.isRecording;
+  const error = audioState.error;
+  
+  // Local state that will be migrated in the future
   const [audioPermissionGranted, setAudioPermissionGranted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [recordingFormat, setRecordingFormat] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
   
@@ -73,19 +82,24 @@ export default function AudioRecorder({
       
       console.log('Starting audio recording because isRecording=true');
       startAudioRecording();
+      // Update state
+      mediaActions.startRecording();
     } else if (!isRecording && isRecordingAudio) {
       console.log('Stopping audio recording because isRecording=false');
       stopAudioRecording();
+      // Update state
+      mediaActions.stopRecording();
     }
     
     // Clean up on unmount
     return () => {
       if (isRecordingAudio) {
         stopAudioRecording();
+        mediaActions.stopRecording();
       }
       cleanupAudioPlayers();
     };
-  }, [isRecording, audioPermissionGranted, isRecordingAudio]);
+  }, [isRecording, audioPermissionGranted, isRecordingAudio, mediaActions]);
   
   // Start recording audio
   const startAudioRecording = async () => {
@@ -143,6 +157,8 @@ export default function AudioRecorder({
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           chunksRef.current.push(e.data);
+          // Also add to shared state
+          mediaActions.addAudioChunk(e.data);
         }
       };
       

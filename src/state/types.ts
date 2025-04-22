@@ -69,6 +69,7 @@ export interface VideoState {
   volume: number;
   playbackRate: number;
   currentSrc: string | null;
+  currentTime: number;
   duration: number;
   buffered: TimeRanges | null;
   dimensions: {

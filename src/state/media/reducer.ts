@@ -65,6 +65,7 @@ const initialVideoState: VideoState = {
   volume: 1,
   playbackRate: 1,
   currentSrc: null,
+  currentTime: 0,
   duration: 0,
   buffered: null,
   dimensions: {
@@ -106,13 +107,17 @@ const videoReducerHandlers = {
     },
   }),
   
-  [MEDIA_ACTIONS.VIDEO_SEEK]: (state: MediaState, action: MediaAction) => ({
-    ...state,
-    video: {
-      ...state.video,
-      currentTime: (action as any).payload?.time || 0,
-    },
-  }),
+  [MEDIA_ACTIONS.VIDEO_SEEK]: (state: MediaState, action: MediaAction) => {
+    const time = (action as any).payload?.time;
+    console.log('VIDEO_SEEK action with time:', time);
+    return {
+      ...state,
+      video: {
+        ...state.video,
+        currentTime: time !== undefined ? time : state.video.currentTime || 0,
+      },
+    };
+  },
   
   [MEDIA_ACTIONS.VIDEO_UPDATE_TIME]: (state: MediaState, action: MediaAction) => ({
     ...state,

@@ -43,8 +43,15 @@ export function useMediaActions() {
   // Define video action creators individually with useCallback to prevent unnecessary re-renders
   const play = useCallback(() => {
     if (videoRef.current) {
-      videoRef.current.play().catch(() => {});
+      console.log('Play called on videoRef:', videoRef.current);
+      videoRef.current.play()
+        .then(() => console.log('Play promise resolved successfully'))
+        .catch(err => console.error('Error playing video:', err));
+    } else {
+      console.error('Cannot play - videoRef.current is null');
     }
+    
+    // Update the state regardless of whether play succeeds
     dispatch({ type: MEDIA_ACTIONS.VIDEO_PLAY });
   }, [videoRef, dispatch]);
 
@@ -86,6 +93,14 @@ export function useMediaActions() {
   const setVideoUrl = useCallback((url: string) => {
     dispatch({ type: MEDIA_ACTIONS.VIDEO_SET_URL, payload: { url } });
   }, [dispatch]);
+  
+  const setDuration = useCallback((duration: number) => {
+    dispatch({ type: MEDIA_ACTIONS.VIDEO_UPDATE_DURATION, payload: { duration } });
+  }, [dispatch]);
+  
+  const setStatus = useCallback((status: 'idle' | 'loading' | 'ready' | 'error') => {
+    dispatch({ type: MEDIA_ACTIONS.VIDEO_SET_STATUS, payload: { status } });
+  }, [dispatch]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
@@ -110,9 +125,11 @@ export function useMediaActions() {
       setMuted,
       setVolume,
       setVideoUrl,
+      setDuration,
+      setStatus,
       togglePlay
     }),
-    [play, pause, seek, setPlaybackRate, setMuted, setVolume, setVideoUrl, togglePlay]
+    [play, pause, seek, setPlaybackRate, setMuted, setVolume, setVideoUrl, setDuration, setStatus, togglePlay]
   );
 
   // Audio recording state and refs
@@ -153,6 +170,22 @@ export function useMediaActions() {
       });
     }
   }, [dispatch]);
+  
+  // Add a single audio chunk (useful for external recorders)
+  const addAudioChunk = useCallback((chunk: Blob) => {
+    dispatch({ 
+      type: MEDIA_ACTIONS.AUDIO_ADD_CHUNK, 
+      payload: { chunk } 
+    });
+  }, [dispatch]);
+  
+  // Set the status of the audio recorder
+  const setAudioRecorderStatus = useCallback((status: 'idle' | 'recording' | 'processing' | 'ready' | 'error') => {
+    dispatch({ 
+      type: MEDIA_ACTIONS.AUDIO_SET_STATUS,
+      payload: { status }
+    });
+  }, [dispatch]);
 
   const stopRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -191,9 +224,11 @@ export function useMediaActions() {
       startRecording,
       stopRecording,
       clearAudioChunks,
-      setAudioStatus
+      setAudioStatus,
+      addAudioChunk,
+      setAudioRecorderStatus
     }),
-    [startRecording, stopRecording, clearAudioChunks, setAudioStatus]
+    [startRecording, stopRecording, clearAudioChunks, setAudioStatus, addAudioChunk, setAudioRecorderStatus]
   );
 
   // Clean up recording on unmount

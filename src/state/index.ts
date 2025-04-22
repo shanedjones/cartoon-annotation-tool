@@ -7,8 +7,8 @@ export { AppStateProvider, useAppState } from './store';
 export { useAuth, useAuthActions, useIsAuthenticated, useRequireAuth } from './auth/hooks';
 export { useSession, useSessionActions } from './session/hooks';
 export { useMedia, useVideo, useAudio, useMediaActions } from './media/hooks';
-export { useTimeline, useTimelineActions } from './timeline/hooks';
-export { useAnnotation, useAnnotationActions } from './annotation/hooks';
+export { useTimeline, useTimelineActions, useTimelinePosition, useRecordingTime } from './timeline/hooks';
+export { useAnnotation, useAnnotationActions, useVisibleAnnotations } from './annotation/hooks';
 
 // Re-export DevTools utilities
 export { initializeDevTools } from './utils';
