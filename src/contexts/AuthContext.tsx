@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { SessionProvider, useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { createAuthContext } from './factory/authFactory';
 
 /**
  * Auth Session Provider Component
@@ -11,26 +12,61 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   return <SessionProvider>{children}</SessionProvider>;
 }
 
-/**
- * Auth Context Interface
- */
-interface AuthContextType {
-  user: any;
-  status: "loading" | "authenticated" | "unauthenticated";
-  signin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signout: () => Promise<void>;
-}
-
-// Create the context
-const AuthContext = createContext<AuthContextType | null>(null);
+// Create the auth context using the factory
+const { 
+  Provider: AuthContextProvider, 
+  useAuth: useAuthFactory
+} = createAuthContext();
 
 /**
- * Auth Provider Component
+ * Enhanced Auth Provider Component that integrates with NextAuth
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { setSession, setStatus, recordActivity } = useAuthFactory();
 
+  // Keep our context in sync with NextAuth session
+  useEffect(() => {
+    setSession(session || null);
+    setStatus(status);
+  }, [session, status, setSession, setStatus]);
+
+  // Record user activity on interactions
+  useEffect(() => {
+    const handleActivity = () => {
+      recordActivity();
+    };
+
+    // Add activity listeners
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+
+    return () => {
+      // Clean up listeners
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('scroll', handleActivity);
+    };
+  }, [recordActivity]);
+
+  return (
+    <AuthContextProvider>
+      {children}
+    </AuthContextProvider>
+  );
+}
+
+/**
+ * Custom hook to use the auth context with NextAuth integration
+ */
+export function useAuth() {
+  const auth = useAuthFactory();
+  const router = useRouter();
+  
   // Sign in function
   const signin = async (email: string, password: string) => {
     try {
@@ -55,44 +91,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut({ redirect: false });
     router.push('/auth/signin');
   };
-
-  // Context value
-  const contextValue = {
-    user: session?.user,
-    status,
+  
+  return {
+    // Pass through all factory auth values
+    ...auth,
+    // Add NextAuth specific functionality
+    user: auth.state.session?.user,
+    status: auth.state.status,
     signin,
     signout,
   };
-
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-/**
- * Custom hook to use the auth context
- */
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }
 
 /**
  * Custom hook to check if a user is authenticated and redirect if not
  */
 export function useRequireAuth() {
-  const { status } = useSession();
+  const { status, isSessionExpired } = useAuth();
   const router = useRouter();
 
-  if (status === 'unauthenticated') {
-    router.push('/auth/signin');
-    return { status: 'redirecting' };
-  }
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    } else if (status === 'authenticated' && isSessionExpired()) {
+      // Handle session timeout
+      signOut({ redirect: false });
+      router.push('/auth/signin?expired=true');
+    }
+  }, [status, isSessionExpired, router]);
 
-  return { status };
+  return { 
+    status: status === 'unauthenticated' ? 'redirecting' : status 
+  };
 }
