@@ -22,8 +22,8 @@ type VideoCacheEntry = {
   lastAccessed: number;
 };
 
-// Max cache size in bytes (100MB)
-const MAX_CACHE_SIZE = 100 * 1024 * 1024;
+// Max cache size in bytes (500MB)
+const MAX_CACHE_SIZE = 500 * 1024 * 1024;
 
 /**
  * Initialize the IndexedDB database for video caching
