@@ -520,14 +520,15 @@ function HomeContent() {
                       <div className="mb-1 dark:text-white">{property.label}</div>
                       <div className="flex items-center">
                         {[1, 2, 3, 4, 5].map((star) => (
-                          <button
+                          <div
                             key={star}
-                            type="button"
                             onClick={() => handleCategoryChange(property.id, star)}
-                            className={(categories[property.id] ?? 0) >= star ? "text-xl px-1 text-yellow-400" : "text-xl px-1 text-gray-300 dark:text-gray-600"}
+                            className={(categories[property.id] ?? 0) >= star 
+                              ? "text-xl px-1 text-yellow-400 bg-transparent cursor-pointer" 
+                              : "text-xl px-1 text-gray-300 dark:text-gray-600 bg-transparent cursor-pointer"}
                           >
                             ★
-                          </button>
+                          </div>
                         ))}
                       </div>
                     </div>
