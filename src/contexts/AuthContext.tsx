@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       return { success: true };
-    } catch (error) {
+    } catch {
       return { success: false, error: 'An error occurred. Please try again.' };
     }
   };

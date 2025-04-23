@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+// import Link from 'next/link';
 import AssessmentReviewModal from '@/src/components/AssessmentReviewModal';
 
 // Define the assessment session interface
@@ -21,7 +21,7 @@ interface Swing {
   status: 'Not Started' | 'Completed' | 'Archived';
   tags: string[];
   metrics: Record<string, string | number>;
-  reviewSession?: any; // The feedback data for this swing (if completed)
+  reviewSession?: Record<string, unknown>; // The feedback data for this swing (if completed)
 }
 
 interface AssessmentSession {
@@ -83,7 +83,7 @@ export default function InboxPage() {
     };
 
     fetchSessions();
-  }, [statusFilter]); // Re-fetch when status filter changes
+  }, [statusFilter, searchTerm]); // Re-fetch when status filter or search term changes
   
   // Function to filter sessions by search term
   const filterSessionsBySearch = (sessionsToFilter: AssessmentSession[], term: string) => {

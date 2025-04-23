@@ -1,7 +1,7 @@
 /**
  * Type definitions for media (audio/video) handling
  */
-import { Timestamp, VideoPosition, EntityId, TimelinePosition, Duration } from './common';
+import { Timestamp, VideoPosition, Duration } from './common';
 import { RecordedAction } from './timeline';
 
 /**

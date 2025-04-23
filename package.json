@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "lint:fix": "next lint --fix",
     "seed-db": "node scripts/seed-cosmos-db.js",
     "seed-users": "node scripts/seed-users.js"
   },

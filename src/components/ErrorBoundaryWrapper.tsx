@@ -5,7 +5,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 
 interface ErrorBoundaryWrapperProps {
   component: React.ElementType;
-  componentProps: any;
+  componentProps: Record<string, unknown>;
   name: string;
 }
 

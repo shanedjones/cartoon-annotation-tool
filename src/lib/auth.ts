@@ -1,5 +1,5 @@
 import { hash, compare } from "bcrypt";
-import { CosmosClient } from "@azure/cosmos";
+// import { CosmosClient } from "@azure/cosmos";
 import { initCosmosConnection } from "../utils/cosmosDb";
 
 // Connection and validation will be done inside the functions

@@ -9,8 +9,8 @@ export function Navbar() {
   const router = useRouter();
   const { user, status, signout } = useAuth();
   
-  // Check if the path is active
-  const isActive = (path: string) => pathname === path;
+  // Function to check if a path is active - not currently used but kept for future nav items
+  // const isActive = (path: string) => pathname === path;
 
   // Skip rendering on auth pages
   if (pathname.startsWith('/auth/')) {

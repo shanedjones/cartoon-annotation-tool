@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 
 export interface Point {
@@ -22,7 +22,7 @@ export interface DrawingPath {
 interface AnnotationCanvasProps {
   width: number;
   height: number;
-  isEnabled: boolean;
+  _isEnabled?: boolean; // Renamed with _ prefix to indicate it's not used
   currentTime: number;
   isRecording?: boolean;
   isReplaying?: boolean;
@@ -35,10 +35,16 @@ interface AnnotationCanvasProps {
   onClearComplete?: () => void;
 }
 
-const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
+// Define the ref interface to expose methods to parent components
+interface AnnotationCanvasRef {
+  handleManualAnnotation: (path: DrawingPath) => void;
+  clearCanvasDrawings: () => void;
+}
+
+const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(({
   width,
   height,
-  isEnabled,
+  _isEnabled,
   currentTime,
   isRecording = false,
   isReplaying = false,
@@ -115,7 +121,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
           });
       });
     }
-  }, [clearCanvas, onClearComplete]);
+  }, [clearCanvas, onClearComplete, clearCanvasDrawings]);
 
   // Initialize canvas
   useEffect(() => {
@@ -297,7 +303,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     allDrawings.forEach(path => {
       drawPath(ctx, path);
     });
-  }, [allDrawings, isReplaying, width, height]);
+  }, [allDrawings, isReplaying, width, height, drawPath, getContext]);
 
   // Method to handle an annotation that was generated programmatically
   const handleManualAnnotation = (path: DrawingPath) => {
@@ -307,7 +313,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       points: path.points?.length || 0,
       videoTime: path.videoTime || 'not set',
       timestamp: path.timestamp || 'not set',
-      timeOffset: (path as any).timeOffset || 'not set',
+      timeOffset: (path as { timeOffset?: number }).timeOffset || 'not set',
       currentVideoTime: currentTime * 1000,
       tool: path.tool || 'freehand' // Default to freehand if not specified
     });

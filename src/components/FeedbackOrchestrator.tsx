@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHand
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 import type { AudioChunk } from './AudioRecorder';
 import type { DrawingPath } from './AnnotationCanvas';
-import type { RecordedAction } from './VideoPlayer';
+// import type { RecordedAction } from './VideoPlayer';
 
 /**
  * Main feedback session structure
@@ -73,6 +73,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   onAudioRecorded,
   onSessionComplete,
   initialSession,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mode,
   onCategoriesLoaded
 }, ref) => {
@@ -493,7 +494,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       console.error('Failed to start recording session:', error);
       alert(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [isActive, generateId, onAudioRecorded, onSessionComplete]);
+  }, [isActive, generateId, onAudioRecorded, onSessionComplete, currentSession]);
   
   /**
    * End the current recording session
@@ -709,7 +710,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       console.log('Replay progress reset to 0');
     }, 1500);
     
-  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);
+  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition, canvasRef]);
   
   /**
    * Helper function to simulate timeline without audio
@@ -902,7 +903,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           setIsActive(false);
         };
         
-        audio.onerror = (e) => {
+        audio.onerror = () => {
           const errorInfo = {
             code: audio.error ? audio.error.code : 'unknown',
             message: audio.error ? audio.error.message : 'No error details available',
@@ -1044,7 +1045,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Reset replay state
     setIsActive(false);
     setReplayProgress(0);
-  }, [isActive, audioPlayer, resetTimelinePosition, videoElementRef, clearAnnotations]);
+  }, [isActive, audioPlayer, resetTimelinePosition, videoElementRef, clearAnnotations, canvasRef]);
   
   /**
    * Load a session for replay
@@ -1144,7 +1145,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Find which categories have ratings in the final state
     const ratedCategories = Object.entries(categoriesState)
-      .filter(([_, rating]) => rating > 0)
+      .filter(([, rating]) => rating > 0)
       .map(([category]) => category);
     
     console.log(`Final state has ${ratedCategories.length} rated categories:`, ratedCategories);

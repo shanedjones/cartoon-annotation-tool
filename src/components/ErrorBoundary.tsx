@@ -74,9 +74,13 @@ export function withErrorBoundary<P extends object>(
   fallback?: ReactNode,
   onError?: (error: Error, errorInfo: ErrorInfo) => void
 ): React.FC<P> {
-  return (props: P) => (
+  const WithErrorBoundary: React.FC<P> = (props: P) => (
     <ErrorBoundary fallback={fallback} onError={onError}>
       <Component {...props} />
     </ErrorBoundary>
   );
+  
+  WithErrorBoundary.displayName = `WithErrorBoundary(${Component.displayName || Component.name || 'Component'})`;
+  
+  return WithErrorBoundary;
 }

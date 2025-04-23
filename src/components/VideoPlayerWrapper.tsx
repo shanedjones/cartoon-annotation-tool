@@ -2,24 +2,17 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import type { RecordedAction, FeedbackData } from './VideoPlayer';
+import type { FeedbackData } from './VideoPlayer';
 import type { DrawingPath } from './AnnotationCanvas';
-import AudioRecorder from './AudioRecorder';
-import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
-import { AppProviders } from '../contexts/AppProviders';
+import FeedbackOrchestrator, { FeedbackSession, AudioTrack } from './FeedbackOrchestrator';
 import { ErrorBoundary } from './ErrorBoundary';
 import { 
-  blobToBase64, 
   getCategoryLabel, 
-  base64ToBlob,
   prepareAudioChunksForSave,
   restoreAudioChunks,
   convertLegacyDataToSession,
   convertSessionToLegacyData
 } from '../utils/dataConversion';
-
-// Import the AudioChunk type from the AudioRecorder component
-import type { AudioChunk } from './AudioRecorder';
 
 // Dynamically import the VideoPlayer with no SSR
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), { ssr: false });
@@ -32,8 +25,8 @@ interface VideoPlayerWrapperProps {
   onVideoLoadingChange?: (isLoading: boolean) => void;
   videoUrl?: string;
   videoId?: string;
-  contentToReview?: any; // Allow passing the full content object for display
-  initialSession?: any; // Allow passing an initial session from Cosmos DB
+  // contentToReview removed - unused
+  initialSession?: Record<string, unknown>; // Allow passing an initial session from Cosmos DB
   onSessionComplete?: (session: FeedbackSession) => void; // Callback when session is complete
 }
 
@@ -45,17 +38,15 @@ export default function VideoPlayerWrapper({
   onVideoLoadingChange,
   videoUrl,
   videoId = 'sample-video',
-  contentToReview,
   initialSession,
   onSessionComplete
 }: VideoPlayerWrapperProps) {
-  // Track previous URL to detect changes
-  const prevUrlRef = useRef(videoUrl);
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  // State for tracking video loading status
+  const [, setIsVideoLoading] = useState(true);
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
   const [feedbackData, setFeedbackData] = useState<FeedbackData>({
     sessionId: '',
@@ -251,7 +242,7 @@ export default function VideoPlayerWrapper({
     
     // Log which categories are true (selected)
     const selectedCategories = Object.entries(categoriesCopy)
-      .filter(([_, value]) => value)
+      .filter(([, value]) => value)
       .map(([key]) => key);
     console.log('Selected categories:', selectedCategories);
     
@@ -360,7 +351,7 @@ export default function VideoPlayerWrapper({
       
       // Log which categories are currently selected
       const selectedCategories = Object.entries(categoriesCopy)
-        .filter(([_, value]) => value)
+        .filter(([, value]) => value)
         .map(([key]) => key);
       console.log('Selected categories for download:', selectedCategories);
       
@@ -613,10 +604,10 @@ export default function VideoPlayerWrapper({
         }
       }, 1500);
     }
-  }, [initialSession]);
+  }, [initialSession, isActive, mode, orchestratorRef]);
   
   // Just use the provided videoUrl directly, no context needed
-  let contextVideoUrl = videoUrl;
+  const contextVideoUrl = videoUrl;
   
   // Log when the effective URL changes
   useEffect(() => {
@@ -817,7 +808,7 @@ export default function VideoPlayerWrapper({
                 <p><strong>Category Ratings:</strong></p>
                 <ul className="list-none space-y-2">
                   {Object.entries(currentSession.categories)
-                    .filter(([_, rating]) => rating !== null && (typeof rating === 'boolean' ? rating : rating > 0))
+                    .filter(([, rating]) => rating !== null && (typeof rating === 'boolean' ? rating : rating > 0))
                     .map(([category, rating]) => (
                       <li key={category}>
                         <div>

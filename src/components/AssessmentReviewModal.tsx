@@ -8,7 +8,8 @@ interface FocusArea {
   order: number;
 }
 
-interface AssessmentReview {
+// For use when we need to work with the full assessment review structure
+export interface AssessmentReview {
   notes: string;
   focusAreas: FocusArea[];
 }
@@ -262,7 +263,7 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
         
         <div className="p-4 border-t border-gray-200 flex justify-end space-x-2">
           <button
-            onClick={(e) => onClose()}
+            onClick={() => onClose()}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md"
           >
             Cancel

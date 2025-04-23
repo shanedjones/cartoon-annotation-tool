@@ -29,7 +29,7 @@ export default function SignIn() {
       }
       
       router.push("/inbox");
-    } catch (error) {
+    } catch {
       setError("An error occurred. Please try again.");
       setLoading(false);
     }

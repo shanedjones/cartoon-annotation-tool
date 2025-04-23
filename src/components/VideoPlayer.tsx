@@ -62,7 +62,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const [duration, setDuration] = useState(0);
   const rafIdRef = useRef<number | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
+  const [isAnnotationEnabled, _setIsAnnotationEnabled] = useState(true);
   const [annotationColor, setAnnotationColor] = useState('#ff0000'); // Default red
   const [annotationWidth, setAnnotationWidth] = useState(3);
   const [annotationTool, setAnnotationTool] = useState<DrawingTool>('line');
@@ -473,13 +473,15 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     };
   }, [playing, updateTimeWithRAF]);
   
-  // Expose handlers for AnnotationCanvas 
+  // Expose handlers for AnnotationCanvas - used via the imperativeHandle ref
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleManualAnnotation = (path: DrawingPath) => {
     if (annotationCanvasRef.current) {
       annotationCanvasRef.current.handleManualAnnotation(path);
     }
   };
   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const clearAllAnnotations = () => {
     if (annotationCanvasRef.current) {
       annotationCanvasRef.current.clearCanvasDrawings();

@@ -3,7 +3,7 @@ import { BlobServiceClient } from '@azure/storage-blob';
 
 export async function GET(
   request: NextRequest,
-  context: any
+  context: { params: { path: string[] } }
 ) {
   try {
     // Get storage configuration at runtime

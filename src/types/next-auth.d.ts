@@ -1,4 +1,7 @@
 import "next-auth";
+// JWT is used in module declaration - eslint doesn't recognize this
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { JWT } from "next-auth/jwt";
 
 declare module "next-auth" {
   /**
@@ -15,5 +18,21 @@ declare module "next-auth" {
       /** The user's profile image */
       image?: string | null;
     };
+  }
+
+  interface User {
+    id: string;
+    email: string;
+    name?: string;
+    image?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    email?: string;
+    name?: string | null;
+    picture?: string | null;
   }
 }

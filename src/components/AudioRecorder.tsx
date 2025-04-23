@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export interface AudioChunk {
   blob: Blob | string;      // The audio data as Blob or string (for serialization)
@@ -85,7 +85,7 @@ export default function AudioRecorder({
       }
       cleanupAudioPlayers();
     };
-  }, [isRecording, audioPermissionGranted, isRecordingAudio]);
+  }, [isRecording, audioPermissionGranted, isRecordingAudio, startAudioRecording, stopAudioRecording, cleanupAudioPlayers]);
   
   // Start recording audio
   const startAudioRecording = async () => {
@@ -401,7 +401,7 @@ export default function AudioRecorder({
 
   // Clean up audio players
   const cleanupAudioPlayers = () => {
-    audioPlayersRef.current.forEach((player, key) => {
+    audioPlayersRef.current.forEach((player) => {
       try {
         player.pause();
         if (player.src && player.src.startsWith('blob:')) {

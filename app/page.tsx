@@ -1,6 +1,6 @@
 'use client';
 
-import Link from "next/link";
+// import Link from "next/link";
 import VideoPlayerWrapper from "../src/components/VideoPlayerWrapper";
 import { useState, useCallback, useEffect, Suspense } from "react";
 import type { FeedbackSession } from "@/src/components/FeedbackOrchestrator";
@@ -186,7 +186,7 @@ function HomeContent() {
     
     // Convert all rated categories to formatted objects with name and rating
     const ratedCategories = Object.entries(categoryChanges)
-      .filter(([_, rating]) => rating !== null && rating > 0)
+      .filter(([, rating]) => rating !== null && rating > 0)
       .map(([categoryName, rating]) => {
         const label = getCategoryLabel(categoryName);
         console.log(`PARENT: Formatting category ${categoryName} to ${label} with rating ${rating}`);
@@ -309,7 +309,7 @@ function HomeContent() {
       window.removeEventListener('session-available', handleSessionChange);
       window.removeEventListener('session-ready', handleSessionReady);
     };
-  }, [hasRecordedSession, isCompletedVideo, isSessionReady]);
+  }, [hasRecordedSession, isCompletedVideo, isSessionReady, isReplayMode]);
   
   // Force client-side rendering for window access
   const [isClient, setIsClient] = useState(false);

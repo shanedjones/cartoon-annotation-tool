@@ -1,7 +1,7 @@
 /**
  * Type definitions for UI components and structures
  */
-import { EntityId, Dictionary } from './common';
+import { Dictionary } from './common';
 
 /**
  * Data labeling property for review

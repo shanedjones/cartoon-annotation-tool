@@ -32,7 +32,7 @@ export const uploadAudioToStorage = async (audioBlob: Blob, sessionId: string): 
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorMessage;
-      } catch (e) {
+      } catch {
         // Ignore JSON parsing errors and use statusText
       }
       throw new Error(`Failed to upload audio: ${errorMessage} (status: ${response.status})`);

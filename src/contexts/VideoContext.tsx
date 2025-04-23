@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, useMemo, useCallback, ReactNode, useRef, MutableRefObject, useEffect, useState } from 'react';
+import { createContext, useContext, useReducer, useMemo, useCallback, ReactNode, useRef, MutableRefObject, useEffect } from 'react';
 import { VideoState, Dimensions } from '../types';
 
 /**
@@ -303,7 +303,7 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
       }
     }, 100);
     
-  }, [state.videoUrl]);
+  }, [state.videoUrl, state.isLoading]);
 
   // Memoized action creators
   const actions = useMemo(() => ({

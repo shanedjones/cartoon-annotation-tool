@@ -1,6 +1,9 @@
 import NextAuth from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcrypt";
+import { Session } from "next-auth";
+import { JWT } from "next-auth/jwt";
+import { User } from "next-auth";
 
 // Import auth helpers
 import { findUserByEmail } from "@/src/lib/auth";
@@ -41,13 +44,13 @@ const authOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, token }: { session: any, token: any }) {
+    async session({ session, token }: { session: Session, token: JWT }) {
       if (token) {
         session.user.id = token.id;
       }
       return session;
     },
-    async jwt({ token, user }: { token: any, user: any }) {
+    async jwt({ token, user }: { token: JWT, user: User | undefined }) {
       if (user) {
         token.id = user.id;
       }
