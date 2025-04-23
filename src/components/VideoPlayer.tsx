@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { DrawingPath, DrawingTool } from './AnnotationCanvas';
 import AnnotationCanvas from './AnnotationCanvas';
 
@@ -60,6 +60,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const rafIdRef = useRef<number | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
   const [annotationColor, setAnnotationColor] = useState('#ff0000'); // Default red
@@ -279,19 +280,43 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       if (playing) {
         videoRef.current.pause();
         recordAction('pause');
+        
+        // Cancel any active animation frame
+        if (rafIdRef.current) {
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = null;
+        }
       } else {
         videoRef.current.play();
         recordAction('play');
+        
+        // Start the animation frame loop
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(updateTimeWithRAF);
+        }
       }
       setPlaying(!playing);
     }
   };
   
-  const handleTimeUpdate = () => {
+  // Use a combination of timeupdate event and requestAnimationFrame for smoother updates
+  const updateTimeWithRAF = useCallback(() => {
     if (videoRef.current) {
       // Update state to reflect the current video time
-      const time = videoRef.current.currentTime;
-      setCurrentTime(time);
+      setCurrentTime(videoRef.current.currentTime);
+      
+      // Continue the animation loop if playing
+      if (!videoRef.current.paused && !videoRef.current.ended) {
+        rafIdRef.current = requestAnimationFrame(updateTimeWithRAF);
+      }
+    }
+  }, []);
+  
+  // Handle regular timeupdate events from the video element
+  const handleTimeUpdate = () => {
+    // This serves as a backup to RAF and helps with initial loading
+    if (videoRef.current && !rafIdRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
     }
   };
   
@@ -368,7 +393,18 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       const previousTime = videoRef.current.currentTime;
       const newTime = Math.max(0, Math.min(duration, time));
       videoRef.current.currentTime = newTime;
+      
+      // Immediately update currentTime state
       setCurrentTime(newTime);
+      
+      // If we're not playing, we need to manually update state since RAF isn't running
+      if (!playing && !rafIdRef.current) {
+        // Trigger a RAF to capture any visual updates needed
+        requestAnimationFrame(() => {
+          setCurrentTime(videoRef.current?.currentTime || newTime);
+        });
+      }
+      
       return { previousTime, newTime };
     }
     return null;
@@ -412,6 +448,30 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [duration, playing, isRecording, currentTime]);
+  
+  // Hook to start/stop the RAF based on playing state
+  useEffect(() => {
+    // If the video is playing, make sure we have an animation frame running
+    if (playing && videoRef.current) {
+      if (!rafIdRef.current) {
+        rafIdRef.current = requestAnimationFrame(updateTimeWithRAF);
+      }
+    } else {
+      // If video is paused/stopped, cancel any animation frame
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, [playing, updateTimeWithRAF]);
   
   // Expose handlers for AnnotationCanvas 
   const handleManualAnnotation = (path: DrawingPath) => {
@@ -557,13 +617,13 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
             className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer relative z-10
                       focus:outline-none focus:ring-2 focus:ring-blue-300
                       [&::-webkit-slider-thumb]:appearance-none
-                      [&::-webkit-slider-thumb]:bg-blue-500
-                      [&::-webkit-slider-thumb]:h-4
-                      [&::-webkit-slider-thumb]:w-4
-                      [&::-webkit-slider-thumb]:rounded-full
-                      [&::-webkit-slider-thumb]:border-0
-                      [&::-webkit-slider-thumb]:shadow
-                      [&::-webkit-slider-thumb]:cursor-pointer"
+                      [&::-webkit-slider-thumb]:opacity-0
+                      [&::-webkit-slider-thumb]:h-0
+                      [&::-webkit-slider-thumb]:w-0
+                      [&::-moz-range-thumb]:opacity-0
+                      [&::-ms-thumb]:opacity-0
+                      [&::-webkit-slider-runnable-track]:rounded-lg
+                      [&::-moz-range-track]:rounded-lg"
             style={{
               background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb 100%)`
             }}
