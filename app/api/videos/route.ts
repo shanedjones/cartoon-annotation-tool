@@ -58,7 +58,10 @@ export async function GET(request: Request) {
       }
     }
     
-    return NextResponse.json(sessions, { status: 200 });
+    const response = NextResponse.json(sessions, { status: 200 });
+    // Add cache control headers
+    response.headers.set('Cache-Control', 'public, max-age=3600');
+    return response;
   } catch (error) {
     console.error('Error fetching data from Cosmos DB:', error);
     return NextResponse.json(

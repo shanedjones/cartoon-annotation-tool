@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useReducer, useMemo, useCallback, ReactNode, useRef, MutableRefObject, useEffect, useState } from 'react';
 import { VideoState, Dimensions } from '../types';
-import { cacheVideo, getFromCache, clearVideoCache, getVideoCacheStats } from '../utils/videoCache';
 
 /**
  * Video Context State Interface
@@ -24,11 +23,6 @@ interface VideoContextState {
   videoRef: MutableRefObject<HTMLVideoElement | null>;
   // Whether the video is ready to play
   isReady: boolean;
-  // Cache statistics
-  cacheStats: {
-    count: number;
-    totalSize: number;
-  };
 }
 
 /**
@@ -49,7 +43,6 @@ type VideoActionType =
   | { type: 'SET_LOADING'; payload: { isLoading: boolean } }
   | { type: 'SET_ERROR'; payload: { hasError: boolean; errorMessage: string } }
   | { type: 'SET_READY'; payload: { ready: boolean } }
-  | { type: 'SET_CACHE_STATS'; payload: { stats: { count: number; totalSize: number } } }
   | { type: 'RESET' };
 
 /**
@@ -71,12 +64,10 @@ interface VideoContextType {
   setVideoUrl: (url: string) => void;
   setError: (hasError: boolean, errorMessage: string) => void;
   setReady: (ready: boolean) => void;
-  resetCache: () => Promise<void>;
   reset: () => void;
   // Helper methods
   getFormattedTime: (time: number) => string;
   togglePlay: () => void;
-  getFormattedCacheSize: () => string;
 }
 
 // Format time helper function (mm:ss)
@@ -89,15 +80,6 @@ function formatTime(time: number): string {
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
 
-// Format file size helper (bytes to KB, MB, GB)
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  
-  return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
-}
 
 // Initial video state
 const initialVideoState: VideoState = {
@@ -123,10 +105,6 @@ const initialState: VideoContextState = {
   errorMessage: '',
   videoRef: { current: null },
   isReady: false,
-  cacheStats: {
-    count: 0,
-    totalSize: 0,
-  },
 };
 
 // Video reducer
@@ -250,17 +228,10 @@ function videoReducer(state: VideoContextState, action: VideoActionType): VideoC
         isReady: action.payload.ready,
       };
       
-    case 'SET_CACHE_STATS':
-      return {
-        ...state,
-        cacheStats: action.payload.stats,
-      };
-
     case 'RESET':
       return {
         ...initialState,
         videoRef: state.videoRef, // Keep the reference
-        cacheStats: state.cacheStats, // Keep cache stats
         hasError: false,
         errorMessage: '',
       };
@@ -298,7 +269,7 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
   // We'll use this ref to track if we're currently loading a specific URL
   const loadingUrlRef = useRef<string | null>(null);
   
-  // Attempt to load the video from cache when the URL changes
+  // Handle setting the video URL directly (no caching)
   useEffect(() => {
     // Ignore empty URLs or server-side rendering
     if (!state.videoUrl || typeof window === 'undefined') return;
@@ -314,129 +285,25 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
       console.log('Switching to load new URL:', state.videoUrl);
     }
     
-    // Start loading this URL
-    const loadVideoFromCacheOrNetwork = async () => {
-      try {
-        // Mark we're loading this specific URL
-        loadingUrlRef.current = state.videoUrl;
-        dispatch({ type: 'SET_LOADING', payload: { isLoading: true } });
-        console.log('Starting to load video:', state.videoUrl);
-        
-        // Check if this is a local file URL or blob URL (which we shouldn't try to cache)
-        const isLocalOrBlobUrl = 
-          state.videoUrl.startsWith('blob:') || 
-          state.videoUrl.startsWith('data:') ||
-          state.videoUrl.startsWith('file:');
-          
-        if (isLocalOrBlobUrl) {
-          console.log('Using local URL directly, skipping cache:', state.videoUrl);
-          dispatch({ type: 'SET_CACHED_URL', payload: { url: state.videoUrl } });
-          dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
-          return;
-        }
-        
-        // First try to get from cache
-        const cachedVideo = await getFromCache(state.videoUrl);
-        
-        // Make sure we're still loading the same URL (user might have changed it while we were loading)
-        if (loadingUrlRef.current !== state.videoUrl) {
-          console.log('URL changed during cache lookup, aborting load of:', state.videoUrl);
-          return;
-        }
-        
-        if (cachedVideo) {
-          console.log('Found video in cache:', state.videoUrl);
-          dispatch({ type: 'SET_CACHED_URL', payload: { url: cachedVideo.blobUrl } });
-          dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
-          return;
-        }
-        
-        // Check if it's a cross-origin URL
-        let isCrossOrigin = false;
-        try {
-          if (typeof window !== 'undefined') {
-            const videoUrlObj = new URL(state.videoUrl, window.location.href);
-            isCrossOrigin = videoUrlObj.origin !== window.location.origin;
-          }
-        } catch (e) {
-          console.warn('Error parsing URL, assuming same-origin:', e);
-        }
-        
-        if (isCrossOrigin) {
-          console.log('Cross-origin video, may have CORS issues:', state.videoUrl);
-        }
-        
-        // Not in cache, need to download and cache
-        console.log('Video not in cache, downloading:', state.videoUrl);
-        const blobUrl = await cacheVideo(state.videoUrl);
-        
-        // Make sure we're still loading the same URL
-        if (loadingUrlRef.current !== state.videoUrl) {
-          console.log('URL changed during fetch, aborting load of:', state.videoUrl);
-          return;
-        }
-        
-        // Update cached URL
-        dispatch({ type: 'SET_CACHED_URL', payload: { url: blobUrl } });
-        
-        // Update cache stats after caching
-        const stats = await getVideoCacheStats();
-        dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
-      } catch (error) {
-        console.error('Error loading video:', error);
-        
-        // Check if URL is still the same before setting error
-        if (loadingUrlRef.current === state.videoUrl) {
-          // Set error state
-          const message = error instanceof Error 
-            ? error.message 
-            : 'Failed to load video. Please contact technical support.';
-          
-          // Don't set a fallback URL, instead set an error state
-          dispatch({ 
-            type: 'SET_ERROR', 
-            payload: { 
-              hasError: true, 
-              errorMessage: message
-            } 
-          });
-        }
-      } finally {
-        // Only clear loading state if we're still loading the same URL
-        if (loadingUrlRef.current === state.videoUrl) {
-          loadingUrlRef.current = null;
-          
-          // We don't automatically set isLoading to false here anymore
-          // Instead, the VideoPlayer component will handle this when the
-          // video element fires the 'canplaythrough' event, ensuring the
-          // loading state accurately reflects when the video is actually
-          // ready to play without buffering
-        }
+    // Mark we're loading this specific URL
+    loadingUrlRef.current = state.videoUrl;
+    dispatch({ type: 'SET_LOADING', payload: { isLoading: true } });
+    console.log('Starting to load video:', state.videoUrl);
+    
+    // Set the URL directly (browser will handle HTTP caching)
+    dispatch({ type: 'SET_CACHED_URL', payload: { url: state.videoUrl } });
+    
+    // The VideoPlayer component will set isLoading to false when the video
+    // fires the 'canplaythrough' event
+    
+    // Clear the loading URL reference after a short delay
+    setTimeout(() => {
+      if (loadingUrlRef.current === state.videoUrl) {
+        loadingUrlRef.current = null;
       }
-    };
+    }, 100);
     
-    loadVideoFromCacheOrNetwork();
   }, [state.videoUrl]);
-  
-  // Update cache stats periodically
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const updateStats = async () => {
-      const stats = await getVideoCacheStats();
-      dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
-    };
-    
-    // Update stats when component mounts
-    updateStats();
-    
-    // Update stats every 5 minutes
-    const interval = setInterval(updateStats, 5 * 60 * 1000);
-    
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
 
   // Memoized action creators
   const actions = useMemo(() => ({
@@ -506,22 +373,6 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
     setReady: (ready: boolean) => 
       dispatch({ type: 'SET_READY', payload: { ready } }),
     
-    resetCache: async () => {
-      try {
-        await clearVideoCache();
-        const stats = await getVideoCacheStats();
-        dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
-      } catch (error) {
-        console.error('Error clearing video cache:', error);
-        dispatch({ 
-          type: 'SET_ERROR', 
-          payload: { 
-            hasError: true, 
-            errorMessage: 'Failed to clear video cache. Please contact technical support.' 
-          } 
-        });
-      }
-    },
     
     reset: () => dispatch({ type: 'RESET' }),
   }), [state.videoRef, state.videoUrl]);
@@ -529,10 +380,6 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
   // Helper to format time (mm:ss)
   const getFormattedTime = useCallback((time: number) => formatTime(time), []);
   
-  // Helper to format cache size
-  const getFormattedCacheSize = useCallback(() => {
-    return formatFileSize(state.cacheStats.totalSize);
-  }, [state.cacheStats.totalSize]);
 
   // Toggle play/pause
   const togglePlay = useCallback(() => {
@@ -548,9 +395,8 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
     state,
     ...actions,
     getFormattedTime,
-    getFormattedCacheSize,
     togglePlay,
-  }), [state, actions, getFormattedTime, getFormattedCacheSize, togglePlay]);
+  }), [state, actions, getFormattedTime, togglePlay]);
 
   return (
     <VideoContext.Provider value={contextValue}>
@@ -610,7 +456,6 @@ export function useVideoSource() {
     isLoading: state.isLoading,
     hasError: state.hasError,
     errorMessage: state.errorMessage,
-    effectiveUrl: state.cachedUrl,
-    cacheStats: state.cacheStats,
+    effectiveUrl: state.cachedUrl
   };
 }

@@ -233,9 +233,11 @@ The application uses two main data structures:
 
 ## Project Structure
 
+The project now follows the modern Next.js App Router structure:
+
 ```
 annotation-tool/
-├── app/                  # Next.js app directory
+├── app/                  # Next.js App Router directory
 │   ├── page.tsx          # Main application page
 │   ├── layout.tsx        # App layout
 │   ├── inbox/            # Video review inbox
@@ -243,14 +245,17 @@ annotation-tool/
 │   └── api/              # Backend API routes
 │       └── videos/       # Videos API
 │           └── route.ts  # Cosmos DB CRUD operations
-├── src/
-│   ├── components/
+├── src/                  # Source code for components and logic
+│   ├── components/       # React components
 │   │   ├── FeedbackOrchestrator.tsx   # Main coordination component
 │   │   ├── VideoPlayerWrapper.tsx     # Container component
 │   │   ├── VideoPlayer.tsx            # Custom video player
 │   │   ├── AnnotationCanvas.tsx       # Drawing component
 │   │   └── AudioRecorder.tsx          # Audio recording/playback
-│   └── contexts/         # React contexts for state management
+│   ├── contexts/         # React contexts for state management
+│   ├── utils/            # Utility functions
+│   ├── types/            # TypeScript type definitions
+│   └── state/            # State management logic
 ├── scripts/
 │   └── seed-cosmos-db.js # Database seeding script
 ├── public/               # Static assets

@@ -8,7 +8,6 @@ import type { DrawingPath } from './AnnotationCanvas';
 import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
 import { AppProviders } from '../contexts/AppProviders';
-import { useVideoSource, useVideo } from '../contexts/VideoContext';
 
 // Import the AudioChunk type from the AudioRecorder component
 import type { AudioChunk } from './AudioRecorder';
@@ -386,29 +385,8 @@ export default function VideoPlayerWrapper({
   initialSession,
   onSessionComplete
 }: VideoPlayerWrapperProps) {
-  // Wrap in try/catch in case we're not in a provider
-  let videoContext;
-  try {
-    videoContext = useVideo();
-  } catch (error) {
-    console.warn('VideoContext not available:', error);
-    videoContext = { setVideoUrl: () => {}, state: {} };
-  }
-  
-  // Track previous URL to prevent unnecessary context updates
+  // Track previous URL to detect changes
   const prevUrlRef = useRef(videoUrl);
-  
-  // Set video URL in context only when videoUrl prop changes
-  useEffect(() => {
-    // Only update if URL actually changed to prevent infinite loops
-    if (videoUrl && videoUrl !== prevUrlRef.current) {
-      console.log('VideoPlayerWrapper: Setting video URL in context:', videoUrl);
-      
-      // Update URL in context
-      videoContext.setVideoUrl(videoUrl);
-      prevUrlRef.current = videoUrl;
-    }
-  }, [videoUrl]);
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
@@ -973,15 +951,8 @@ export default function VideoPlayerWrapper({
     }
   }, [initialSession]);
   
-  // Get the effective URL from the context with fallback
-  let contextVideoUrl;
-  try {
-    const videoSource = useVideoSource();
-    contextVideoUrl = videoSource?.effectiveUrl;
-  } catch (error) {
-    console.warn('VideoSource not available:', error);
-    contextVideoUrl = videoUrl; // Fallback to prop
-  }
+  // Just use the provided videoUrl directly, no context needed
+  let contextVideoUrl = videoUrl;
   
   // Log when the effective URL changes
   useEffect(() => {

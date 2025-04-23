@@ -68,8 +68,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [shouldClearCanvas, setShouldClearCanvas] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isVideoCached, setIsVideoCached] = useState(false);
-  const [cachedVideoSrc, setCachedVideoSrc] = useState<string | undefined>(undefined);
+  const [videoSrc, setVideoSrc] = useState<string | undefined>(undefined);
   const [isLoadStarted, setIsLoadStarted] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -79,7 +78,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
   const annotationCanvasRef = useRef<any>(null);
-  const localBlobCache = useRef<Record<string, string>>({});
   
   // Initialize recording start time when recording begins
   useEffect(() => {
@@ -93,7 +91,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   // Track previous URL to detect changes
   const prevUrlRef = useRef(videoUrl);
   
-  // Directly handle loading videos with improved error handling
+  // Handle video loading with HTTP caching
   useEffect(() => {
     // Skip if no URL
     if (!videoUrl) return;
@@ -113,9 +111,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setHasError(false);
       setErrorMessage('');
       
-      // In a real implementation, we would check cache here
-      // For now, directly set the cached source to the original URL
-      setCachedVideoSrc(videoUrl);
+      // Set video source directly (HTTP caching is handled by the browser)
+      setVideoSrc(videoUrl);
     }
   }, [videoUrl, isLoadStarted]);
   
@@ -313,7 +310,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     // This prevents the loading spinner from disappearing too quickly
     setTimeout(() => {
       setIsLoading(false);
-      setIsVideoCached(true);
     }, 250);
   };
   
@@ -501,7 +497,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-30">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mb-2"></div>
             <p className="text-white font-medium">Loading video...</p>
-            <p className="text-white text-sm mt-1">{isVideoCached ? 'Video will be cached for future viewing' : 'Please wait while the video loads, this can take a few minutes...'}</p>
+            <p className="text-white text-sm mt-1">Please wait while the video loads...</p>
           </div>
         )}
         {hasError && (
@@ -523,7 +519,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onLoadedMetadata={handleLoadedMetadata}
           onDurationChange={handleDurationChange}
           onCanPlayThrough={handleCanPlayThrough}
-          src={cachedVideoSrc}
+          src={videoSrc}
           playsInline
           preload="auto"
           muted

@@ -30,12 +30,22 @@ export function initCosmosConnection(containerName?: string, usersContainer = fa
   const endpoint = process.env.COSMOS_ENDPOINT;
   const key = process.env.COSMOS_KEY;
   const databaseId = process.env.COSMOS_DATABASE_ID;
-  const containerId = containerName || 
-    (usersContainer ? process.env.COSMOS_USERS_CONTAINER_ID : process.env.COSMOS_CONTAINER_ID);
   
   // Check for users container if needed
   if (usersContainer && !process.env.COSMOS_USERS_CONTAINER_ID) {
     throw new Error('COSMOS_USERS_CONTAINER_ID environment variable is required');
+  }
+  
+  // Use the appropriate container ID, with type checking to ensure it's not undefined
+  let containerId: string;
+  if (containerName) {
+    containerId = containerName;
+  } else if (usersContainer && process.env.COSMOS_USERS_CONTAINER_ID) {
+    containerId = process.env.COSMOS_USERS_CONTAINER_ID;
+  } else if (process.env.COSMOS_CONTAINER_ID) {
+    containerId = process.env.COSMOS_CONTAINER_ID;
+  } else {
+    throw new Error('No valid container ID available');
   }
 
   // Initialize the Cosmos client

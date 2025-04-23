@@ -52,7 +52,15 @@ export async function PUT(request: Request) {
     // Update the session
     const { resource: updatedSession } = await container.item(sessionId, sessionId).replace(session);
     
-    return NextResponse.json(updatedSession, { status: 200 });
+    // Create response with caching headers for PUT requests
+    const response = NextResponse.json(updatedSession, { status: 200 });
+    
+    // Don't cache mutation responses
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('Error updating swing in session:', error);
     return NextResponse.json(

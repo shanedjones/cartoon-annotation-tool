@@ -35,8 +35,10 @@ export async function GET(request: Request) {
       );
     }
     
-    // Return the session data
-    return NextResponse.json(sessions[0], { status: 200 });
+    // Return the session data with caching headers
+    const response = NextResponse.json(sessions[0], { status: 200 });
+    response.headers.set('Cache-Control', 'public, max-age=3600');
+    return response;
   } catch (error) {
     console.error('Error finding session for swing:', error);
     return NextResponse.json(
