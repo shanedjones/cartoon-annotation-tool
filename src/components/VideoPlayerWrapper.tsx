@@ -7,6 +7,7 @@ import type { DrawingPath } from './AnnotationCanvas';
 import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
 import { AppProviders } from '../contexts/AppProviders';
+import { ErrorBoundary } from './ErrorBoundary';
 import { 
   blobToBase64, 
   getCategoryLabel, 
@@ -670,7 +671,15 @@ export default function VideoPlayerWrapper({
         
         {/* Feedback Orchestrator handles all coordination */}
         <div className="relative">
-          <VideoPlayer 
+          <ErrorBoundary name="VideoPlayer" fallback={
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+              <h2 className="text-lg font-medium text-yellow-800 mb-2">Video Player Error</h2>
+              <p className="text-sm text-yellow-600">
+                There was a problem loading the video player. Try refreshing the page.
+              </p>
+            </div>
+          }>
+            <VideoPlayer 
             ref={getVideoPlayerRef}
             isRecording={mode === 'record' && isActive}
             isReplaying={mode === 'replay' && isActive}
@@ -726,9 +735,18 @@ export default function VideoPlayerWrapper({
               }
             }}
           />
+          </ErrorBoundary>
           
           {/* Initialize the Orchestrator */}
-          <FeedbackOrchestrator
+          <ErrorBoundary name="FeedbackOrchestrator" fallback={
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+              <h2 className="text-lg font-medium text-yellow-800 mb-2">Feedback System Error</h2>
+              <p className="text-sm text-yellow-600">
+                There was a problem with the feedback recording system. Try refreshing the page.
+              </p>
+            </div>
+          }>
+            <FeedbackOrchestrator
           videoElementRef={orchestratorVideoRef}
           canvasRef={canvasRef}
           drawAnnotation={drawAnnotation}
@@ -774,10 +792,19 @@ export default function VideoPlayerWrapper({
           }}
           ref={getOrchestratorRef}
         />
+          </ErrorBoundary>
       </div>
       
       {currentSession && (
-        <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+        <ErrorBoundary name="SessionDisplay" fallback={
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <h2 className="text-lg font-medium text-yellow-800 mb-2">Session Display Error</h2>
+            <p className="text-sm text-yellow-600">
+              There was a problem displaying session details. Your recording is still saved.
+            </p>
+          </div>
+        }>
+          <div className="mt-6 p-4 bg-gray-100 rounded-lg">
           <h3 className="text-lg font-semibold mb-2">Recorded Session</h3>
           <div className="text-sm">
             <p><strong>Session ID:</strong> {currentSession.id}</p>
@@ -845,6 +872,7 @@ export default function VideoPlayerWrapper({
             </ul>
           </div>
         </div>
+        </ErrorBoundary>
       )}
     </div>
   );

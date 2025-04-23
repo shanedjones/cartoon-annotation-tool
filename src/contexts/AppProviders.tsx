@@ -6,6 +6,7 @@ import { AnnotationProvider } from './AnnotationContext';
 import { VideoProvider } from './VideoContext';
 import { SessionProvider } from './SessionContext';
 import { AuthSessionProvider, AuthProvider } from './AuthContext';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -17,19 +18,33 @@ interface AppProvidersProps {
  */
 export function AppProviders({ children, initialVideoUrl = '' }: AppProvidersProps) {
   return (
-    <AuthSessionProvider>
-      <AuthProvider>
-        <SessionProvider>
-          <TimelineProvider>
-            <AnnotationProvider>
-              <VideoProvider initialUrl={initialVideoUrl}>
-                {children}
-              </VideoProvider>
-            </AnnotationProvider>
-          </TimelineProvider>
-        </SessionProvider>
-      </AuthProvider>
-    </AuthSessionProvider>
+    <ErrorBoundary name="RootProvider">
+      <AuthSessionProvider>
+        <ErrorBoundary name="AuthSessionProvider">
+          <AuthProvider>
+            <ErrorBoundary name="AuthProvider">
+              <SessionProvider>
+                <ErrorBoundary name="SessionProvider">
+                  <TimelineProvider>
+                    <ErrorBoundary name="TimelineProvider">
+                      <AnnotationProvider>
+                        <ErrorBoundary name="AnnotationProvider">
+                          <VideoProvider initialUrl={initialVideoUrl}>
+                            <ErrorBoundary name="ContentBoundary">
+                              {children}
+                            </ErrorBoundary>
+                          </VideoProvider>
+                        </ErrorBoundary>
+                      </AnnotationProvider>
+                    </ErrorBoundary>
+                  </TimelineProvider>
+                </ErrorBoundary>
+              </SessionProvider>
+            </ErrorBoundary>
+          </AuthProvider>
+        </ErrorBoundary>
+      </AuthSessionProvider>
+    </ErrorBoundary>
   );
 }
 
