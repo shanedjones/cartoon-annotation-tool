@@ -15,7 +15,12 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
  * Auth Context Interface
  */
 interface AuthContextType {
-  user: any;
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  } | null;
   status: "loading" | "authenticated" | "unauthenticated";
   signin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signout: () => Promise<void>;

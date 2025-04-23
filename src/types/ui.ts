@@ -60,7 +60,7 @@ export interface VideoPlayerWrapperProps {
   /** Identifier for the video */
   videoId?: string;
   /** Content to be reviewed */
-  contentToReview?: any;
+  contentToReview?: ReviewContent;
 }
 
 /**

@@ -3,6 +3,7 @@
  */
 import { Timestamp, VideoPosition, Duration } from './common';
 import { RecordedAction } from './timeline';
+import { DrawingPath } from '../components/AnnotationCanvas';
 
 /**
  * Represents a chunk of recorded audio
@@ -84,9 +85,9 @@ export interface VideoPlayerProps {
   /** Callback to set the video element reference */
   setVideoRef?: (ref: HTMLVideoElement | null) => void;
   /** Annotations to display during replay */
-  replayAnnotations?: any[]; // Replace with proper type
+  replayAnnotations?: DrawingPath[]; // Array of annotations to display during replay
   /** Callback when a new annotation is added */
-  onAnnotationAdded?: (annotation: any) => void; // Replace with proper type
+  onAnnotationAdded?: (annotation: DrawingPath) => void;
   /** URL of the video to play */
   videoUrl?: string;
 }
@@ -98,9 +99,12 @@ export interface VideoPlayerRef {
   /** Reference to the video element */
   video: HTMLVideoElement | null;
   /** Reference to the annotation canvas */
-  annotationCanvas: any; // Replace with proper type
+  annotationCanvas: {
+    handleManualAnnotation: (path: DrawingPath) => void;
+    clearCanvasDrawings: () => void;
+  } | null;
   /** Method to add an annotation programmatically */
-  handleManualAnnotation: (path: any) => void; // Replace with proper type
+  handleManualAnnotation: (path: DrawingPath) => void;
   /** Method to clear all annotations */
   clearAllAnnotations: () => void;
 }

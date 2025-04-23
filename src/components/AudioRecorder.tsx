@@ -63,32 +63,8 @@ export default function AudioRecorder({
     checkAudioPermission();
   }, []);
   
-  // Start or stop recording based on props
-  useEffect(() => {
-    if (isRecording && audioPermissionGranted && !isRecordingAudio) {
-      // We intentionally set recordingStartTimeRef.current to null here
-      // to ensure a clean start for each new recording session.
-      // It will be properly set in startAudioRecording() before the recorder starts.
-      recordingStartTimeRef.current = null;
-      
-      console.log('Starting audio recording because isRecording=true');
-      startAudioRecording();
-    } else if (!isRecording && isRecordingAudio) {
-      console.log('Stopping audio recording because isRecording=false');
-      stopAudioRecording();
-    }
-    
-    // Clean up on unmount
-    return () => {
-      if (isRecordingAudio) {
-        stopAudioRecording();
-      }
-      cleanupAudioPlayers();
-    };
-  }, [isRecording, audioPermissionGranted, isRecordingAudio, startAudioRecording, stopAudioRecording, cleanupAudioPlayers]);
-  
   // Start recording audio
-  const startAudioRecording = async () => {
+  const startAudioRecording = React.useCallback(async () => {
     try {
       // Reset state
       chunksRef.current = [];
@@ -255,10 +231,10 @@ export default function AudioRecorder({
       console.error('Error starting recording:', error);
       setError(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
     }
-  };
+  }, [currentVideoTime, elapsedTime, onAudioChunk]);
   
   // Stop recording
-  const stopAudioRecording = () => {
+  const stopAudioRecording = React.useCallback(() => {
     // First, capture the final duration info before stopping
     // This helps ensure we have valid timing information for the recording
     const recordingEndTime = Date.now();
@@ -309,8 +285,49 @@ export default function AudioRecorder({
     setIsRecordingAudio(false);
     // We've already handled any null recordingStartTimeRef, now we can clear it
     recordingStartTimeRef.current = null;
-  };
+  }, [elapsedTime]);
+
+  // Clean up audio players
+  const cleanupAudioPlayers = React.useCallback(() => {
+    audioPlayersRef.current.forEach((player) => {
+      try {
+        player.pause();
+        if (player.src && player.src.startsWith('blob:')) {
+          URL.revokeObjectURL(player.src);
+        }
+      } catch (e) {
+        console.warn('Error cleaning up audio player:', e);
+      }
+    });
+    
+    audioPlayersRef.current.clear();
+    playingChunksRef.current.clear();
+  }, []);
   
+  // Start or stop recording based on props
+  useEffect(() => {
+    if (isRecording && audioPermissionGranted && !isRecordingAudio) {
+      // We intentionally set recordingStartTimeRef.current to null here
+      // to ensure a clean start for each new recording session.
+      // It will be properly set in startAudioRecording() before the recorder starts.
+      recordingStartTimeRef.current = null;
+      
+      console.log('Starting audio recording because isRecording=true');
+      startAudioRecording();
+    } else if (!isRecording && isRecordingAudio) {
+      console.log('Stopping audio recording because isRecording=false');
+      stopAudioRecording();
+    }
+    
+    // Clean up on unmount
+    return () => {
+      if (isRecordingAudio) {
+        stopAudioRecording();
+      }
+      cleanupAudioPlayers();
+    };
+  }, [isRecording, audioPermissionGranted, isRecordingAudio, startAudioRecording, stopAudioRecording, cleanupAudioPlayers]);
+
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -399,23 +416,6 @@ export default function AudioRecorder({
     }
   };
 
-  // Clean up audio players
-  const cleanupAudioPlayers = () => {
-    audioPlayersRef.current.forEach((player) => {
-      try {
-        player.pause();
-        if (player.src && player.src.startsWith('blob:')) {
-          URL.revokeObjectURL(player.src);
-        }
-      } catch (e) {
-        console.warn('Error cleaning up audio player:', e);
-      }
-    });
-    
-    audioPlayersRef.current.clear();
-    playingChunksRef.current.clear();
-  };
-  
   // Handle audio playback during replay
   useEffect(() => {
     if (!isReplaying) {
@@ -636,7 +636,7 @@ export default function AudioRecorder({
     return () => {
       cleanupAudioPlayers();
     };
-  }, [isReplaying, currentVideoTime, replayAudioChunks]);
+  }, [isReplaying, currentVideoTime, replayAudioChunks, cleanupAudioPlayers]);
   
   return (
     <div className="mb-4">

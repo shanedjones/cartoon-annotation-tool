@@ -105,9 +105,21 @@ export const base64ToBlob = (base64: string, mimeType: string): Blob => {
 };
 
 /**
+ * Interface for serialized audio chunk data for saving
+ */
+export interface SerializedAudioChunk {
+  blob: string;
+  startTime: number;
+  duration: number;
+  videoTime: number;
+  mimeType?: string;
+  blobUrl?: string;
+}
+
+/**
  * Helper function to prepare audio chunks for saving to JSON
  */
-export const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> => {
+export const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<SerializedAudioChunk[]> => {
   if (!chunks || chunks.length === 0) {
     console.log('No audio chunks to prepare for save');
     return [];
@@ -182,7 +194,7 @@ export const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<a
 /**
  * Helper function to restore audio chunks when loading saved data
  */
-export const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
+export const restoreAudioChunks = (savedChunks: SerializedAudioChunk[]): AudioChunk[] => {
   if (!savedChunks || savedChunks.length === 0) {
     console.log('No audio chunks to restore');
     return [];
@@ -257,7 +269,7 @@ export const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
       console.error(`Error restoring audio chunk ${index}:`, error);
       return null;
     }
-  }).filter(Boolean as any); // Remove any failed conversions
+  }).filter((chunk): chunk is AudioChunk => chunk !== null); // Remove any failed conversions
 };
 
 /**

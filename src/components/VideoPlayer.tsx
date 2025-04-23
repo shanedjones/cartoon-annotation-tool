@@ -128,14 +128,13 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setErrorMessage('Failed to load the video. Please try again or contact support.');
     };
     
-    videoRef.current.addEventListener('error', handleError);
+    const videoElement = videoRef.current;
+    videoElement.addEventListener('error', handleError);
     
     return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener('error', handleError);
-      }
+      videoElement.removeEventListener('error', handleError);
     };
-  }, [videoRef.current]);
+  }, []);
   
   // Pass video element reference to parent component
   useEffect(() => {
@@ -148,7 +147,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         setVideoRef(null);
       }
     };
-  }, [setVideoRef, videoRef.current]);
+  }, [setVideoRef]);
   
   // Notify parent component of loading state changes
   useEffect(() => {
@@ -171,23 +170,22 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     
     // Initial update
     if (videoRef.current) {
-      if (videoRef.current.readyState >= 1) {
+      const videoElement = videoRef.current;
+      if (videoElement.readyState >= 1) {
         updateVideoDimensions();
       } else {
-        videoRef.current.addEventListener('loadedmetadata', updateVideoDimensions);
+        videoElement.addEventListener('loadedmetadata', updateVideoDimensions);
       }
+    
+      // Update dimensions on window resize
+      window.addEventListener('resize', updateVideoDimensions);
+      
+      return () => {
+        window.removeEventListener('resize', updateVideoDimensions);
+        videoElement.removeEventListener('loadedmetadata', updateVideoDimensions);
+      };
     }
-    
-    // Update dimensions on window resize
-    window.addEventListener('resize', updateVideoDimensions);
-    
-    return () => {
-      window.removeEventListener('resize', updateVideoDimensions);
-      if (videoRef.current) {
-        videoRef.current.removeEventListener('loadedmetadata', updateVideoDimensions);
-      }
-    };
-  }, [videoRef.current]);
+  }, []);
   
   // Handle annotation being added
   const handleAnnotationAdded = (path: DrawingPath) => {
@@ -254,7 +252,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   };
   
   // Function to record an action if recording is enabled
-  const recordAction = (type: ActionType, details?: {[key: string]: any}) => {
+  const recordAction = useCallback((type: ActionType, details?: {[key: string]: any}) => {
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
       // Calculate the global timeline offset
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
@@ -273,9 +271,22 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       console.log(`Recording ${type} action at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
       onRecordAction(action);
     }
-  };
+  }, [isRecording, currentTime, onRecordAction]);
   
-  const togglePlay = () => {
+  // Use a combination of timeupdate event and requestAnimationFrame for smoother updates
+  const updateTimeWithRAF = useCallback(() => {
+    if (videoRef.current) {
+      // Update state to reflect the current video time
+      setCurrentTime(videoRef.current.currentTime);
+      
+      // Continue the animation loop if playing
+      if (!videoRef.current.paused && !videoRef.current.ended) {
+        rafIdRef.current = requestAnimationFrame(updateTimeWithRAF);
+      }
+    }
+  }, []);
+  
+  const togglePlay = useCallback(() => {
     if (videoRef.current) {
       if (playing) {
         videoRef.current.pause();
@@ -297,20 +308,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       }
       setPlaying(!playing);
     }
-  };
-  
-  // Use a combination of timeupdate event and requestAnimationFrame for smoother updates
-  const updateTimeWithRAF = useCallback(() => {
-    if (videoRef.current) {
-      // Update state to reflect the current video time
-      setCurrentTime(videoRef.current.currentTime);
-      
-      // Continue the animation loop if playing
-      if (!videoRef.current.paused && !videoRef.current.ended) {
-        rafIdRef.current = requestAnimationFrame(updateTimeWithRAF);
-      }
-    }
-  }, []);
+  }, [playing, recordAction, updateTimeWithRAF]);
   
   // Handle regular timeupdate events from the video element
   const handleTimeUpdate = () => {
@@ -388,7 +386,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   };
   
   // Helper function to seek to a specific time
-  const seekToTime = (time: number) => {
+  const seekToTime = useCallback((time: number) => {
     if (videoRef.current) {
       const previousTime = videoRef.current.currentTime;
       const newTime = Math.max(0, Math.min(duration, time));
@@ -408,7 +406,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       return { previousTime, newTime };
     }
     return null;
-  };
+  }, [duration, playing]);
   
   // Add keyboard shortcuts
   useEffect(() => {
@@ -447,7 +445,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [duration, playing, isRecording, currentTime]);
+  }, [duration, playing, isRecording, currentTime, recordAction, seekToTime, togglePlay]);
   
   // Hook to start/stop the RAF based on playing state
   useEffect(() => {
