@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-// import { CosmosClient } from '@azure/cosmos';
 import { initCosmosConnection } from '../../../src/utils/cosmosDb';
 
 // Connection and validation will be done inside the handler functions

@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHand
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 import type { AudioChunk } from './AudioRecorder';
 import type { DrawingPath } from './AnnotationCanvas';
-// import type { RecordedAction } from './VideoPlayer';
 
 /**
  * Main feedback session structure
