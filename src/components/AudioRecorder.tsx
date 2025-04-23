@@ -1,16 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { AudioChunk } from '../types/media';
+import { dataURLToBlob } from '../utils/dataConversion';
 
-export interface AudioChunk {
-  blob: Blob | string;      // The audio data as Blob or string (for serialization)
-  startTime: number;        // Relative to recording start
-  duration: number;         // Length of audio chunk in ms
-  videoTime: number;        // Video timestamp when this audio was recorded
-  url?: string;             // URL for playback (created during replay)
-  mimeType?: string;        // MIME type for proper playback
-  blobUrl?: string;         // URL for the Azure Storage blob 
-}
+// Using the standardized AudioChunk interface from types/media.ts
 
 interface AudioRecorderProps {
   isRecording: boolean;
@@ -335,85 +329,26 @@ export default function AudioRecorder({
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
   
-  // Enhanced helper function to convert data URL to Blob
-  const dataURLToBlob = (dataURL: string): Blob => {
-    try {
-      // More comprehensive validation of data URL format
-      if (!dataURL || typeof dataURL !== 'string') {
-        console.error('Invalid data URL: not a string or empty', typeof dataURL);
-        throw new Error('Invalid data URL: not a string or empty');
-      }
-      
-      if (!dataURL.startsWith('data:')) {
-        console.error('Invalid data URL format - missing data: prefix');
-        console.debug('URL starts with:', dataURL.substring(0, Math.min(20, dataURL.length)));
-        throw new Error('Invalid data URL format - missing data: prefix');
-      }
-      
-      // Split the data URL into parts - header and payload
-      const parts = dataURL.split(',');
-      if (parts.length !== 2) {
-        console.error('Invalid data URL format - wrong number of parts:', parts.length);
-        throw new Error('Invalid data URL format - wrong number of parts');
-      }
-      
-      // Extract the MIME type with better validation
-      const headerPart = parts[0];
-      let mime = 'audio/webm'; // Default fallback
-      
-      // More robust MIME type extraction
-      const mimeMatch = headerPart.match(/^data:(.*?)(;base64)?$/);
-      if (mimeMatch && mimeMatch[1]) {
-        mime = mimeMatch[1];
-      } else {
-        console.warn('Could not extract MIME type from data URL, using default:', mime);
-      }
-      
-      // Verify that we have a base64 encoded payload
-      if (!headerPart.includes(';base64')) {
-        console.warn('Data URL does not specify base64 encoding, may cause issues');
-      }
-      
-      // Get base64 data
-      const base64Data = parts[1];
-      if (!base64Data) {
-        console.error('Empty base64 data in data URL');
-        throw new Error('Empty base64 data in data URL');
-      }
-      
-      try {
-        // Convert base64 to binary with error handling
-        const binary = atob(base64Data);
-        
-        // Create array buffer with proper size validation
-        const arrayBuffer = new ArrayBuffer(binary.length);
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        // Fill array buffer with binary data
-        for (let i = 0; i < binary.length; i++) {
-          uint8Array[i] = binary.charCodeAt(i);
-        }
-        
-        // Create and return the blob
-        const blob = new Blob([uint8Array], { type: mime });
-        
-        // Validate the created blob
-        if (blob.size === 0) {
-          console.warn('Created an empty blob from data URL, possible data corruption');
-        } else {
-          console.log(`Successfully converted data URL to Blob: size=${blob.size}, type=${blob.type}`);
-        }
-        
-        return blob;
-      } catch (binaryError) {
-        console.error('Error processing binary data:', binaryError);
-        throw new Error(`Failed to process binary data: ${binaryError instanceof Error ? binaryError.message : String(binaryError)}`);
-      }
-    } catch (error) {
-      console.error('Error converting data URL to Blob:', error);
-      // Return an empty blob instead of throwing to prevent UI failures
-      return new Blob([], { type: 'audio/webm' });
+  // Simplified function to get a playable audio URL from a chunk
+  const getPlayableUrl = (chunk: AudioChunk): string => {
+    // Use Azure Storage URL if available
+    if (chunk.blobUrl) {
+      return chunk.blobUrl;
     }
+    
+    // Create blob URL for playback if it's a blob
+    if (chunk.blob instanceof Blob) {
+      return URL.createObjectURL(chunk.blob);
+    }
+    
+    // If it's a data URL string, it can be used directly
+    if (typeof chunk.blob === 'string' && chunk.blob.startsWith('data:')) {
+      return chunk.blob;
+    }
+    
+    // Error case - log and return empty string
+    console.error('Invalid audio chunk format: No playable audio source');
+    return '';
   };
 
   // Handle audio playback during replay
@@ -473,58 +408,16 @@ export default function AudioRecorder({
         // Create audio element if one doesn't exist for this chunk
         if (!audioPlayersRef.current.has(chunkId)) {
           try {
-            // Handle blob data in different formats
-            let audioUrl: string;
+            // Get playable URL using our simplified helper function
+            const audioUrl = getPlayableUrl(chunk);
             
-            try {
-              // Check for Azure Storage blob URL first
-              if (chunk.blobUrl) {
-                // Use the Azure Storage blob URL if available
-                audioUrl = chunk.blobUrl;
-                console.log(`Chunk ${chunkId}: Using Azure Storage blob URL for playback: ${chunk.blobUrl}`);
-                
-                // We'll handle the CORS issue by using Audio element directly
-                // instead of trying to fetch the blob first
-              }
-              // Fall back to local URLs if no Azure Storage blob URL is available
-              else if (chunk.url) {
-                // Use provided URL if available
-                audioUrl = chunk.url;
-                console.log(`Chunk ${chunkId}: Using provided URL for playback`);
-              } else if (chunk.blob instanceof Blob) {
-                // Create URL from Blob
-                audioUrl = URL.createObjectURL(chunk.blob);
-                console.log(`Chunk ${chunkId}: Created URL from Blob object for audio playback:`, {
-                  blobSize: chunk.blob.size,
-                  blobType: chunk.blob.type
-                });
-              } else if (typeof chunk.blob === 'string' && chunk.blob.startsWith('data:')) {
-                // Data URL - can either use directly or convert to blob first
-                console.log(`Chunk ${chunkId}: Processing data URL for playback, length: ${chunk.blob.length}`);
-                
-                // Option 1: Convert data URL to blob first (more reliable across browsers)
-                const convertedBlob = dataURLToBlob(chunk.blob);
-                audioUrl = URL.createObjectURL(convertedBlob);
-                console.log(`Chunk ${chunkId}: Converted data URL to Blob URL for playback:`, {
-                  blobSize: convertedBlob.size,
-                  blobType: convertedBlob.type
-                });
-                
-                // Option 2 (alternative): Use data URL directly
-                // audioUrl = chunk.blob;
-                // console.log(`Chunk ${chunkId}: Using data URL directly for playback`);
-              } else {
-                console.error(`Chunk ${chunkId}: Invalid audio blob format:`, typeof chunk.blob);
-                if (typeof chunk.blob === 'string') {
-                  console.error(`Chunk ${chunkId}: String blob does not start with 'data:' - first 30 chars:`, 
-                    chunk.blob.substring(0, 30));
-                }
-                return;
-              }
-            } catch (formatError) {
-              console.error(`Chunk ${chunkId}: Error processing audio format:`, formatError);
+            // Validate URL before trying to play
+            if (!audioUrl) {
+              console.error(`Chunk ${chunkId}: Could not get a playable URL`);
               return;
             }
+            
+            console.log(`Chunk ${chunkId}: Using URL for playback: ${audioUrl.substring(0, 50)}...`);
             
             // Create and configure audio element
             const audio = new Audio(audioUrl);
@@ -549,8 +442,8 @@ export default function AudioRecorder({
             audio.onended = () => {
               console.log(`Chunk ${chunkId}: Audio playback ended normally, duration:`, audio.duration);
               playingChunksRef.current.delete(chunkId);
-              // Only revoke if we created the URL (not for Azure Storage URLs, data URLs, or provided URLs)
-              if (!chunk.url && !chunk.blobUrl && chunk.blob instanceof Blob) {
+              // Only revoke if we created a blob URL (check if it starts with blob:)
+              if (audioUrl.startsWith('blob:') && !chunk.blobUrl) {
                 console.log(`Chunk ${chunkId}: Revoking local blob URL:`, audioUrl);
                 URL.revokeObjectURL(audioUrl);
               }
@@ -574,8 +467,8 @@ export default function AudioRecorder({
               console.error(`Chunk ${chunkId}: Error playing audio:`, errorDetails);
               setError(`Audio playback error: ${audio.error?.message || 'Unknown error'}`);
               playingChunksRef.current.delete(chunkId);
-              // Only revoke if we created the URL (not for Azure Storage URLs, data URLs, or provided URLs)
-              if (!chunk.url && !chunk.blobUrl && chunk.blob instanceof Blob) {
+              // Only revoke if we created a blob URL (check if it starts with blob:)
+              if (audioUrl.startsWith('blob:') && !chunk.blobUrl) {
                 console.log(`Chunk ${chunkId}: Revoking local blob URL on error:`, audioUrl);
                 URL.revokeObjectURL(audioUrl);
               }

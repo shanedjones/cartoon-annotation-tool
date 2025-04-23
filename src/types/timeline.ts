@@ -96,25 +96,7 @@ export interface RecordedAction {
   details?: Record<string, string | number | boolean | undefined | null | Record<string, unknown>>;
 }
 
-/**
- * Legacy feedback data structure
- */
-export interface FeedbackData {
-  /** Unique session identifier */
-  sessionId: EntityId;
-  /** Identifier for the video */
-  videoId: EntityId;
-  /** Array of recorded actions */
-  actions: RecordedAction[];
-  /** Timestamp when recording started */
-  startTime: Timestamp;
-  /** Timestamp when recording ended */
-  endTime?: Timestamp;
-  /** Annotations created during the session */
-  annotations?: DrawingPath[];
-  /** Audio recordings created during the session */
-  audioChunks?: AudioChunk[];
-}
+// Legacy FeedbackData interface removed - only using FeedbackSession now
 
 /**
  * Modern feedback session structure

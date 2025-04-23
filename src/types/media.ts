@@ -9,18 +9,18 @@ import { DrawingPath } from '../components/AnnotationCanvas';
  * Represents a chunk of recorded audio
  */
 export interface AudioChunk {
-  /** Audio data as Blob (in memory) or string (serialized) */
-  blob: Blob | string;
+  /** Audio data as Blob (in memory) or string (serialized) or null when only blobUrl is used */
+  blob: Blob | string | null;
   /** Start time relative to recording start */
   startTime: Timestamp;
   /** Length of audio chunk in ms */
   duration: Duration;
   /** Video position when this audio was recorded */
   videoTime: VideoPosition;
-  /** URL for playback (created during replay) */
-  url?: string;
   /** MIME type for proper playback */
   mimeType?: string;
+  /** URL for the Azure Storage blob or other remote storage */
+  blobUrl?: string;
 }
 
 /**

@@ -2,16 +2,14 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import type { FeedbackData, VideoPlayerRef } from '../types/media';
-import type { DrawingPath } from './AnnotationCanvas';
+import type { VideoPlayerRef } from '../types/media';
+import type { DrawingPath } from '../types/annotation';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, FeedbackOrchestratorRef } from './FeedbackOrchestrator';
 import { ErrorBoundary } from './ErrorBoundary';
 import { 
   getCategoryLabel, 
-  prepareAudioChunksForSave,
-  restoreAudioChunks,
-  convertLegacyDataToSession,
-  convertSessionToLegacyData
+  prepareSessionForStorage,
+  restoreAudioChunksInSession
 } from '../utils/dataConversion';
 
 // Dynamically import the VideoPlayer with no SSR
@@ -48,14 +46,6 @@ export default function VideoPlayerWrapper({
   // State for tracking video loading status
   const [, setIsVideoLoading] = useState(true);
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
-  const [feedbackData, setFeedbackData] = useState<FeedbackData>({
-    sessionId: '',
-    videoId: videoId,
-    actions: [],
-    startTime: 0,
-    annotations: [],
-    audioChunks: [],
-  });
   
   // References
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -254,10 +244,6 @@ export default function VideoPlayerWrapper({
     
     setCurrentSession(sessionWithCategories);
     
-    // Also update legacy feedbackData for compatibility
-    const legacyData = convertSessionToLegacyData(sessionWithCategories);
-    setFeedbackData(legacyData);
-    
     // Update session availability flag immediately
     if (typeof window !== 'undefined') {
       window.__hasRecordedSession = true;
@@ -359,27 +345,25 @@ export default function VideoPlayerWrapper({
       sessionCopy.categories = categoriesCopy;
       console.log('Updated session categories for download:', sessionCopy.categories);
       
-      // Prepare audio chunks for serialization
-      if (sessionCopy.audioTrack && sessionCopy.audioTrack.chunks.length > 0) {
-        try {
-          console.log(`Preparing ${sessionCopy.audioTrack.chunks.length} audio chunks for save...`);
-          sessionCopy.audioTrack.chunks = await prepareAudioChunksForSave(sessionCopy.audioTrack.chunks);
-          console.log('Audio chunks prepared successfully:', sessionCopy.audioTrack.chunks.length);
-        } catch (error) {
-          console.error('Failed to prepare audio chunks for saving:', error);
-          alert('There was an issue preparing audio data for download. Some audio content may be missing.');
-        }
+      // Prepare session for storage using the new simplified function
+      try {
+        console.log(`Preparing session with ${sessionCopy.audioTrack?.chunks?.length || 0} audio chunks for save...`);
+        const preparedSession = await prepareSessionForStorage(sessionCopy);
+        console.log('Session prepared successfully');
+        
+        const dataStr = JSON.stringify(preparedSession, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', `feedback-session-${currentSession.id}.json`);
+        document.body.appendChild(linkElement);
+        linkElement.click();
+        document.body.removeChild(linkElement);
+      } catch (error) {
+        console.error('Failed to prepare session for saving:', error);
+        alert('There was an issue preparing data for download. Some content may be missing.');
       }
-      
-      const dataStr = JSON.stringify(sessionCopy, null, 2);
-      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      
-      const linkElement = document.createElement('a');
-      linkElement.setAttribute('href', dataUri);
-      linkElement.setAttribute('download', `feedback-session-${currentSession.id}.json`);
-      document.body.appendChild(linkElement);
-      linkElement.click();
-      document.body.removeChild(linkElement);
     } catch (error) {
       console.error('Error during download process:', error);
       alert('Failed to download session data. See console for details.');
@@ -398,39 +382,26 @@ export default function VideoPlayerWrapper({
         // Parse the JSON data
         const jsonData = JSON.parse(event.target?.result as string);
         
-        // Check if it's the new format or legacy format
-        if (jsonData.events && jsonData.audioTrack) {
-          // It's the new FeedbackSession format
-          const loadedSession = jsonData as FeedbackSession;
-          
-          // Log if we have categories
-          console.log('Loaded session categories:', loadedSession.categories);
-          
-          // Restore audio chunks with proper Blob objects if they exist
-          if (loadedSession.audioTrack && loadedSession.audioTrack.chunks) {
-            loadedSession.audioTrack.chunks = restoreAudioChunks(loadedSession.audioTrack.chunks);
-          }
-          
-          setCurrentSession(loadedSession);
-          // Also update legacy format for compatibility
-          setFeedbackData(convertSessionToLegacyData(loadedSession));
-          
-          console.log('Loaded feedback session:', loadedSession);
+        // Validate that this is a proper FeedbackSession
+        if (!jsonData.id || !jsonData.events || !jsonData.audioTrack) {
+          throw new Error('Invalid feedback session format');
+        }
+        
+        // It's the FeedbackSession format
+        const loadedSession = jsonData as FeedbackSession;
+        
+        // Log if we have categories
+        console.log('Loaded session categories:', loadedSession.categories);
+        
+        // Restore audio chunks with proper Blob objects if they exist
+        if (loadedSession.audioTrack && loadedSession.audioTrack.chunks) {
+          // Use the new simplified restore function
+          const restoredSession = restoreAudioChunksInSession(loadedSession);
+          setCurrentSession(restoredSession);
+          console.log('Loaded feedback session with restored audio:', restoredSession);
         } else {
-          // It's the legacy FeedbackData format
-          const legacyData = jsonData as FeedbackData;
-          
-          // Restore audio chunks
-          if (legacyData.audioChunks) {
-            legacyData.audioChunks = restoreAudioChunks(legacyData.audioChunks);
-          }
-          
-          setFeedbackData(legacyData);
-          // Convert to new format
-          const newSession = convertLegacyDataToSession(legacyData);
-          setCurrentSession(newSession);
-          
-          console.log('Loaded legacy feedback data and converted to session:', legacyData);
+          setCurrentSession(loadedSession);
+          console.log('Loaded feedback session (no audio to restore):', loadedSession);
         }
       } catch (error) {
         console.error("Failed to parse uploaded file:", error);
@@ -689,7 +660,7 @@ export default function VideoPlayerWrapper({
                   videoTime: e.timeOffset,
                   tool: tool  // Explicitly set the tool to ensure it's included
                 };
-              }) || feedbackData.annotations || []}
+              }) || []}
             videoUrl={videoUrl}
             onLoadingStateChange={(isLoading) => {
               console.log('Video loading state changed:', isLoading);

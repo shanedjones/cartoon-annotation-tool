@@ -3,31 +3,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { DrawingPath, DrawingTool } from './AnnotationCanvas';
 import AnnotationCanvas from './AnnotationCanvas';
+import { RecordedAction, ActionType } from '../types/timeline';
+import { AudioChunk } from '../types/media';
 
-// Define the types of events we want to record
-export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
-
-// Define the structure of a recorded action
-export interface RecordedAction {
-  type: ActionType;
-  timestamp: number; // Time in milliseconds since recording started
-  videoTime: number; // Current time in the video
-  details?: {
-    [key: string]: string | number | boolean | null | undefined | Record<string, unknown>; // Additional details specific to the action
-  };
-}
-
-import { AudioChunk } from './AudioRecorder';
-
-export interface FeedbackData {
-  sessionId: string;
-  videoId: string;
-  actions: RecordedAction[];
-  startTime: number;
-  endTime?: number;
-  annotations?: DrawingPath[];
-  audioChunks?: AudioChunk[];
-}
+// Legacy FeedbackData interface removed - using FeedbackSession from timeline.ts instead
 
 interface VideoPlayerProps {
   isRecording?: boolean;

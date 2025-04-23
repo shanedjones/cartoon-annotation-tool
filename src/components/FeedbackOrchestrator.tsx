@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
-import type { AudioChunk } from './AudioRecorder';
+import type { AudioChunk } from '../types/media';
 import type { DrawingPath } from './AnnotationCanvas';
 
 /**
