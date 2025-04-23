@@ -49,8 +49,15 @@ export async function GET(request: Request) {
       
       if (sessionWithSwing.length > 0) {
         // Extract just the requested swing from the session
+        // Define the Swing interface
+        interface Swing {
+          id: string;
+          status?: string;
+          [key: string]: unknown;
+        }
+        
         const session = sessionWithSwing[0];
-        const swing = session.swings.find((s: any) => s.id === id);
+        const swing = session.swings.find((s: Swing) => s.id === id);
         
         if (swing) {
           return NextResponse.json([swing], { status: 200 });
@@ -172,7 +179,13 @@ export async function PUT(request: Request) {
     // Update status based on specific conditions
     if (isSession) {
       // For sessions, check if all swings are completed
-      if (data.swings && data.swings.every((swing: any) => swing.status === 'Completed')) {
+      interface Swing {
+        id: string;
+        status: string;
+        [key: string]: unknown;
+      }
+      
+      if (data.swings && data.swings.every((swing: Swing) => swing.status === 'Completed')) {
         data.status = 'Completed';
       }
     } else {
@@ -193,12 +206,18 @@ export async function PUT(request: Request) {
           const session = sessionsWithSwing[0];
           
           // Update the swing within the session
-          const swingIndex = session.swings.findIndex((s: any) => s.id === swingId);
+          interface Swing {
+            id: string;
+            status: string;
+            [key: string]: unknown;
+          }
+            
+          const swingIndex = session.swings.findIndex((s: Swing) => s.id === swingId);
           if (swingIndex !== -1) {
             session.swings[swingIndex] = data;
             
             // Check if all swings are completed to update session status
-            if (session.swings.every((s: any) => s.status === 'Completed')) {
+            if (session.swings.every((s: Swing) => s.status === 'Completed')) {
               session.status = 'Completed';
             }
             

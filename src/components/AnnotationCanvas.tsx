@@ -18,6 +18,7 @@ export interface DrawingPath {
   videoTime?: number; // Time in the video when this annotation was created (in ms)
   tool?: DrawingTool; // The tool used to create this drawing
   timeOffset?: number; // Offset in the timeline (in ms)
+  globalTimeOffset?: number; // Global timeline offset (in ms)
 }
 
 interface AnnotationCanvasProps {
@@ -196,8 +197,8 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         replayAnnotations.slice(0, 2).map(a => ({
           hasPoints: Boolean(a?.points),
           pointsLength: a?.points?.length,
-          globalTimeOffset: (a as any).globalTimeOffset,
-          timeOffset: (a as any).timeOffset,
+          globalTimeOffset: a.globalTimeOffset,
+          timeOffset: a.timeOffset,
           videoTime: a.videoTime,
           timestamp: a.timestamp
         }))
@@ -220,8 +221,8 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       }
       
       // First, check if this annotation has globalTimeOffset and if it came after the last clear
-      if ((annotation as any).globalTimeOffset !== undefined) {
-        const globalTimeOffset = (annotation as any).globalTimeOffset;
+      if (annotation.globalTimeOffset !== undefined) {
+        const globalTimeOffset = annotation.globalTimeOffset;
         
         // Skip annotations that were drawn before the last clear
         if (globalTimeOffset <= lastClearTime) {
@@ -243,8 +244,8 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       }
       
       // Next check for explicit timeOffset (added by FeedbackOrchestrator)
-      if ((annotation as any).timeOffset !== undefined) {
-        const timeOffset = (annotation as any).timeOffset;
+      if (annotation.timeOffset !== undefined) {
+        const timeOffset = annotation.timeOffset;
         
         // Skip annotations drawn before the last clear
         if (timeOffset <= lastClearTime) {
