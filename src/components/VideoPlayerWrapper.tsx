@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import type { FeedbackData } from './VideoPlayer';
+import type { FeedbackData, VideoPlayerRef } from '../types/media';
 import type { DrawingPath } from './AnnotationCanvas';
-import FeedbackOrchestrator, { FeedbackSession, AudioTrack } from './FeedbackOrchestrator';
+import FeedbackOrchestrator, { FeedbackSession, AudioTrack, FeedbackOrchestratorRef } from './FeedbackOrchestrator';
 import { ErrorBoundary } from './ErrorBoundary';
 import { 
   getCategoryLabel, 
@@ -62,8 +62,8 @@ export default function VideoPlayerWrapper({
   // Create a properly typed ref for the FeedbackOrchestrator
   const orchestratorVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const orchestratorRef = useRef<any>(null);
-  const annotationCanvasComponentRef = useRef<any>(null);
+  const orchestratorRef = useRef<FeedbackOrchestratorRef | null>(null);
+  const annotationCanvasComponentRef = useRef<{ handleManualAnnotation: (path: DrawingPath) => void; clearCanvasDrawings: () => void } | null>(null);
   
   // Function to set the video reference from the child component
   const setVideoElementRef = useCallback((el: HTMLVideoElement | null) => {
@@ -140,7 +140,7 @@ export default function VideoPlayerWrapper({
         window.dispatchEvent(new Event('session-available'));
       }
     }
-  }, [onCategoriesCleared, currentSession]);
+  }, [onCategoriesCleared]);
   
   // Start replaying the recorded session with optimized state changes
   const startReplay = useCallback(() => {
@@ -297,7 +297,7 @@ export default function VideoPlayerWrapper({
         color: path.color,
         width: path.width,
         videoTime: path.videoTime,
-        timeOffset: (path as any).timeOffset, // For debug only
+        timeOffset: path.timeOffset, // For debug only
         isReplay: !!path.videoTime // If videoTime is set, it's likely a replay
       });
       
@@ -447,7 +447,7 @@ export default function VideoPlayerWrapper({
   }, []);
   
   // Get an orchestrator reference
-  const getOrchestratorRef = useCallback((orchestratorInstance: any) => {
+  const getOrchestratorRef = useCallback((orchestratorInstance: FeedbackOrchestratorRef) => {
     orchestratorRef.current = orchestratorInstance;
   }, []);
   
@@ -482,7 +482,7 @@ export default function VideoPlayerWrapper({
   }, [mode, isActive, currentSession, videoId]);
   
   // Get a reference to the annotation canvas via the video player
-  const getVideoPlayerRef = useCallback((videoPlayerInstance: any) => {
+  const getVideoPlayerRef = useCallback((videoPlayerInstance: VideoPlayerRef) => {
     // Store the video player reference
     annotationCanvasComponentRef.current = videoPlayerInstance?.annotationCanvas;
     

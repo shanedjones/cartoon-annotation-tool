@@ -88,9 +88,9 @@ function HomeContent() {
             // If status is "Completed", make session available for replay but don't auto-start
             if (selectedVideo.status === "Completed") {
               console.log("Completed review found, making session available for replay");
-              // Use type assertion to add custom properties to window
-              (window as any).__hasRecordedSession = true;
-              (window as any).__isCompletedVideo = true; // Mark as already completed
+              // Set global state that a session is available
+              window.__hasRecordedSession = true;
+              window.__isCompletedVideo = true; // Mark as already completed
               const event = new CustomEvent('session-available');
               window.dispatchEvent(event);
             }

@@ -35,8 +35,20 @@ export interface TimelineEvent {
   type: 'video' | 'annotation' | 'marker' | 'category';
   timeOffset: number; // milliseconds from audio start
   duration?: number; // for events with duration
-  payload: any; // specific data based on type
+  payload: Record<string, unknown>; // specific data based on type
   priority?: number; // priority level for sorting when timestamps match
+}
+
+/**
+ * Methods exposed by the FeedbackOrchestrator component
+ */
+export interface FeedbackOrchestratorRef {
+  recordAction: (type: string, details?: Record<string, unknown>) => void;
+  recordCategoryChange: (category: string, rating: number) => void;
+  recordAnnotation: (path: DrawingPath) => void;
+  getSession: () => FeedbackSession | null;
+  startRecording: () => void;
+  stopRecording: () => void;
 }
 
 /**
@@ -46,7 +58,7 @@ interface FeedbackOrchestratorProps {
   // Video component ref
   videoElementRef: React.RefObject<HTMLVideoElement | null>;
   // Annotation canvas component ref and methods
-  canvasRef: React.RefObject<any>;
+  canvasRef: React.RefObject<HTMLCanvasElement | { handleManualAnnotation: (path: DrawingPath) => void; clearCanvasDrawings: () => void } | null>;
   drawAnnotation: (path: DrawingPath) => void;
   clearAnnotations: () => void;
   // Audio recording methods and callbacks
@@ -65,7 +77,7 @@ interface FeedbackOrchestratorProps {
  * Feedback Orchestrator Component
  * Coordinates all aspects of recording and playback for a feedback session
  */
-const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
+const FeedbackOrchestrator = forwardRef<FeedbackOrchestratorRef, FeedbackOrchestratorProps>(({
   videoElementRef,
   canvasRef,
   drawAnnotation,
@@ -524,7 +536,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   /**
    * Record a timeline event during recording
    */
-  const recordEvent = useCallback((type: 'video' | 'annotation' | 'marker', payload: any, duration?: number) => {
+  const recordEvent = useCallback((type: 'video' | 'annotation' | 'marker', payload: Record<string, unknown>, duration?: number) => {
     if (!isActive || !recordingStartTimeRef.current) return;
     
     const now = Date.now();
@@ -557,7 +569,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   /**
    * Handle video events (play, pause, seek, etc.)
    */
-  const handleVideoEvent = useCallback((action: string, details?: any) => {
+  const handleVideoEvent = useCallback((action: string, details?: Record<string, unknown>) => {
     return recordEvent('video', { action, ...details });
   }, [recordEvent]);
   

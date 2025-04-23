@@ -17,6 +17,7 @@ export interface DrawingPath {
   timestamp: number;
   videoTime?: number; // Time in the video when this annotation was created (in ms)
   tool?: DrawingTool; // The tool used to create this drawing
+  timeOffset?: number; // Offset in the timeline (in ms)
 }
 
 interface AnnotationCanvasProps {

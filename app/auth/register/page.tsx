@@ -38,8 +38,12 @@ export default function Register() {
       });
       
       router.push('/inbox');
-    } catch (error: any) {
-      setError(error.message || 'An error occurred during registration');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An error occurred during registration');
+      }
       setLoading(false);
     }
   };

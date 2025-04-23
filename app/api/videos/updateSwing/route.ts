@@ -30,8 +30,15 @@ export async function PUT(request: Request) {
       );
     }
     
+    // Define an interface for the swing object
+    interface Swing {
+      id: string;
+      status: string;
+      [key: string]: unknown;
+    }
+    
     // Find and update the swing within the session
-    const swingIndex = session.swings.findIndex((s: any) => s.id === swing.id);
+    const swingIndex = session.swings.findIndex((s: Swing) => s.id === swing.id);
     
     if (swingIndex === -1) {
       return NextResponse.json(
@@ -44,7 +51,7 @@ export async function PUT(request: Request) {
     session.swings[swingIndex] = swing;
     
     // Check if all swings are completed to update the session status
-    const allCompleted = session.swings.every((s: any) => s.status === 'Completed');
+    const allCompleted = session.swings.every((s: Swing) => s.status === 'Completed');
     if (allCompleted) {
       session.status = 'Completed';
     }

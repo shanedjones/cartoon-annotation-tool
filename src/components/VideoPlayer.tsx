@@ -13,7 +13,7 @@ export interface RecordedAction {
   timestamp: number; // Time in milliseconds since recording started
   videoTime: number; // Current time in the video
   details?: {
-    [key: string]: any; // Additional details specific to the action
+    [key: string]: string | number | boolean | null | undefined | Record<string, unknown>; // Additional details specific to the action
   };
 }
 
@@ -42,7 +42,10 @@ interface VideoPlayerProps {
 
 interface VideoPlayerImperativeHandle {
   video: HTMLVideoElement | null;
-  annotationCanvas: any;
+  annotationCanvas: {
+    handleManualAnnotation: (path: DrawingPath) => void;
+    clearCanvasDrawings: () => void;
+  } | null;
 }
 
 // Define the VideoPlayer component with proper memoization
@@ -78,7 +81,10 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
-  const annotationCanvasRef = useRef<any>(null);
+  const annotationCanvasRef = useRef<{
+    handleManualAnnotation: (path: DrawingPath) => void;
+    clearCanvasDrawings: () => void;
+  } | null>(null);
   
   // Initialize recording start time when recording begins
   useEffect(() => {
@@ -252,7 +258,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   };
   
   // Function to record an action if recording is enabled
-  const recordAction = useCallback((type: ActionType, details?: {[key: string]: any}) => {
+  const recordAction = useCallback((type: ActionType, details?: {[key: string]: string | number | boolean | null | undefined | Record<string, unknown>}) => {
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
       // Calculate the global timeline offset
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
