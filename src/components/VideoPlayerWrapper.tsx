@@ -5,9 +5,7 @@ import dynamic from 'next/dynamic';
 import { v4 as uuidv4 } from 'uuid';
 import type { RecordedAction, FeedbackData } from './VideoPlayer';
 import type { DrawingPath } from './AnnotationCanvas';
-import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
-import { AppProviders } from '../contexts/AppProviders';
 import { useVideoSource, useVideo } from '../contexts/VideoContext';
 
 // Import the AudioChunk type from the AudioRecorder component
@@ -35,6 +33,8 @@ const getCategoryLabel = (category: string): string => {
 };
 
 // Enhanced helper function to convert base64 back to Blob for playback
+// Not currently used but kept for future reference
+/*
 const base64ToBlob = (base64: string, mimeType: string): Blob => {
   try {
     // Validate input parameters
@@ -109,9 +109,10 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
     throw error;
   }
 };
+*/
 
 // Helper function to prepare audio chunks for saving to JSON
-const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> => {
+const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<AudioChunk[]> => {
   if (!chunks || chunks.length === 0) {
     console.log('No audio chunks to prepare for save');
     return [];
@@ -369,8 +370,8 @@ interface VideoPlayerWrapperProps {
   onVideoLoadingChange?: (isLoading: boolean) => void;
   videoUrl?: string;
   videoId?: string;
-  contentToReview?: any; // Allow passing the full content object for display
-  initialSession?: any; // Allow passing an initial session from Cosmos DB
+  // contentToReview?: any; // Not used - commented out to pass linting
+  initialSession?: FeedbackSession; // Allow passing an initial session from Cosmos DB
   onSessionComplete?: (session: FeedbackSession) => void; // Callback when session is complete
 }
 
@@ -382,18 +383,12 @@ export default function VideoPlayerWrapper({
   onVideoLoadingChange,
   videoUrl,
   videoId = 'sample-video',
-  contentToReview,
+  // contentToReview, // Not used
   initialSession,
   onSessionComplete
 }: VideoPlayerWrapperProps) {
-  // Wrap in try/catch in case we're not in a provider
-  let videoContext;
-  try {
-    videoContext = useVideo();
-  } catch (error) {
-    console.warn('VideoContext not available:', error);
-    videoContext = { setVideoUrl: () => {}, state: {} };
-  }
+  // Initialize video context outside of conditional blocks
+  const videoContext = useVideo();
   
   // Track previous URL to prevent unnecessary context updates
   const prevUrlRef = useRef(videoUrl);
@@ -408,12 +403,13 @@ export default function VideoPlayerWrapper({
       videoContext.setVideoUrl(videoUrl);
       prevUrlRef.current = videoUrl;
     }
-  }, [videoUrl]);
+  }, [videoUrl, videoContext, videoContext.setVideoUrl]);
   // Log categories passed from parent on every render
   console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  // We don't need this variable but setIsVideoLoading is used
+  const [, setIsVideoLoading] = useState(true);
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
   const [feedbackData, setFeedbackData] = useState<FeedbackData>({
     sessionId: '',
@@ -567,7 +563,7 @@ export default function VideoPlayerWrapper({
     } else {
       alert('No recorded session to replay. Record a session first.');
     }
-  }, [currentSession, onCategoriesCleared]);
+  }, [currentSession, onCategoriesCleared, annotationCanvasComponentRef, videoRef, orchestratorRef, setMode, setIsActive]);
   
   // Stop replay and reset to initial state
   const stopReplay = useCallback(() => {
@@ -622,7 +618,7 @@ export default function VideoPlayerWrapper({
     
     // Log which categories are true (selected)
     const selectedCategories = Object.entries(categoriesCopy)
-      .filter(([_, value]) => value)
+      .filter(([, value]) => value)
       .map(([key]) => key);
     console.log('Selected categories:', selectedCategories);
     
@@ -731,7 +727,7 @@ export default function VideoPlayerWrapper({
       
       // Log which categories are currently selected
       const selectedCategories = Object.entries(categoriesCopy)
-        .filter(([_, value]) => value)
+        .filter(([, value]) => value)
         .map(([key]) => key);
       console.log('Selected categories for download:', selectedCategories);
       
@@ -962,7 +958,7 @@ export default function VideoPlayerWrapper({
         delete window.__videoPlayerWrapper;
       }
     };
-  }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
+  }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession, startReplay, stopReplay]);
   
   // Load session but only start replay if not a completed video
   useEffect(() => {
@@ -997,7 +993,7 @@ export default function VideoPlayerWrapper({
         }
       }, 1500);
     }
-  }, [initialSession]);
+  }, [initialSession, isActive, mode, orchestratorRef, setCurrentSession, setMode, setIsActive]);
   
   // Get the effective URL from the context with fallback
   let contextVideoUrl;
@@ -1184,7 +1180,7 @@ export default function VideoPlayerWrapper({
                 <p><strong>Category Ratings:</strong></p>
                 <ul className="list-none space-y-2">
                   {Object.entries(currentSession.categories)
-                    .filter(([_, rating]) => rating !== null && (typeof rating === 'boolean' ? rating : rating > 0))
+                    .filter(([, rating]) => rating !== null && (typeof rating === 'boolean' ? rating : rating > 0))
                     .map(([category, rating]) => (
                       <li key={category}>
                         <div>
