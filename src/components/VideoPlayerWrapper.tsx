@@ -1091,6 +1091,8 @@ export default function VideoPlayerWrapper({
                 orchestratorRef.current.handleAnnotationEvent('draw', annotation);
               }
             }}
+            isCompletedVideo={typeof window !== 'undefined' && window.__isCompletedVideo === true}
+            hasRecordedSession={typeof window !== 'undefined' && window.__hasRecordedSession === true}
           />
           
           {/* Initialize the Orchestrator */}

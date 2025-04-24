@@ -38,6 +38,8 @@ interface VideoPlayerProps {
   onAnnotationAdded?: (annotation: DrawingPath) => void;
   videoUrl?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
+  isCompletedVideo?: boolean;
+  hasRecordedSession?: boolean;
 }
 
 interface VideoPlayerImperativeHandle {
@@ -54,7 +56,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   replayAnnotations = [],
   onAnnotationAdded,
   videoUrl = "",
-  onLoadingStateChange
+  onLoadingStateChange,
+  isCompletedVideo = false,
+  hasRecordedSession = false
 }: VideoPlayerProps, ref) => {
   // Component state
   const [playing, setPlaying] = useState(false);
@@ -89,6 +93,20 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       recordingStartTimeRef.current = null;
     }
   }, [isRecording]);
+  
+  // Auto-play in replay mode and prevent pausing
+  useEffect(() => {
+    if (isReplaying && videoRef.current) {
+      // Force play when entering replay mode
+      videoRef.current.play()
+        .then(() => {
+          setPlaying(true);
+        })
+        .catch(err => {
+          console.error('Error auto-playing video in replay mode:', err);
+        });
+    }
+  }, [isReplaying]);
   
   // Track previous URL to detect changes
   const prevUrlRef = useRef(videoUrl);
@@ -278,6 +296,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   };
   
   const togglePlay = () => {
+    // Don't allow manual control in replay mode
+    if (isReplaying) return;
+    
     if (videoRef.current) {
       if (playing) {
         videoRef.current.pause();
@@ -402,6 +423,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   // Add keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip keyboard controls during replay
+      if (isReplaying) return;
+      
       if (e.key === ' ' || e.key === 'k') {
         togglePlay();
         recordAction('keyboardShortcut', { key: e.key, action: playing ? 'pause' : 'play' });
@@ -436,7 +460,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [duration, playing, isRecording, currentTime]);
+  }, [duration, playing, isRecording, isReplaying, currentTime]);
   
   // Expose handlers for AnnotationCanvas 
   const handleManualAnnotation = (path: DrawingPath) => {
@@ -570,126 +594,137 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         )}
       </div>
       
-      <div className="p-4 bg-white">
-        <div className="flex items-center mb-2 relative">
-          <input
-            type="range"
-            min="0"
-            max={duration || 0}
-            value={currentTime}
-            onChange={handleSeek}
-            onClick={handleSliderClick}
-            className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer relative z-10
-                      focus:outline-none focus:ring-1 focus:ring-blue-300
-                      [&::-webkit-slider-thumb]:appearance-none
-                      [&::-webkit-slider-thumb]:opacity-0
-                      [&::-moz-range-thumb]:opacity-0
-                      [&::-ms-thumb]:opacity-0
-                      transition-all duration-100"
-            style={{
-              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb 100%)`
-            }}
-          />
+      {/* Show controls only when not in replay mode and not showing a completed video */}
+      {!isReplaying && !(isCompletedVideo || hasRecordedSession) ? (
+        <div className="p-4 bg-white">
+          <div className="flex items-center mb-2 relative">
+            <input
+              type="range"
+              min="0"
+              max={duration || 0}
+              value={currentTime}
+              onChange={handleSeek}
+              onClick={handleSliderClick}
+              className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer relative z-10
+                        focus:outline-none focus:ring-1 focus:ring-blue-300
+                        [&::-webkit-slider-thumb]:appearance-none
+                        [&::-webkit-slider-thumb]:opacity-0
+                        [&::-moz-range-thumb]:opacity-0
+                        [&::-ms-thumb]:opacity-0
+                        transition-all duration-100"
+              style={{
+                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb 100%)`
+              }}
+            />
+          </div>
+          
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={togglePlay}
+                className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"
+              >
+                {playing ? 
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                    <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clipRule="evenodd" />
+                  </svg>
+                  :
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                    <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286l-11.54 6.347c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
+                  </svg>
+                }
+              </button>
+              
+              
+              <span className="text-sm text-gray-600">
+                {formatTime(currentTime)} / {duration ? formatTime(duration) : '0:00'}
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <select 
+                value={playbackRate}
+                onChange={(e) => handlePlaybackRateChange(parseFloat(e.target.value))}
+                className="bg-gray-200 text-sm rounded px-2 py-1"
+              >
+                <option value="0.5">0.5x</option>
+                <option value="1">1x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+              </select>
+            </div>
+          </div>
+          
+          {/* Annotation controls */}
+          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-gray-200">
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                <label className="text-xs text-gray-600">Tool:</label>
+                <div className="flex bg-gray-100 rounded overflow-hidden border border-gray-300">
+                  <button
+                    onClick={() => setAnnotationTool('freehand')}
+                    className={`py-1 px-2 text-xs ${annotationTool === 'freehand' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                  >
+                    Pen
+                  </button>
+                  <button
+                    onClick={() => setAnnotationTool('line')}
+                    className={`py-1 px-2 text-xs ${annotationTool === 'line' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                  >
+                    Line
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-1">
+                <label className="text-xs text-gray-600">Color:</label>
+                <select
+                  value={annotationColor}
+                  onChange={(e) => setAnnotationColor(e.target.value)}
+                  className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+                >
+                  <option value="#ff0000">Red</option>
+                  <option value="#0000ff">Blue</option>
+                  <option value="#00ff00">Green</option>
+                  <option value="#ffff00">Yellow</option>
+                  <option value="#000000">Black</option>
+                  <option value="#ffffff">White</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center space-x-1">
+                <label className="text-xs text-gray-600">Width:</label>
+                <select
+                  value={annotationWidth}
+                  onChange={(e) => setAnnotationWidth(parseInt(e.target.value))}
+                  className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+                >
+                  <option value="1">Thin</option>
+                  <option value="3">Medium</option>
+                  <option value="5">Thick</option>
+                  <option value="8">Very Thick</option>
+                </select>
+              </div>
+              
+              <button
+                onClick={clearAnnotations}
+                className="py-1 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
         </div>
-        
-        <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={togglePlay}
-              className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"
-            >
-              {playing ? 
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                  <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clipRule="evenodd" />
-                </svg>
-                :
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                  <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286l-11.54 6.347c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
-                </svg>
-              }
-            </button>
-            
-            
+      ) : (
+        /* Only show minimal info during replay mode */
+        <div className="p-2 bg-white">
+          <div className="flex justify-center">
             <span className="text-sm text-gray-600">
               {formatTime(currentTime)} / {duration ? formatTime(duration) : '0:00'}
             </span>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <select 
-              value={playbackRate}
-              onChange={(e) => handlePlaybackRateChange(parseFloat(e.target.value))}
-              className="bg-gray-200 text-sm rounded px-2 py-1"
-            >
-              <option value="0.5">0.5x</option>
-              <option value="1">1x</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2x</option>
-            </select>
-          </div>
         </div>
-        
-        {/* Annotation controls */}
-        <div className="flex flex-wrap items-center justify-between pt-2 border-t border-gray-200">
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1">
-              <label className="text-xs text-gray-600">Tool:</label>
-              <div className="flex bg-gray-100 rounded overflow-hidden border border-gray-300">
-                <button
-                  onClick={() => setAnnotationTool('freehand')}
-                  className={`py-1 px-2 text-xs ${annotationTool === 'freehand' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
-                >
-                  Pen
-                </button>
-                <button
-                  onClick={() => setAnnotationTool('line')}
-                  className={`py-1 px-2 text-xs ${annotationTool === 'line' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
-                >
-                  Line
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-1">
-              <label className="text-xs text-gray-600">Color:</label>
-              <select
-                value={annotationColor}
-                onChange={(e) => setAnnotationColor(e.target.value)}
-                className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
-              >
-                <option value="#ff0000">Red</option>
-                <option value="#0000ff">Blue</option>
-                <option value="#00ff00">Green</option>
-                <option value="#ffff00">Yellow</option>
-                <option value="#000000">Black</option>
-                <option value="#ffffff">White</option>
-              </select>
-            </div>
-            
-            <div className="flex items-center space-x-1">
-              <label className="text-xs text-gray-600">Width:</label>
-              <select
-                value={annotationWidth}
-                onChange={(e) => setAnnotationWidth(parseInt(e.target.value))}
-                className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
-              >
-                <option value="1">Thin</option>
-                <option value="3">Medium</option>
-                <option value="5">Thick</option>
-                <option value="8">Very Thick</option>
-              </select>
-            </div>
-            
-            <button
-              onClick={clearAnnotations}
-              className="py-1 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
-              disabled={isReplaying}
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }));
