@@ -525,7 +525,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onCanPlayThrough={handleCanPlayThrough}
           src={cachedVideoSrc}
           playsInline
-          preload="auto"
+          preload="metadata"
           muted
         />
         
