@@ -336,14 +336,14 @@ export default function InboxPage() {
                       <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
                         {swing.status === 'Completed' ? (
                           <button
-                            onClick={() => window.location.href = `/?videoId=${swing.id}&replay=true`}
+                            onClick={() => window.location.href = `/review?videoId=${swing.id}&replay=true`}
                             className="px-3 py-1 rounded-md !bg-green-100 !text-green-700 hover:!bg-green-200 dark:!bg-indigo-900 dark:!text-indigo-200 dark:hover:!bg-indigo-800 transition-colors"
                           >
                             Replay
                           </button>
                         ) : (
                           <button
-                            onClick={() => window.location.href = `/?videoId=${swing.id}`}
+                            onClick={() => window.location.href = `/review?videoId=${swing.id}`}
                             className="px-3 py-1 rounded-md !bg-blue-100 !text-blue-700 hover:!bg-blue-200 dark:!bg-indigo-900 dark:!text-indigo-200 dark:hover:!bg-indigo-800 transition-colors"
                           >
                             Review
