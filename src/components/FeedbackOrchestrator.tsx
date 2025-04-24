@@ -65,7 +65,7 @@ interface FeedbackOrchestratorProps {
  * Feedback Orchestrator Component
  * Coordinates all aspects of recording and playback for a feedback session
  */
-const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
+const FeedbackOrchestrator = forwardRef<Record<string, unknown>, FeedbackOrchestratorProps>(({
   videoElementRef,
   canvasRef,
   drawAnnotation,
@@ -493,7 +493,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       console.error('Failed to start recording session:', error);
       alert(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [isActive, generateId, onAudioRecorded, onSessionComplete]);
+  }, [isActive, generateId, onAudioRecorded, onSessionComplete, currentSession]);
   
   /**
    * End the current recording session
@@ -523,7 +523,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   /**
    * Record a timeline event during recording
    */
-  const recordEvent = useCallback((type: 'video' | 'annotation' | 'marker', payload: any, duration?: number) => {
+  const recordEvent = useCallback((type: 'video' | 'annotation' | 'marker', payload: Record<string, unknown>, duration?: number) => {
     if (!isActive || !recordingStartTimeRef.current) return;
     
     const now = Date.now();
@@ -556,7 +556,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   /**
    * Handle video events (play, pause, seek, etc.)
    */
-  const handleVideoEvent = useCallback((action: string, details?: any) => {
+  const handleVideoEvent = useCallback((action: string, details?: Record<string, unknown>) => {
     return recordEvent('video', { action, ...details });
   }, [recordEvent]);
   
@@ -721,7 +721,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       }
     }, 1500);
     
-  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);
+  }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition, canvasRef]);
   
   /**
    * Helper function to simulate timeline without audio
@@ -1056,7 +1056,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Reset replay state
     setIsActive(false);
     setReplayProgress(0);
-  }, [isActive, audioPlayer, resetTimelinePosition, videoElementRef, clearAnnotations]);
+  }, [isActive, audioPlayer, resetTimelinePosition, videoElementRef, clearAnnotations, canvasRef]);
   
   /**
    * Load a session for replay

@@ -507,7 +507,7 @@ const annotationCanvasComponentRef = useRef<{ clearCanvasDrawings?: () => void }
         window.dispatchEvent(new Event('session-available'));
       }
     }
-  }, [onCategoriesCleared, currentSession]);
+  }, [onCategoriesCleared]); // currentSession not actually used in this callback
   
   // Start replaying the recorded session with optimized state changes
   const startReplay = useCallback(() => {

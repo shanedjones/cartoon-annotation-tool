@@ -87,8 +87,8 @@ export default function AudioRecorder({
     };
   }, [isRecording, audioPermissionGranted, isRecordingAudio, startAudioRecording, stopAudioRecording]);
   
-  // Start recording audio - eslint-disable-next-line react-hooks/exhaustive-deps
-  const startAudioRecording = async () => {
+  // Start recording audio
+  const startAudioRecording = useCallback(async () => {
     try {
       // Reset state
       chunksRef.current = [];
@@ -255,11 +255,10 @@ export default function AudioRecorder({
       console.error('Error starting recording:', error);
       setError(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
     }
-  };
+  }, [setElapsedTime, setError, setIsRecordingAudio, currentVideoTime, elapsedTime, onAudioChunk]);
   
   // Stop recording
-  // Stop recording audio - eslint-disable-next-line react-hooks/exhaustive-deps
-  const stopAudioRecording = () => {
+  const stopAudioRecording = useCallback(() => {
     // First, capture the final duration info before stopping
     // This helps ensure we have valid timing information for the recording
     const recordingEndTime = Date.now();
@@ -310,7 +309,7 @@ export default function AudioRecorder({
     setIsRecordingAudio(false);
     // We've already handled any null recordingStartTimeRef, now we can clear it
     recordingStartTimeRef.current = null;
-  };
+  }, [elapsedTime, setIsRecordingAudio]);
   
   // Format time as MM:SS
   const formatTime = (seconds: number) => {

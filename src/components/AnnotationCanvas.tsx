@@ -115,7 +115,7 @@ const AnnotationCanvas = forwardRef<Record<string, unknown>, AnnotationCanvasPro
           });
       });
     }
-  }, [clearCanvas, onClearComplete]);
+  }, [clearCanvas, onClearComplete, clearCanvasDrawings]);
 
   // Initialize canvas
   useEffect(() => {
@@ -189,8 +189,8 @@ const AnnotationCanvas = forwardRef<Record<string, unknown>, AnnotationCanvasPro
         replayAnnotations.slice(0, 2).map(a => ({
           hasPoints: Boolean(a?.points),
           pointsLength: a?.points?.length,
-          globalTimeOffset: (a as any).globalTimeOffset,
-          timeOffset: (a as any).timeOffset,
+          globalTimeOffset: (a as Record<string, unknown>).globalTimeOffset,
+          timeOffset: (a as Record<string, unknown>).timeOffset,
           videoTime: a.videoTime,
           timestamp: a.timestamp
         }))
@@ -213,8 +213,8 @@ const AnnotationCanvas = forwardRef<Record<string, unknown>, AnnotationCanvasPro
       }
       
       // First, check if this annotation has globalTimeOffset and if it came after the last clear
-      if ((annotation as any).globalTimeOffset !== undefined) {
-        const globalTimeOffset = (annotation as any).globalTimeOffset;
+      if ((annotation as Record<string, unknown>).globalTimeOffset !== undefined) {
+        const globalTimeOffset = (annotation as Record<string, unknown>).globalTimeOffset;
         
         // Skip annotations that were drawn before the last clear
         if (globalTimeOffset <= lastClearTime) {
@@ -236,8 +236,8 @@ const AnnotationCanvas = forwardRef<Record<string, unknown>, AnnotationCanvasPro
       }
       
       // Next check for explicit timeOffset (added by FeedbackOrchestrator)
-      if ((annotation as any).timeOffset !== undefined) {
-        const timeOffset = (annotation as any).timeOffset;
+      if ((annotation as Record<string, unknown>).timeOffset !== undefined) {
+        const timeOffset = (annotation as Record<string, unknown>).timeOffset;
         
         // Skip annotations drawn before the last clear
         if (timeOffset <= lastClearTime) {
@@ -297,7 +297,7 @@ const AnnotationCanvas = forwardRef<Record<string, unknown>, AnnotationCanvasPro
     allDrawings.forEach(path => {
       drawPath(ctx, path);
     });
-  }, [allDrawings, isReplaying, width, height]);
+  }, [allDrawings, isReplaying, width, height, drawPath, getContext]);
 
   // Method to handle an annotation that was generated programmatically
   const handleManualAnnotation = (path: DrawingPath) => {
@@ -307,7 +307,7 @@ const AnnotationCanvas = forwardRef<Record<string, unknown>, AnnotationCanvasPro
       points: path.points?.length || 0,
       videoTime: path.videoTime || 'not set',
       timestamp: path.timestamp || 'not set',
-      timeOffset: (path as any).timeOffset || 'not set',
+      timeOffset: (path as Record<string, unknown>).timeOffset || 'not set',
       currentVideoTime: currentTime * 1000,
       tool: path.tool || 'freehand' // Default to freehand if not specified
     });
