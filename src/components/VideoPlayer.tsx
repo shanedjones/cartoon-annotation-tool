@@ -66,9 +66,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
-  const [annotationColor, setAnnotationColor] = useState('#ff0000'); // Default red
-  const [annotationWidth, setAnnotationWidth] = useState(3);
-  const [annotationTool, setAnnotationTool] = useState<DrawingTool>('freehand');
+  const [annotationColor, setAnnotationColor] = useState('#ffff00'); // Default yellow
+  const [annotationWidth, setAnnotationWidth] = useState(1); // Default thin
+  const [annotationTool, setAnnotationTool] = useState<DrawingTool>('line'); // Default line
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [shouldClearCanvas, setShouldClearCanvas] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -660,20 +660,14 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
             <div className="flex items-center space-x-2">
               <div className="flex items-center space-x-1">
                 <label className="text-xs text-gray-600">Tool:</label>
-                <div className="flex bg-gray-100 rounded overflow-hidden border border-gray-300">
-                  <button
-                    onClick={() => setAnnotationTool('freehand')}
-                    className={`py-1 px-2 text-xs ${annotationTool === 'freehand' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
-                  >
-                    Pen
-                  </button>
-                  <button
-                    onClick={() => setAnnotationTool('line')}
-                    className={`py-1 px-2 text-xs ${annotationTool === 'line' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
-                  >
-                    Line
-                  </button>
-                </div>
+                <select
+                  value={annotationTool}
+                  onChange={(e) => setAnnotationTool(e.target.value as DrawingTool)}
+                  className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+                >
+                  <option value="line">Line</option>
+                  <option value="freehand">Pen</option>
+                </select>
               </div>
               
               <div className="flex items-center space-x-1">
