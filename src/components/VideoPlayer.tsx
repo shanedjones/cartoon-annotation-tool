@@ -536,6 +536,62 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   
   return (
     <div className="flex flex-col w-full max-w-5xl bg-gray-100 rounded-lg shadow-md overflow-hidden">
+      {/* Annotation Tools - now positioned above the video */}
+      {!isReplaying && !(isCompletedVideo || hasRecordedSession) && (
+        <div className="p-3 bg-white border-b border-gray-200">
+          <div className="flex flex-wrap items-center space-x-3">
+            <div className="flex items-center space-x-1">
+              <label className="text-xs text-gray-600">Tool:</label>
+              <select
+                value={annotationTool}
+                onChange={(e) => setAnnotationTool(e.target.value as DrawingTool)}
+                className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+              >
+                <option value="line">Line</option>
+                <option value="freehand">Pen</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center space-x-1">
+              <label className="text-xs text-gray-600">Color:</label>
+              <select
+                value={annotationColor}
+                onChange={(e) => setAnnotationColor(e.target.value)}
+                className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+              >
+                <option value="#ffff00">Yellow</option>
+                <option value="#ff0000">Red</option>
+                <option value="#0000ff">Blue</option>
+                <option value="#00ff00">Green</option>
+                <option value="#000000">Black</option>
+                <option value="#ffffff">White</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center space-x-1">
+              <label className="text-xs text-gray-600">Width:</label>
+              <select
+                value={annotationWidth}
+                onChange={(e) => setAnnotationWidth(parseInt(e.target.value))}
+                className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
+              >
+                <option value="1">Thin</option>
+                <option value="3">Medium</option>
+                <option value="5">Thick</option>
+                <option value="8">Very Thick</option>
+              </select>
+            </div>
+            
+            <button
+              onClick={clearAnnotations}
+              className="py-1 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+      
       <div className="relative" ref={videoContainerRef}>
         {isRecording && (
           <div className="absolute top-2 right-2 z-20 flex items-center px-2 py-1 bg-red-500 text-white rounded-md text-sm">
@@ -652,60 +708,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
                 <option value="1.5">1.5x</option>
                 <option value="2">2x</option>
               </select>
-            </div>
-          </div>
-          
-          {/* Annotation controls */}
-          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-gray-200">
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-1">
-                <label className="text-xs text-gray-600">Tool:</label>
-                <select
-                  value={annotationTool}
-                  onChange={(e) => setAnnotationTool(e.target.value as DrawingTool)}
-                  className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
-                >
-                  <option value="line">Line</option>
-                  <option value="freehand">Pen</option>
-                </select>
-              </div>
-              
-              <div className="flex items-center space-x-1">
-                <label className="text-xs text-gray-600">Color:</label>
-                <select
-                  value={annotationColor}
-                  onChange={(e) => setAnnotationColor(e.target.value)}
-                  className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
-                >
-                  <option value="#ff0000">Red</option>
-                  <option value="#0000ff">Blue</option>
-                  <option value="#00ff00">Green</option>
-                  <option value="#ffff00">Yellow</option>
-                  <option value="#000000">Black</option>
-                  <option value="#ffffff">White</option>
-                </select>
-              </div>
-              
-              <div className="flex items-center space-x-1">
-                <label className="text-xs text-gray-600">Width:</label>
-                <select
-                  value={annotationWidth}
-                  onChange={(e) => setAnnotationWidth(parseInt(e.target.value))}
-                  className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
-                >
-                  <option value="1">Thin</option>
-                  <option value="3">Medium</option>
-                  <option value="5">Thick</option>
-                  <option value="8">Very Thick</option>
-                </select>
-              </div>
-              
-              <button
-                onClick={clearAnnotations}
-                className="py-1 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
-              >
-                Clear
-              </button>
             </div>
           </div>
         </div>
