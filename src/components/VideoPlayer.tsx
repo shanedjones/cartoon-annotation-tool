@@ -290,12 +290,33 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
   };
   
+  // Use requestAnimationFrame for smoother progress bar updates
+  const timeUpdateRef = useRef<number | null>(null);
+  
+  useEffect(() => {
+    const updateTimeDisplay = () => {
+      if (videoRef.current) {
+        // Update state to reflect the current video time
+        const time = videoRef.current.currentTime;
+        setCurrentTime(time);
+      }
+      timeUpdateRef.current = requestAnimationFrame(updateTimeDisplay);
+    };
+    
+    // Start the animation frame loop
+    timeUpdateRef.current = requestAnimationFrame(updateTimeDisplay);
+    
+    // Clean up
+    return () => {
+      if (timeUpdateRef.current !== null) {
+        cancelAnimationFrame(timeUpdateRef.current);
+      }
+    };
+  }, []);
+  
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      // Update state to reflect the current video time
-      const time = videoRef.current.currentTime;
-      setCurrentTime(time);
-    }
+    // We're now using requestAnimationFrame for smoother updates
+    // This event handler is kept for compatibility but doesn't update state directly
   };
   
   const handleLoadedMetadata = () => {
@@ -559,15 +580,12 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
             onChange={handleSeek}
             onClick={handleSliderClick}
             className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer relative z-10
-                      focus:outline-none focus:ring-2 focus:ring-blue-300
+                      focus:outline-none focus:ring-1 focus:ring-blue-300
                       [&::-webkit-slider-thumb]:appearance-none
-                      [&::-webkit-slider-thumb]:bg-blue-500
-                      [&::-webkit-slider-thumb]:h-4
-                      [&::-webkit-slider-thumb]:w-4
-                      [&::-webkit-slider-thumb]:rounded-full
-                      [&::-webkit-slider-thumb]:border-0
-                      [&::-webkit-slider-thumb]:shadow
-                      [&::-webkit-slider-thumb]:cursor-pointer"
+                      [&::-webkit-slider-thumb]:opacity-0
+                      [&::-moz-range-thumb]:opacity-0
+                      [&::-ms-thumb]:opacity-0
+                      transition-all duration-100"
             style={{
               background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb 100%)`
             }}
