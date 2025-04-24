@@ -451,49 +451,55 @@ function HomeContent() {
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
             <div className="flex space-x-2">
-              <button
-                onClick={() => document.getElementById(isClient && isRecording ? 'stopButton' : 'startRecordingButton')?.click()}
-                disabled={isReplayMode || (isVideoLoading && !isRecording)}
-                className={
-                  isReplayMode || (isVideoLoading && !isRecording) 
-                    ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
-                    : isClient && isRecording 
-                      ? "bg-gray-700 text-white py-2 px-4 rounded-md" 
-                      : "bg-red-500 text-white py-2 px-4 rounded-md"
-                }
-              >
-                {isClient && isRecording 
-                  ? "Stop" 
-                  : isVideoLoading && !isRecording
-                    ? "Loading video, please wait..." 
-                    : "Record"
-                }
-              </button>
+              {/* Only show Record button if video is not completed or if already recording */}
+              {(!isCompletedVideo || isRecording) && (
+                <button
+                  onClick={() => document.getElementById(isClient && isRecording ? 'stopButton' : 'startRecordingButton')?.click()}
+                  disabled={isReplayMode || (isVideoLoading && !isRecording)}
+                  className={
+                    isReplayMode || (isVideoLoading && !isRecording) 
+                      ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
+                      : isClient && isRecording 
+                        ? "bg-gray-700 text-white py-2 px-4 rounded-md" 
+                        : "bg-red-500 text-white py-2 px-4 rounded-md"
+                  }
+                >
+                  {isClient && isRecording 
+                    ? "Stop" 
+                    : isVideoLoading && !isRecording
+                      ? "Loading video, please wait..." 
+                      : "Record"
+                  }
+                </button>
+              )}
               
-              <button
-                onClick={() => document.getElementById(isReplayMode ? 'stopButton' : 'startReplayButton')?.click()}
-                disabled={isClient && 
-                  (isRecording || 
-                   (!hasRecordedSession && !isReplayMode) || 
-                   (hasRecordedSession && !isSessionReady && !isReplayMode))}
-                className={
-                  isClient && 
+              {/* Only show Replay button if video is completed or already in replay mode */}
+              {(isCompletedVideo || hasRecordedSession || isReplayMode) && (
+                <button
+                  onClick={() => document.getElementById(isReplayMode ? 'stopButton' : 'startReplayButton')?.click()}
+                  disabled={isClient && 
                     (isRecording || 
-                     (!hasRecordedSession && !isReplayMode) || 
-                     (hasRecordedSession && !isSessionReady && !isReplayMode))
-                    ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
-                    : isReplayMode 
-                      ? "bg-yellow-500 text-white py-2 px-4 rounded-md" 
-                      : "bg-green-600 text-white py-2 px-4 rounded-md"
-                }
-              >
-                {isReplayMode 
-                  ? "Stop Replay" 
-                  : (hasRecordedSession && !isSessionReady) 
-                    ? "Loading..." 
-                    : "Replay Session"
-                }
-              </button>
+                    (!hasRecordedSession && !isReplayMode) || 
+                    (hasRecordedSession && !isSessionReady && !isReplayMode))}
+                  className={
+                    isClient && 
+                      (isRecording || 
+                      (!hasRecordedSession && !isReplayMode) || 
+                      (hasRecordedSession && !isSessionReady && !isReplayMode))
+                      ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
+                      : isReplayMode 
+                        ? "bg-yellow-500 text-white py-2 px-4 rounded-md" 
+                        : "bg-green-600 text-white py-2 px-4 rounded-md"
+                  }
+                >
+                  {isReplayMode 
+                    ? "Stop Replay" 
+                    : (hasRecordedSession && !isSessionReady) 
+                      ? "Loading..." 
+                      : "Replay Session"
+                  }
+                </button>
+              )}
             </div>
           </div>
         </div>
