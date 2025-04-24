@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, useMemo, useCallback, ReactNode, useEffect, useRef } from 'react';
+import { createContext, useContext, useReducer, useMemo, ReactNode, useEffect } from 'react';
 import { TimelinePosition, TimelineEvent, FeedbackSession } from '../types';
 
 /**

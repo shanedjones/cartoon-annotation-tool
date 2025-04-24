@@ -19,7 +19,7 @@ export type TimelineEventType = 'video' | 'annotation' | 'marker' | 'category';
  * Base interface for all payload types
  */
 export interface BasePayload {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -79,7 +79,7 @@ export interface TimelineEvent {
   /** Duration in milliseconds (for events with duration) */
   duration?: Duration;
   /** Event-specific data */
-  payload: any; // This should ideally use the discriminated union
+  payload: TimelinePayload['payload']; // Using the discriminated union
 }
 
 /**
@@ -94,7 +94,7 @@ export interface RecordedAction {
   videoTime: VideoPosition;
   /** Additional details specific to the action */
   details?: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -145,7 +145,7 @@ export interface FeedbackOrchestratorProps {
   /** Reference to the video element */
   videoElementRef: React.RefObject<HTMLVideoElement>;
   /** Reference to the canvas element */
-  canvasRef: React.RefObject<any>;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
   /** Method to draw an annotation */
   drawAnnotation: (path: DrawingPath) => void;
   /** Method to clear annotations */

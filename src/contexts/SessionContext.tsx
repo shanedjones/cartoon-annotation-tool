@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useReducer, useMemo, useCallback, ReactNode, useEffect } from 'react';
-import { FeedbackSession, TimelineEvent, AudioTrack, TimelinePosition, EntityId, CategoryRatings, Dictionary } from '../types';
+import { FeedbackSession, TimelineEvent, AudioTrack, CategoryRatings, Dictionary } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -239,6 +239,20 @@ export function SessionProvider({ children }: SessionProviderProps) {
     reset: () => dispatch({ type: 'RESET' }),
   }), []);
 
+  // Helper function to prepare session for export
+  const prepareSessionForExport = useCallback(async () => {
+    if (!state.session) {
+      throw new Error('No session to export');
+    }
+    
+    // In a real implementation, this would include serializing audio data
+    // For now, we just return a copy of the session
+    return {
+      ...state.session,
+      categories: convertCategoryRatingsToDict(state.categories),
+    };
+  }, [state.session, state.categories]);
+
   // Helper function to save session as a JSON file
   const saveSessionToFile = useCallback(async () => {
     if (!state.session) {
@@ -264,21 +278,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       console.error('Error saving session:', error);
       return Promise.reject(error);
     }
-  }, [state.session]);
-
-  // Helper function to prepare session for export
-  const prepareSessionForExport = useCallback(async () => {
-    if (!state.session) {
-      throw new Error('No session to export');
-    }
-    
-    // In a real implementation, this would include serializing audio data
-    // For now, we just return a copy of the session
-    return {
-      ...state.session,
-      categories: convertCategoryRatingsToDict(state.categories),
-    };
-  }, [state.session, state.categories]);
+  }, [state.session, prepareSessionForExport]);
 
   // Update global window variables for backwards compatibility
   useEffect(() => {

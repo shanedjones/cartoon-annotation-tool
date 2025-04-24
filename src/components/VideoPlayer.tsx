@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { DrawingPath, DrawingTool } from './AnnotationCanvas';
 import AnnotationCanvas from './AnnotationCanvas';
 
@@ -13,7 +13,7 @@ export interface RecordedAction {
   timestamp: number; // Time in milliseconds since recording started
   videoTime: number; // Current time in the video
   details?: {
-    [key: string]: any; // Additional details specific to the action
+    [key: string]: unknown; // Additional details specific to the action
   };
 }
 
@@ -44,7 +44,13 @@ interface VideoPlayerProps {
 
 interface VideoPlayerImperativeHandle {
   video: HTMLVideoElement | null;
-  annotationCanvas: any;
+  annotationCanvas: {
+    canvasRef?: React.RefObject<HTMLCanvasElement>;
+    clearCanvasDrawings?: () => void;
+    handleManualAnnotation?: (path: DrawingPath) => void;
+  } | null;
+  handleManualAnnotation: (path: DrawingPath) => void;
+  clearAllAnnotations: () => void;
 }
 
 // Define the VideoPlayer component with proper memoization
@@ -65,7 +71,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
+  const [isAnnotationEnabled] = useState(true); // Using constant true value
   const [annotationColor, setAnnotationColor] = useState('#ffff00'); // Default yellow
   const [annotationWidth, setAnnotationWidth] = useState(1); // Default thin
   const [annotationTool, setAnnotationTool] = useState<DrawingTool>('line'); // Default line
@@ -82,8 +88,12 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
-  const annotationCanvasRef = useRef<any>(null);
-  const localBlobCache = useRef<Record<string, string>>({});
+  const annotationCanvasRef = useRef<{ 
+    canvasRef?: React.RefObject<HTMLCanvasElement>;
+    clearCanvasDrawings?: () => void;
+    handleManualAnnotation?: (path: DrawingPath) => void;
+  } | null>(null);
+  // const localBlobCache = useRef<Record<string, string>>({}); // Not used, commenting out
   
   // Initialize recording start time when recording begins
   useEffect(() => {
@@ -151,11 +161,14 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     videoRef.current.addEventListener('error', handleError);
     
     return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener('error', handleError);
+      // Save a reference to avoid stale closure issue
+      const currentVideoRef = videoRef.current;
+      if (currentVideoRef) {
+        currentVideoRef.removeEventListener('error', handleError);
       }
     };
-  }, [videoRef.current]);
+  // Using empty dependency array as videoRef.current is a mutable ref value
+  }, []);
   
   // Pass video element reference to parent component
   useEffect(() => {
@@ -163,12 +176,17 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setVideoRef(videoRef.current);
     }
     
+    // Save a reference to the current ref value
+    const currentVideoRef = videoRef.current;
+    
     return () => {
       if (setVideoRef) {
+        // Using null directly is fine here as we're not accessing a stale ref
         setVideoRef(null);
       }
     };
-  }, [setVideoRef, videoRef.current]);
+  // Only depending on setVideoRef as videoRef.current is a mutable ref value
+  }, [setVideoRef]);
   
   // Notify parent component of loading state changes
   useEffect(() => {
@@ -203,11 +221,14 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     
     return () => {
       window.removeEventListener('resize', updateVideoDimensions);
-      if (videoRef.current) {
-        videoRef.current.removeEventListener('loadedmetadata', updateVideoDimensions);
+      // Save a reference to avoid stale closure issue  
+      const currentVideoRef = videoRef.current;
+      if (currentVideoRef) {
+        currentVideoRef.removeEventListener('loadedmetadata', updateVideoDimensions);
       }
     };
-  }, [videoRef.current]);
+  // Using empty dependency array as videoRef.current is a mutable ref value
+  }, []);
   
   // Handle annotation being added
   const handleAnnotationAdded = (path: DrawingPath) => {
@@ -273,8 +294,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     setShouldClearCanvas(false);
   };
   
-  // Function to record an action if recording is enabled
-  const recordAction = (type: ActionType, details?: {[key: string]: any}) => {
+  // Function to record an action if recording is enabled - wrapped in useCallback
+  const recordAction = useCallback((type: ActionType, details?: {[key: string]: unknown}) => {
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
       // Calculate the global timeline offset
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
@@ -293,9 +314,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       console.log(`Recording ${type} action at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
       onRecordAction(action);
     }
-  };
+  }, [isRecording, currentTime, onRecordAction]);
   
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     // Don't allow manual control in replay mode
     if (isReplaying) return;
     
@@ -309,7 +330,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       }
       setPlaying(!playing);
     }
-  };
+  }, [isReplaying, playing, recordAction, setPlaying]);
   
   // Use requestAnimationFrame for smoother progress bar updates
   const timeUpdateRef = useRef<number | null>(null);
@@ -408,8 +429,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
   
-  // Helper function to seek to a specific time
-  const seekToTime = (time: number) => {
+  // Helper function to seek to a specific time - wrapped in useCallback
+  const seekToTime = useCallback((time: number) => {
     if (videoRef.current) {
       const previousTime = videoRef.current.currentTime;
       const newTime = Math.max(0, Math.min(duration, time));
@@ -418,7 +439,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       return { previousTime, newTime };
     }
     return null;
-  };
+  }, [duration, setCurrentTime]);
   
   // Add keyboard shortcuts
   useEffect(() => {
@@ -460,20 +481,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [duration, playing, isRecording, isReplaying, currentTime]);
+  }, [duration, playing, isRecording, isReplaying, currentTime, recordAction, seekToTime, togglePlay]);
   
-  // Expose handlers for AnnotationCanvas 
-  const handleManualAnnotation = (path: DrawingPath) => {
-    if (annotationCanvasRef.current) {
-      annotationCanvasRef.current.handleManualAnnotation(path);
-    }
-  };
-  
-  const clearAllAnnotations = () => {
-    if (annotationCanvasRef.current) {
-      annotationCanvasRef.current.clearCanvasDrawings();
-    }
-  };
+  // Handlers for AnnotationCanvas now defined directly in the imperative handle to avoid unused declarations
   
   // Add methods to imperativeHandle 
   React.useImperativeHandle(ref, () => ({

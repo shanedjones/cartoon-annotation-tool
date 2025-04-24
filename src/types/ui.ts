@@ -1,7 +1,7 @@
 /**
  * Type definitions for UI components and structures
  */
-import { EntityId, Dictionary } from './common';
+import { Dictionary } from './common';
 
 /**
  * Data labeling property for review
@@ -60,7 +60,7 @@ export interface VideoPlayerWrapperProps {
   /** Identifier for the video */
   videoId?: string;
   /** Content to be reviewed */
-  contentToReview?: any;
+  contentToReview?: ReviewContent;
 }
 
 /**

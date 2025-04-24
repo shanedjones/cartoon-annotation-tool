@@ -185,7 +185,7 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<AudioChu
 };
 
 // Helper function to restore audio chunks when loading saved data
-const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
+const restoreAudioChunks = (savedChunks: Array<Partial<AudioChunk>>): AudioChunk[] => {
   if (!savedChunks || savedChunks.length === 0) {
     console.log('No audio chunks to restore');
     return [];
@@ -260,7 +260,10 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
       console.error(`Error restoring audio chunk ${index}:`, error);
       return null;
     }
-  }).filter(Boolean as any); // Remove any failed conversions
+  }).filter(Boolean as unknown as ExcludesFalse); // Remove any failed conversions
+
+// Type for filtering out false values
+type ExcludesFalse = <T>(x: T | false | null | undefined) => x is T;
 };
 
 // Convert the legacy FeedbackData to the new FeedbackSession format
@@ -425,8 +428,9 @@ export default function VideoPlayerWrapper({
   // Create a properly typed ref for the FeedbackOrchestrator
   const orchestratorVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const orchestratorRef = useRef<any>(null);
-  const annotationCanvasComponentRef = useRef<any>(null);
+  const orchestratorRef = useRef<FeedbackOrchestrator | null>(null);
+  // Using a more specific type for the canvas reference
+const annotationCanvasComponentRef = useRef<{ clearCanvasDrawings?: () => void } | null>(null);
   
   // Function to set the video reference from the child component
   const setVideoElementRef = useCallback((el: HTMLVideoElement | null) => {
@@ -563,7 +567,8 @@ export default function VideoPlayerWrapper({
     } else {
       alert('No recorded session to replay. Record a session first.');
     }
-  }, [currentSession, onCategoriesCleared, annotationCanvasComponentRef, videoRef, orchestratorRef, setMode, setIsActive]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCategoriesCleared, annotationCanvasComponentRef, videoRef, orchestratorRef, setMode, setIsActive]);
   
   // Stop replay and reset to initial state
   const stopReplay = useCallback(() => {
@@ -673,7 +678,7 @@ export default function VideoPlayerWrapper({
         color: path.color,
         width: path.width,
         videoTime: path.videoTime,
-        timeOffset: (path as any).timeOffset, // For debug only
+        timeOffset: 'timeOffset' in path ? path.timeOffset : undefined, // For debug only
         isReplay: !!path.videoTime // If videoTime is set, it's likely a replay
       });
       
@@ -823,7 +828,7 @@ export default function VideoPlayerWrapper({
   }, []);
   
   // Get an orchestrator reference
-  const getOrchestratorRef = useCallback((orchestratorInstance: any) => {
+  const getOrchestratorRef = useCallback((orchestratorInstance: FeedbackOrchestrator) => {
     orchestratorRef.current = orchestratorInstance;
   }, []);
   
@@ -858,7 +863,7 @@ export default function VideoPlayerWrapper({
   }, [mode, isActive, currentSession, videoId]);
   
   // Get a reference to the annotation canvas via the video player
-  const getVideoPlayerRef = useCallback((videoPlayerInstance: any) => {
+  const getVideoPlayerRef = useCallback((videoPlayerInstance: { annotationCanvas?: { clearCanvasDrawings?: () => void } }) => {
     // Store the video player reference
     annotationCanvasComponentRef.current = videoPlayerInstance?.annotationCanvas;
     

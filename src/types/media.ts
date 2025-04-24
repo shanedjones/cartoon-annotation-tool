@@ -1,8 +1,9 @@
 /**
  * Type definitions for media (audio/video) handling
  */
-import { Timestamp, VideoPosition, EntityId, TimelinePosition, Duration } from './common';
+import { Timestamp, VideoPosition, Duration } from './common';
 import { RecordedAction } from './timeline';
+import { DrawingPath } from './annotation';
 
 /**
  * Represents a chunk of recorded audio
@@ -84,9 +85,9 @@ export interface VideoPlayerProps {
   /** Callback to set the video element reference */
   setVideoRef?: (ref: HTMLVideoElement | null) => void;
   /** Annotations to display during replay */
-  replayAnnotations?: any[]; // Replace with proper type
+  replayAnnotations?: DrawingPath[]; // Using proper DrawingPath type
   /** Callback when a new annotation is added */
-  onAnnotationAdded?: (annotation: any) => void; // Replace with proper type
+  onAnnotationAdded?: (annotation: DrawingPath) => void; // Using proper DrawingPath type
   /** URL of the video to play */
   videoUrl?: string;
 }
@@ -98,9 +99,9 @@ export interface VideoPlayerRef {
   /** Reference to the video element */
   video: HTMLVideoElement | null;
   /** Reference to the annotation canvas */
-  annotationCanvas: any; // Replace with proper type
+  annotationCanvas: HTMLCanvasElement | null; // Using proper canvas element type
   /** Method to add an annotation programmatically */
-  handleManualAnnotation: (path: any) => void; // Replace with proper type
+  handleManualAnnotation: (path: DrawingPath) => void; // Using proper DrawingPath type
   /** Method to clear all annotations */
   clearAllAnnotations: () => void;
 }

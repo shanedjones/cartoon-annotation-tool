@@ -204,7 +204,7 @@ async function streamToBlob(stream: NodeJS.ReadableStream | null | undefined): P
   }
   
   // Create a wrapper to work in both browser and Node.js environments
-  // @ts-ignore - Ignoring type issues with ReadableStream across environments
+  // @ts-expect-error - Ignoring type issues with ReadableStream across environments
   const reader = stream.getReader ? stream : new ReadableStream({
     start(controller) {
       stream.on('data', (chunk) => {
@@ -225,16 +225,14 @@ async function streamToBlob(stream: NodeJS.ReadableStream | null | undefined): P
   // Handle stream reading with better type safety
   async function readChunks() {
     try {
-      // @ts-ignore - TypeScript doesn't know details of the reader but we're handling it safely
       let reading = true;
       while (reading) {
-        // @ts-ignore - TypeScript doesn't understand the reader structure
         const result = await reader.read();
-        // @ts-ignore - Structure will have done and value properties
+        // @ts-expect-error - Structure will have done and value properties
         if (result.done) {
           reading = false;
         } else {
-          // @ts-ignore - We know value will be an array buffer or similar
+          // @ts-expect-error - We know value will be an array buffer or similar
           chunks.push(new Uint8Array(result.value));
         }
       }

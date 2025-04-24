@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, useMemo, useCallback, ReactNode, useRef, MutableRefObject, useEffect, useState } from 'react';
+import { createContext, useContext, useReducer, useMemo, useCallback, ReactNode, useRef, MutableRefObject, useEffect } from 'react';
 import { VideoState, Dimensions } from '../types';
 import { cacheVideo, getFromCache, clearVideoCache, getVideoCacheStats } from '../utils/videoCache';
 
@@ -416,7 +416,7 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
     };
     
     loadVideoFromCacheOrNetwork();
-  }, [state.videoUrl]);
+  }, [state.videoUrl, state.isLoading]);
   
   // Update cache stats periodically
   useEffect(() => {

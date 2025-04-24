@@ -15,7 +15,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
  * Auth Context Interface
  */
 interface AuthContextType {
-  user: any;
+  user: Record<string, unknown> | null;
   status: "loading" | "authenticated" | "unauthenticated";
   signin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signout: () => Promise<void>;
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       return { success: true };
-    } catch (error) {
+    } catch {
       return { success: false, error: 'An error occurred. Please try again.' };
     }
   };
