@@ -702,11 +702,23 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     setIsActive(false);
     setReplayProgress(100);
     
+    // Reset the replay flags in the window object to return to initial state
+    if (typeof window !== 'undefined') {
+      window.__isReplaying = false;
+      console.log('Reset replay flag in window object');
+    }
+    
     // Use setTimeout to reset progress to 0 after a brief delay
     // This gives users visual feedback that replay completed successfully
     setTimeout(() => {
       setReplayProgress(0);
       console.log('Replay progress reset to 0');
+      
+      // Call resetState on the parent component to fully reset to initial state
+      if (typeof window !== 'undefined' && window.__videoPlayerWrapper && window.__videoPlayerWrapper.resetState) {
+        console.log('Calling resetState on VideoPlayerWrapper to reset to initial state');
+        window.__videoPlayerWrapper.resetState();
+      }
     }, 1500);
     
   }, [audioPlayer, videoElementRef, clearAnnotations, resetTimelinePosition]);

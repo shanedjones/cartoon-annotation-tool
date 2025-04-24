@@ -569,11 +569,19 @@ export default function VideoPlayerWrapper({
     }
   }, [currentSession, onCategoriesCleared]);
   
-  // Stop replay
+  // Stop replay and reset to initial state
   const stopReplay = useCallback(() => {
     if (orchestratorRef.current) {
       orchestratorRef.current.stopReplay();
       setIsActive(false);
+      
+      // Reset mode back to empty to return to initial state
+      setMode('');
+      
+      // Notify parent that replay is no longer active
+      if (onReplayModeChange) {
+        onReplayModeChange(false);
+      }
       
       // Reset video to beginning
       if (videoRef.current) {
@@ -593,8 +601,13 @@ export default function VideoPlayerWrapper({
           annotationCanvasComponentRef.current.clearCanvasDrawings();
         }
       }
+      
+      // Set window state to reflect the replay has ended
+      if (typeof window !== 'undefined') {
+        window.__isReplaying = false;
+      }
     }
-  }, []);
+  }, [onReplayModeChange]);
   
   // Handle session completion
   const handleSessionComplete = useCallback((session: FeedbackSession) => {
@@ -916,7 +929,20 @@ export default function VideoPlayerWrapper({
       // Set global reference available to parent component
       window.__videoPlayerWrapper = {
         recordCategoryChange,
-        isRecording: mode === 'record' && isActive
+        isRecording: mode === 'record' && isActive,
+        startReplay,
+        stopReplay,
+        resetState: () => {
+          // Reset state to initial condition after replay
+          setMode('');
+          setIsActive(false);
+          if (onReplayModeChange) {
+            onReplayModeChange(false);
+          }
+          if (typeof window !== 'undefined') {
+            window.__isReplaying = false;
+          }
+        }
       };
       
       // Update session availability flag
