@@ -158,34 +158,26 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setErrorMessage('Failed to load the video. Please try again or contact support.');
     };
     
-    videoRef.current.addEventListener('error', handleError);
+    const currentVideo = videoRef.current;
+    currentVideo.addEventListener('error', handleError);
     
     return () => {
-      // Save a reference to avoid stale closure issue
-      const currentVideoRef = videoRef.current;
-      if (currentVideoRef) {
-        currentVideoRef.removeEventListener('error', handleError);
-      }
+      currentVideo.removeEventListener('error', handleError);
     };
-  // Using empty dependency array as videoRef.current is a mutable ref value
   }, []);
   
   // Pass video element reference to parent component
   useEffect(() => {
     if (setVideoRef && videoRef.current) {
-      setVideoRef(videoRef.current);
+      const currentVideo = videoRef.current;
+      setVideoRef(currentVideo);
+      
+      return () => {
+        if (setVideoRef) {
+          setVideoRef(null);
+        }
+      };
     }
-    
-    // Save a reference to the current ref value
-    const currentVideoRef = videoRef.current;
-    
-    return () => {
-      if (setVideoRef) {
-        // Using null directly is fine here as we're not accessing a stale ref
-        setVideoRef(null);
-      }
-    };
-  // Only depending on setVideoRef as videoRef.current is a mutable ref value
   }, [setVideoRef]);
   
   // Notify parent component of loading state changes
@@ -208,11 +200,12 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     };
     
     // Initial update
-    if (videoRef.current) {
-      if (videoRef.current.readyState >= 1) {
+    const currentVideo = videoRef.current;
+    if (currentVideo) {
+      if (currentVideo.readyState >= 1) {
         updateVideoDimensions();
       } else {
-        videoRef.current.addEventListener('loadedmetadata', updateVideoDimensions);
+        currentVideo.addEventListener('loadedmetadata', updateVideoDimensions);
       }
     }
     
@@ -221,13 +214,10 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     
     return () => {
       window.removeEventListener('resize', updateVideoDimensions);
-      // Save a reference to avoid stale closure issue  
-      const currentVideoRef = videoRef.current;
-      if (currentVideoRef) {
-        currentVideoRef.removeEventListener('loadedmetadata', updateVideoDimensions);
+      if (currentVideo) {
+        currentVideo.removeEventListener('loadedmetadata', updateVideoDimensions);
       }
     };
-  // Using empty dependency array as videoRef.current is a mutable ref value
   }, []);
   
   // Handle annotation being added

@@ -7,7 +7,7 @@ export default function SignIn() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errorMsg, setError] = useState("");
   const [loading, setLoading] = useState(false);
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,7 +29,7 @@ export default function SignIn() {
       }
       
       router.push("/inbox");
-    } catch (error) {
+    } catch {
       setError("An error occurred. Please try again.");
       setLoading(false);
     }
@@ -46,8 +46,8 @@ export default function SignIn() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="text-red-500 text-sm">{error}</div>
+            {errorMsg && (
+              <div className="text-red-500 text-sm">{errorMsg}</div>
             )}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">

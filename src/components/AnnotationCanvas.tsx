@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 
 export interface Point {
@@ -35,10 +35,10 @@ interface AnnotationCanvasProps {
   onClearComplete?: () => void;
 }
 
-const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
+const AnnotationCanvas = forwardRef<Record<string, unknown>, AnnotationCanvasProps>(({
   width,
   height,
-  isEnabled,
+  isEnabled, // eslint-disable-line @typescript-eslint/no-unused-vars
   currentTime,
   isRecording = false,
   isReplaying = false,

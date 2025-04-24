@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHand
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 import type { AudioChunk } from './AudioRecorder';
 import type { DrawingPath } from './AnnotationCanvas';
-import type { RecordedAction } from './VideoPlayer';
+// import type { RecordedAction } from './VideoPlayer';
 
 /**
  * Main feedback session structure
@@ -35,7 +35,7 @@ export interface TimelineEvent {
   type: 'video' | 'annotation' | 'marker' | 'category';
   timeOffset: number; // milliseconds from audio start
   duration?: number; // for events with duration
-  payload: any; // specific data based on type
+  payload: Record<string, unknown>; // specific data based on type
   priority?: number; // priority level for sorting when timestamps match
 }
 
@@ -46,7 +46,7 @@ interface FeedbackOrchestratorProps {
   // Video component ref
   videoElementRef: React.RefObject<HTMLVideoElement | null>;
   // Annotation canvas component ref and methods
-  canvasRef: React.RefObject<any>;
+  canvasRef: React.RefObject<Record<string, unknown>>;
   drawAnnotation: (path: DrawingPath) => void;
   clearAnnotations: () => void;
   // Audio recording methods and callbacks
@@ -73,7 +73,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   onAudioRecorded,
   onSessionComplete,
   initialSession,
-  mode,
+  // mode, - unused prop
   onCategoriesLoaded
 }, ref) => {
   // State for tracking active session
@@ -914,7 +914,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           setIsActive(false);
         };
         
-        audio.onerror = (e) => {
+        audio.onerror = () => {
           const errorInfo = {
             code: audio.error ? audio.error.code : 'unknown',
             message: audio.error ? audio.error.message : 'No error details available',
@@ -1156,7 +1156,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Find which categories have ratings in the final state
     const ratedCategories = Object.entries(categoriesState)
-      .filter(([_, rating]) => rating > 0)
+      .filter(([, rating]) => rating > 0)
       .map(([category]) => category);
     
     console.log(`Final state has ${ratedCategories.length} rated categories:`, ratedCategories);

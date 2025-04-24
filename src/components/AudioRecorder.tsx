@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export interface AudioChunk {
   blob: Blob | string;      // The audio data as Blob or string (for serialization)
@@ -85,9 +85,9 @@ export default function AudioRecorder({
       }
       cleanupAudioPlayers();
     };
-  }, [isRecording, audioPermissionGranted, isRecordingAudio]);
+  }, [isRecording, audioPermissionGranted, isRecordingAudio, startAudioRecording, stopAudioRecording]);
   
-  // Start recording audio
+  // Start recording audio - eslint-disable-next-line react-hooks/exhaustive-deps
   const startAudioRecording = async () => {
     try {
       // Reset state
@@ -258,6 +258,7 @@ export default function AudioRecorder({
   };
   
   // Stop recording
+  // Stop recording audio - eslint-disable-next-line react-hooks/exhaustive-deps
   const stopAudioRecording = () => {
     // First, capture the final duration info before stopping
     // This helps ensure we have valid timing information for the recording
@@ -401,7 +402,7 @@ export default function AudioRecorder({
 
   // Clean up audio players
   const cleanupAudioPlayers = () => {
-    audioPlayersRef.current.forEach((player, key) => {
+    audioPlayersRef.current.forEach((player) => {
       try {
         player.pause();
         if (player.src && player.src.startsWith('blob:')) {

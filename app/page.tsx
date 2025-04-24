@@ -1,6 +1,5 @@
 'use client';
 
-import Link from "next/link";
 import VideoPlayerWrapper from "../src/components/VideoPlayerWrapper";
 import { useState, useCallback, useEffect, Suspense } from "react";
 import type { FeedbackSession } from "@/src/components/FeedbackOrchestrator";
@@ -89,8 +88,8 @@ function HomeContent() {
             if (selectedVideo.status === "Completed") {
               console.log("Completed review found, making session available for replay");
               // Use type assertion to add custom properties to window
-              (window as any).__hasRecordedSession = true;
-              (window as any).__isCompletedVideo = true; // Mark as already completed
+              (window as Record<string, unknown>).__hasRecordedSession = true;
+              (window as Record<string, unknown>).__isCompletedVideo = true; // Mark as already completed
               const event = new CustomEvent('session-available');
               window.dispatchEvent(event);
             }
@@ -188,7 +187,7 @@ function HomeContent() {
     
     // Convert all rated categories to formatted objects with name and rating
     const ratedCategories = Object.entries(categoryChanges)
-      .filter(([_, rating]) => rating !== null && rating > 0)
+      .filter(([, rating]) => rating !== null && rating > 0)
       .map(([categoryName, rating]) => {
         const label = getCategoryLabel(categoryName);
         console.log(`PARENT: Formatting category ${categoryName} to ${label} with rating ${rating}`);
@@ -335,7 +334,7 @@ function HomeContent() {
       window.removeEventListener('session-available', handleSessionChange);
       window.removeEventListener('session-ready', handleSessionReady);
     };
-  }, [hasRecordedSession, isCompletedVideo, isSessionReady, isRecording, isSaving, isSavingComplete]);
+  }, [hasRecordedSession, isCompletedVideo, isSessionReady, isRecording, isSaving, isSavingComplete, isReplayMode]);
   
   // Force client-side rendering for window access
   const [isClient, setIsClient] = useState(false);
