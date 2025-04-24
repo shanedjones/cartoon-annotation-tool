@@ -123,6 +123,8 @@ function HomeContent() {
   const [isCompletedVideo, setIsCompletedVideo] = useState(false);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingComplete, setIsSavingComplete] = useState(false);
   
   // Get formatted category label
   const getCategoryLabel = (category: string) => {
@@ -250,8 +252,17 @@ function HomeContent() {
     const checkState = () => {
       if (typeof window !== 'undefined') {
         // Check recording state
+        let wasRecording = false;
         if (window.__videoPlayerWrapper) {
-          setIsRecording(!!window.__videoPlayerWrapper.isRecording);
+          wasRecording = isRecording; // Store previous recording state
+          const currentlyRecording = !!window.__videoPlayerWrapper.isRecording;
+          setIsRecording(currentlyRecording);
+          
+          // If we just stopped recording, set saving state to true
+          if (wasRecording && !currentlyRecording && !isSaving && !isSavingComplete) {
+            console.log('Recording stopped, entering saving state');
+            setIsSaving(true);
+          }
         }
         
         // Check session availability
@@ -259,6 +270,14 @@ function HomeContent() {
         if (hasSession !== hasRecordedSession) {
           console.log(`Session availability changed: ${hasSession}`);
           setHasRecordedSession(hasSession);
+          
+          // If we just got a session and were in saving state, we're done saving
+          if (hasSession && isSaving) {
+            console.log('Session available, saving complete');
+            setIsSaving(false);
+            setIsSavingComplete(true);
+            setIsCompletedVideo(true); // Mark as completed to prevent recording button from reappearing
+          }
         }
         
         // Check if this is a completed video
@@ -266,6 +285,13 @@ function HomeContent() {
         if (isCompleted !== isCompletedVideo) {
           console.log(`Completed video status changed: ${isCompleted}`);
           setIsCompletedVideo(isCompleted);
+          
+          // If video was just marked as completed and we were saving, we're done
+          if (isCompleted && isSaving) {
+            console.log('Video marked completed, saving complete');
+            setIsSaving(false);
+            setIsSavingComplete(true);
+          }
         }
         
         // Check if session is ready for replay
@@ -309,7 +335,7 @@ function HomeContent() {
       window.removeEventListener('session-available', handleSessionChange);
       window.removeEventListener('session-ready', handleSessionReady);
     };
-  }, [hasRecordedSession, isCompletedVideo, isSessionReady]);
+  }, [hasRecordedSession, isCompletedVideo, isSessionReady, isRecording, isSaving, isSavingComplete]);
   
   // Force client-side rendering for window access
   const [isClient, setIsClient] = useState(false);
@@ -442,6 +468,12 @@ function HomeContent() {
       // Dispatch a custom event to notify about session availability
       const event = new CustomEvent('session-available');
       window.dispatchEvent(event);
+      
+      // Mark that saving is complete - keep Done showing permanently
+      setIsSaving(false);
+      setIsSavingComplete(true);
+      setIsCompletedVideo(true); // Mark as completed to prevent recording button from reappearing
+      console.log('Completed saving session to database');
     }
   }, [videoId]);
 
@@ -451,50 +483,65 @@ function HomeContent() {
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
             <div className="flex space-x-2">
-              {/* Only show Record button if video is not completed or if already recording */}
-              {(!isCompletedVideo || isRecording) && (
+              {/* Show Saving/Done status or Record button accordingly */}
+              {isSaving ? (
+                <span className="text-gray-500 py-2 px-4">Saving...</span>
+              ) : isSavingComplete ? (
+                <span className="py-2 px-4">Recording saved.</span>
+              ) : (
+                /* Only show Record button if video is not completed and not in saving state */
+                !isCompletedVideo && !isRecording && (
+                  <button
+                    onClick={() => document.getElementById('startRecordingButton')?.click()}
+                    disabled={isReplayMode || isVideoLoading}
+                    className={
+                      isReplayMode || isVideoLoading
+                        ? "!bg-gray-300 !text-gray-500 py-2 px-4 rounded-md cursor-not-allowed" 
+                        : "!bg-green-600 !text-white py-2 px-4 rounded-md"
+                    }
+                  >
+                    {isVideoLoading
+                      ? "Loading video..." 
+                      : "Start Recording"
+                    }
+                  </button>
+                )
+              )}
+              
+              {/* Show Stop Recording button only when actively recording */}
+              {isRecording && (
                 <button
-                  onClick={() => document.getElementById(isClient && isRecording ? 'stopButton' : 'startRecordingButton')?.click()}
-                  disabled={isReplayMode || (isVideoLoading && !isRecording)}
-                  className={
-                    isReplayMode || (isVideoLoading && !isRecording) 
-                      ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
-                      : isClient && isRecording 
-                        ? "bg-gray-700 text-white py-2 px-4 rounded-md" 
-                        : "bg-red-500 text-white py-2 px-4 rounded-md"
-                  }
+                  onClick={() => document.getElementById('stopButton')?.click()}
+                  className="!bg-red-500 !text-white py-2 px-4 rounded-md"
                 >
-                  {isClient && isRecording 
-                    ? "Stop" 
-                    : isVideoLoading && !isRecording
-                      ? "Loading video, please wait..." 
-                      : "Record"
-                  }
+                  Stop Recording
                 </button>
               )}
               
-              {/* Only show Replay button if video is completed or already in replay mode */}
-              {(isCompletedVideo || hasRecordedSession || isReplayMode) && (
+              {/* Only show Replay button if video is completed or already in replay mode, and we're not in the "Done" state */}
+              {(isCompletedVideo || hasRecordedSession || isReplayMode) && !isSavingComplete && !isSaving && (
                 <button
                   onClick={() => document.getElementById(isReplayMode ? 'stopButton' : 'startReplayButton')?.click()}
                   disabled={isClient && 
                     (isRecording || 
+                    isVideoLoading ||
                     (!hasRecordedSession && !isReplayMode) || 
                     (hasRecordedSession && !isSessionReady && !isReplayMode))}
                   className={
                     isClient && 
                       (isRecording || 
+                      isVideoLoading ||
                       (!hasRecordedSession && !isReplayMode) || 
                       (hasRecordedSession && !isSessionReady && !isReplayMode))
-                      ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" 
+                      ? "!bg-gray-300 !text-gray-500 py-2 px-4 rounded-md cursor-not-allowed" 
                       : isReplayMode 
-                        ? "bg-yellow-500 text-white py-2 px-4 rounded-md" 
-                        : "bg-green-600 text-white py-2 px-4 rounded-md"
+                        ? "!bg-yellow-500 !text-white py-2 px-4 rounded-md" 
+                        : "!bg-green-600 !text-white py-2 px-4 rounded-md"
                   }
                 >
                   {isReplayMode 
                     ? "Stop Replay" 
-                    : (hasRecordedSession && !isSessionReady) 
+                    : (hasRecordedSession && !isSessionReady) || isVideoLoading
                       ? "Loading..." 
                       : "Replay Session"
                   }
