@@ -19,8 +19,8 @@ This tool allows users to:
 
 1. **Clone the repository**
    ```
-   git clone https://github.com/shanedjones/annotation-tool
-   cd annotation-tool
+   git clone https://github.com/shanedjones/cartoon-annotation-tool
+   cd cartoon-annotation-tool
    ```
 
 2. **Install dependencies**
@@ -56,9 +56,10 @@ This tool allows users to:
    # Public access at container level is not required as the app will handle authentication.
    ```
 
-5. **Seed the database**
+5. **Seed the database and users**
    ```
    npm run seed-db
+   npm run seed-users
    ```
 
 6. **Run the development server**
@@ -234,25 +235,41 @@ The application uses two main data structures:
 ## Project Structure
 
 ```
-annotation-tool/
+cartoon-annotation-tool/
 ├── app/                  # Next.js app directory
 │   ├── page.tsx          # Main application page
 │   ├── layout.tsx        # App layout
 │   ├── inbox/            # Video review inbox
 │   │   └── page.tsx      # Inbox page component
+│   ├── review/           # Video review page
+│   │   └── page.tsx      # Review page component
+│   ├── auth/             # Authentication pages
+│   │   ├── register/     # User registration
+│   │   └── signin/       # User sign-in
 │   └── api/              # Backend API routes
+│       ├── assessments/  # Assessment APIs
+│       ├── audio/        # Audio handling APIs
+│       ├── auth/         # Authentication APIs
 │       └── videos/       # Videos API
-│           └── route.ts  # Cosmos DB CRUD operations
+│           ├── route.ts           # Cosmos DB CRUD operations
+│           ├── session/           # Session management
+│           └── updateSwing/       # Swing update endpoints
 ├── src/
-│   ├── components/
+│   ├── components/       # React components
 │   │   ├── FeedbackOrchestrator.tsx   # Main coordination component
 │   │   ├── VideoPlayerWrapper.tsx     # Container component
 │   │   ├── VideoPlayer.tsx            # Custom video player
 │   │   ├── AnnotationCanvas.tsx       # Drawing component
-│   │   └── AudioRecorder.tsx          # Audio recording/playback
-│   └── contexts/         # React contexts for state management
-├── scripts/
-│   └── seed-cosmos-db.js # Database seeding script
+│   │   ├── AssessmentReviewModal.tsx  # Assessment review UI
+│   │   ├── AudioRecorder.tsx          # Audio recording/playback
+│   │   └── Navbar.tsx                 # Navigation component
+│   ├── contexts/         # React contexts for state management
+│   ├── lib/              # Library and utility functions
+│   ├── types/            # TypeScript type definitions
+│   └── utils/            # Utility functions
+├── scripts/              # Helper scripts
+│   ├── seed-cosmos-db.js # Database seeding script
+│   └── seed-users.js     # User seeding script
 ├── public/               # Static assets
 └── package.json          # Dependencies and scripts
 ```
@@ -286,7 +303,7 @@ annotation-tool/
 - Category-based filtering during replay
 - Export to video format
 - Shared/collaborative sessions
-- User authentication and role-based access
+- Enhanced role-based access controls
 - Real-time collaboration features
 - Advanced search and filtering for the inbox
 - Integration with video streaming services
