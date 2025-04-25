@@ -67,12 +67,6 @@ export async function PUT(request: Request) {
     // Update the swing
     session.swings[swingIndex] = swing;
     
-    // Check if all swings are completed to update the session status
-    const allCompleted = session.swings.every((s: any) => s.status === 'Completed');
-    if (allCompleted) {
-      session.status = 'Completed';
-    }
-    
     // Update the session
     const { resource: updatedSession } = await container.item(sessionId, sessionId).replace(session);
     

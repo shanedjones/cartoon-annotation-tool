@@ -127,7 +127,8 @@ export async function POST(request: Request) {
     // Update the session with the review data
     session.review = review;
     
-    // Update the status to "Completed" when a review is saved
+    // Update the status to "Completed" only when a review is saved
+    // This is the only place where an assessment can be marked as complete
     session.status = "Completed";
     
     // Save the updated session
