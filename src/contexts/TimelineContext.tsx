@@ -218,10 +218,6 @@ export function TimelineProvider({ children }: TimelineProviderProps) {
     if (typeof window !== 'undefined') {
       window.__lastClearTime = state.lastClearTime;
       
-      // Add development-only logging
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Syncing lastClearTime to window.__lastClearTime: ${state.lastClearTime}ms`);
-      }
     }
   }, [state.lastClearTime]);
 

@@ -98,23 +98,15 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   // Create a stable event execution function using useState first
   // This ensures it's defined before other functions that depend on it
   const [executeEvent] = useState(() => (event: TimelineEvent) => {
-    console.log(`Executing ${event.type} event:`, event.payload);
-    
     switch (event.type) {
       case 'video':
         if (videoElementRef.current) {
           const video = videoElementRef.current;
           const payload = event.payload;
           
-          // Log the global timeline position for this video event
-          console.log(`Executing video ${payload.action} at global time ${event.timeOffset}ms`, {
-            videoCurrentTime: video.currentTime,
-            eventDetails: payload
-          });
-          
           switch (payload.action) {
             case 'play':
-              video.play().catch(err => console.warn('Failed to play video:', err));
+              video.play().catch(() => {});
               break;
             case 'pause':
               video.pause();
@@ -122,28 +114,22 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
             case 'seek':
               if (payload.to !== undefined) {
                 // Seek to the target time in the video
-                const prevTime = video.currentTime;
                 video.currentTime = payload.to;
-                console.log(`Replayed seek: ${prevTime.toFixed(2)}s → ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
               }
               break;
             case 'playbackRate':
               if (payload.to !== undefined) {
-                const prevRate = video.playbackRate;
                 video.playbackRate = payload.to;
-                console.log(`Replayed rate change: ${prevRate}x → ${payload.to}x (at global time ${event.timeOffset}ms)`);
               }
               break;
             // Handle keyboard shortcuts too
             case 'keyboardShortcut':
               if (payload.action === 'forward' && payload.to !== undefined) {
                 video.currentTime = payload.to;
-                console.log(`Replayed forward: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
               } else if (payload.action === 'rewind' && payload.to !== undefined) {
                 video.currentTime = payload.to;
-                console.log(`Replayed rewind: to ${payload.to.toFixed(2)}s (at global time ${event.timeOffset}ms)`);
               } else if (payload.action === 'play') {
-                video.play().catch(err => console.warn('Failed to play video:', err));
+                video.play().catch(() => {});
               } else if (payload.action === 'pause') {
                 video.pause();
               }
@@ -194,11 +180,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         break;
       case 'marker':
         // Could display a marker UI
-        console.log('Marker:', event.payload.text);
         break;
       case 'category':
         // We're now handling all categories at the start of replay instead of during timeline events
-        console.log(`Processing category event during replay: ${event.payload?.category} = ${event.payload?.rating}`);
         break;
     }
   });
@@ -230,16 +214,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     const eventsToExecute: TimelineEvent[] = [];
     const remainingEvents: TimelineEvent[] = [];
     
-    // Log current timeline position periodically (every second)
-    if (Math.floor(currentTimeMs / 1000) !== Math.floor((currentTimeMs - 100) / 1000)) {
-      console.log(`Global timeline position: ${(currentTimeMs / 1000).toFixed(1)}s`);
-      
-      // Also log how many events are still pending
-      if (pendingEventsRef.current.length > 0) {
-        const nextEvent = pendingEventsRef.current[0];
-        console.log(`Next event: ${nextEvent.type} at ${(nextEvent.timeOffset / 1000).toFixed(1)}s (in ${((nextEvent.timeOffset - currentTimeMs) / 1000).toFixed(1)}s)`);
-      }
-    }
     
     pendingEventsRef.current.forEach(event => {
       if (event.timeOffset <= currentTimeMs) {
@@ -266,25 +240,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       return assignEventPriority(a) - assignEventPriority(b);
     });
     
-    // Log processing information
-    console.log(`Processing ${eventsToExecute.length} events at global timeline ${currentTimeMs}ms`, {
-      eventsToExecute: eventsToExecute.map(e => ({
-        id: e.id, 
-        type: e.type, 
-        timeOffset: e.timeOffset,
-        priority: assignEventPriority(e),
-        action: e.type === 'annotation' ? e.payload.action : 
-              (e.type === 'video' ? e.payload.action : 'none'),
-        // Add more detailed information about video events
-        details: e.type === 'video' ? {
-          action: e.payload.action,
-          from: e.payload.from,
-          to: e.payload.to,
-          globalTimeOffset: e.payload.globalTimeOffset
-        } : undefined
-      })),
-      remainingCount: pendingEventsRef.current.length
-    });
     
     // Use requestAnimationFrame for smooth event execution
     // This ensures all events are executed within a single frame

@@ -103,7 +103,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           setPlaying(true);
         })
         .catch(err => {
-          console.error('Error auto-playing video in replay mode:', err);
+          // Handle error silently
         });
     }
   }, [isReplaying]);
@@ -118,14 +118,12 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     
     // Reset loading flags if URL changed
     if (prevUrlRef.current !== videoUrl) {
-      console.log('Video URL changed, resetting loading state');
       setIsLoadStarted(false);
       prevUrlRef.current = videoUrl;
     }
     
     // Set loading state if not already loading
     if (!isLoadStarted) {
-      console.log('Starting video loading process for:', videoUrl);
       setIsLoading(true);
       setIsLoadStarted(true);
       setHasError(false);
@@ -252,8 +250,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       // Calculate global timeline offset
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
       
-      console.log(`Recording canvas clear at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
-      
       const action: RecordedAction = {
         type: 'annotation',
         timestamp: globalTimeOffset,
@@ -290,7 +286,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         }
       };
       
-      console.log(`Recording ${type} action at global time ${globalTimeOffset}ms, video time ${currentTime}s`);
       onRecordAction(action);
     }
   };
@@ -342,7 +337,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
-      console.log('Video metadata loaded, duration:', videoRef.current.duration);
       const duration = videoRef.current.duration;
       setDuration(duration);
     }
@@ -350,7 +344,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   
   // Handle when video is fully loaded and can play through
   const handleCanPlayThrough = () => {
-    console.log('Video can play through, finishing loading state');
     // Add a small delay to ensure video is really ready to play smoothly
     // This prevents the loading spinner from disappearing too quickly
     setTimeout(() => {
@@ -362,7 +355,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   // Add additional event handler for duration change
   const handleDurationChange = () => {
     if (videoRef.current) {
-      console.log('Video duration changed:', videoRef.current.duration);
       const duration = videoRef.current.duration;
       setDuration(duration);
     }
@@ -486,7 +478,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     // Expose annotation methods directly at the top level for easier access
     handleManualAnnotation: (path: DrawingPath) => {
       if (annotationCanvasRef.current) {
-        console.log('VideoPlayer: Forwarding manual annotation to canvas');
         annotationCanvasRef.current.handleManualAnnotation(path);
         
         // If recording is active, also record this event
@@ -499,22 +490,18 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           };
           onRecordAction(action);
         }
-      } else {
-        console.warn('VideoPlayer: Cannot forward annotation - canvas ref not available');
+      }
       }
     },
     
     clearAllAnnotations: () => {
       if (annotationCanvasRef.current) {
-        console.log('VideoPlayer: Forwarding clear annotation to canvas');
         annotationCanvasRef.current.clearCanvasDrawings();
         
         // If recording is active, also record this event
         if (isRecording && onRecordAction) {
           // Calculate global timeline offset
           const globalTimeOffset = Date.now() - (recordingStartTimeRef.current || 0);
-          
-          console.log(`Recording canvas clear via clearAllAnnotations at global time ${globalTimeOffset}ms`);
           
           const action: RecordedAction = {
             type: 'annotation',
@@ -528,9 +515,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           };
           onRecordAction(action);
         }
-      } else {
-        console.warn('VideoPlayer: Cannot clear annotations - canvas ref not available');
       }
+    }
     }
   }));
   

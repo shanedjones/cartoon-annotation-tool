@@ -164,34 +164,24 @@ function HomeContent() {
   };
   
   const handleCategoryChange = (category: string, rating: number) => {
-    console.log(`RECORDING: Changing category ${category} to rating ${rating}`);
-    
     const newCategories = {
       ...categories,
       [category]: rating,
     };
     
-    console.log('RECORDING: New categories state:', newCategories);
     setCategories(newCategories);
     
     // Record the category change event in the orchestrator if we're recording
     if (typeof window !== 'undefined') {
-      console.log(`RECORDING: Sending category event to orchestrator: ${category}=${rating}`);
-      
       try {
         // Always send to record category changes, regardless of recording state
         // This ensures categories are saved properly even when not actively recording
         if (window.__videoPlayerWrapper?.recordCategoryChange) {
           window.__videoPlayerWrapper.recordCategoryChange(category, rating);
-          console.log('RECORDING: Category event sent successfully');
-        } else {
-          console.warn('RECORDING: recordCategoryChange function not available');
         }
       } catch (error) {
-        console.error('RECORDING: Error sending category event:', error);
+        // Error handling is silent in production
       }
-    } else {
-      console.warn('RECORDING: Window not defined, cannot send category event');
     }
   };
   
@@ -211,19 +201,11 @@ function HomeContent() {
   
   // Function to handle categories during replay
   const handleCategoryAddedDuringReplay = useCallback((categoryChanges: Record<string, number>) => {
-    console.log('PARENT: Received categories for replay:', categoryChanges);
-    
-    // Debug log all entries
-    Object.entries(categoryChanges).forEach(([key, value]) => {
-      console.log(`PARENT: Category ${key} = ${value}`);
-    });
-    
     // Convert all rated categories to formatted objects with name and rating
     const ratedCategories = Object.entries(categoryChanges)
       .filter(([_, rating]) => rating !== null && rating > 0)
       .map(([categoryName, rating]) => {
         const label = getCategoryLabel(categoryName);
-        console.log(`PARENT: Formatting category ${categoryName} to ${label} with rating ${rating}`);
         return {
           id: categoryName, // Keep the original ID
           name: label,
@@ -232,11 +214,8 @@ function HomeContent() {
       });
     
     if (ratedCategories.length > 0) {
-      console.log(`PARENT: Adding ${ratedCategories.length} categories to replay list:`, ratedCategories);
-      
       // Force state update with a deep copy and force render with a callback
       const newList = [...ratedCategories];
-      console.log('PARENT: Setting category list to:', newList);
       
       // Replace the entire list at once with a forced update - don't set replay mode here
       setCategoryList(newList);
@@ -244,24 +223,16 @@ function HomeContent() {
       // Force UI update by using double setState in different ticks for React 18+ batching
       setTimeout(() => {
         setCategoryList(prevList => {
-          console.log('PARENT: Forced update, category list is now:', prevList);
           return prevList; // Return same array but force an update
         });
-        
-        // Double-check in the next tick
-        setTimeout(() => {
-          console.log('PARENT: After update, category list should be:', newList);
-        }, 100);
       }, 50);
     } else {
-      console.log('PARENT: No rated categories found');
       setCategoryList([]);
     }
   }, []);
   
   // Function to handle replay mode change
   const handleReplayModeChange = useCallback((isReplay: boolean) => {
-    console.log(`Setting replay mode to: ${isReplay}`);
     setIsReplayMode(isReplay);
     
     // Ensure the UI knows session is being replayed when mode changes

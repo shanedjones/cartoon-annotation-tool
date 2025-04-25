@@ -402,15 +402,12 @@ export default function VideoPlayerWrapper({
   useEffect(() => {
     // Only update if URL actually changed to prevent infinite loops
     if (videoUrl && videoUrl !== prevUrlRef.current) {
-      console.log('VideoPlayerWrapper: Setting video URL in context:', videoUrl);
-      
+        
       // Update URL in context
       videoContext.setVideoUrl(videoUrl);
       prevUrlRef.current = videoUrl;
     }
   }, [videoUrl]);
-  // Log categories passed from parent on every render
-  console.log('VideoPlayerWrapper received categories:', categories);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
@@ -447,7 +444,6 @@ export default function VideoPlayerWrapper({
     
     // Clear any existing annotations before starting
     if (annotationCanvasComponentRef.current) {
-      console.log('Clearing annotations before starting new recording');
       if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
         annotationCanvasComponentRef.current.clearCanvasDrawings();
       }
@@ -455,7 +451,6 @@ export default function VideoPlayerWrapper({
     
     // Reset video to beginning if needed
     if (videoRef.current) {
-      console.log('Resetting video position before starting recording');
       videoRef.current.currentTime = 0;
     }
     
