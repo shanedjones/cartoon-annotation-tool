@@ -93,6 +93,38 @@ function HomeContent() {
               (window as any).__isCompletedVideo = true; // Mark as already completed
               const event = new CustomEvent('session-available');
               window.dispatchEvent(event);
+              
+              // Load categories from the saved session for immediate display
+              if (selectedVideo.reviewSession.categories) {
+                console.log("Loading categories from saved session:", selectedVideo.reviewSession.categories);
+                
+                // Convert categories to the expected format
+                const savedCategories: Record<string, number> = {};
+                Object.entries(selectedVideo.reviewSession.categories).forEach(([key, value]) => {
+                  // Convert boolean values to numbers if needed
+                  if (typeof value === 'boolean') {
+                    savedCategories[key] = value ? 1 : 0;
+                  } else if (typeof value === 'number') {
+                    savedCategories[key] = value;
+                  }
+                });
+                
+                // If we have any categories, add them to the categoryList for display
+                if (Object.keys(savedCategories).length > 0) {
+                  const formattedCategories = Object.entries(savedCategories)
+                    .filter(([_, rating]) => rating !== null && rating > 0)
+                    .map(([categoryName, rating]) => ({
+                      id: categoryName,
+                      name: getCategoryLabel(categoryName),
+                      rating: rating as number
+                    }));
+                    
+                  if (formattedCategories.length > 0) {
+                    console.log("Setting formatted categories for display:", formattedCategories);
+                    setCategoryList(formattedCategories);
+                  }
+                }
+              }
             }
           }
         }
@@ -565,29 +597,9 @@ function HomeContent() {
             <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 h-full">
               <h2 className="text-xl font-semibold mb-3 dark:text-white">{contentToReview.dataLabelingTitle}</h2>
               
-              {/* Show rating stars during recording mode */}
-              {!isReplayMode ? (
-                <div className="space-y-3">
-                  {contentToReview.labelProperties?.map((property) => (
-                    <div key={property.id}>
-                      <div className="mb-1 dark:text-white">{property.label}</div>
-                      <div className="flex items-center">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => handleCategoryChange(property.id, star)}
-                            className={(categories[property.id] ?? 0) >= star ? "text-xl px-1 text-yellow-400" : "text-xl px-1 text-gray-300 dark:text-gray-600"}
-                          >
-                            ★
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                // Show ratings during replay mode
+              {/* Show rating options during recording mode or static ratings if completed */}
+              {!isRecording && isCompletedVideo ? (
+                // Show static ratings for completed videos
                 <div>
                   {contentToReview && (
                     <>
@@ -595,9 +607,9 @@ function HomeContent() {
                         {contentToReview.labelProperties?.map((property) => (
                           <li key={property.id}>
                             <div className="font-medium dark:text-white">{property.label}</div>
-                            <div className="flex text-yellow-400 mt-1 text-base">
-                              {[1, 2, 3, 4, 5].map((star) => {
-                                // Find if we have a rating for this category from replay data
+                            <div className="flex mt-1 space-x-2">
+                              {/* Find if we have a rating for this category from replay data */}
+                              {(() => {
                                 // First check by ID (most reliable)
                                 const ratingCategoryById = categoryList.find(cat => 
                                   cat.id && cat.id === property.id
@@ -623,12 +635,18 @@ function HomeContent() {
                                   console.log(`Rating for ${property.label}: directRating=${directRating}, byId=${ratingCategoryById?.rating}, byName=${ratingCategoryByName?.rating}, final=${rating}`);
                                 }
                                 
-                                return (
-                                  <span key={star} className={star <= rating ? "text-yellow-400" : "text-gray-300 dark:text-gray-600"}>
-                                    ★
-                                  </span>
-                                );
-                              })}
+                                // Render the appropriate color indicator based on rating
+                                switch(rating) {
+                                  case 1:
+                                    return <div className="w-8 h-8 rounded-full !bg-red-500 !border-2 !border-red-500" title="Red rating" />;
+                                  case 2:
+                                    return <div className="w-8 h-8 rounded-full !bg-yellow-300 !border-2 !border-yellow-400" title="Yellow rating" />;
+                                  case 3:
+                                    return <div className="w-8 h-8 rounded-full !bg-green-500 !border-2 !border-green-500" title="Green rating" />;
+                                  default:
+                                    return <div className="w-8 h-8 rounded-full !bg-white !border-2 !border-gray-300 dark:!border-gray-500" title="No rating" />;
+                                }
+                              })()}
                             </div>
                           </li>
                         ))}
@@ -638,6 +656,90 @@ function HomeContent() {
                       </p>
                     </>
                   )}
+                </div>
+              ) : isReplayMode ? (
+                // Show ratings during replay mode
+                <div>
+                  {contentToReview && (
+                    <>
+                      <ul className="space-y-3">
+                        {contentToReview.labelProperties?.map((property) => (
+                          <li key={property.id}>
+                            <div className="font-medium dark:text-white">{property.label}</div>
+                            <div className="flex mt-1 space-x-2">
+                              {/* Find if we have a rating for this category from replay data */}
+                              {(() => {
+                                // First check by ID (most reliable)
+                                const ratingCategoryById = categoryList.find(cat => 
+                                  cat.id && cat.id === property.id
+                                );
+                                
+                                // Then check by name if ID match failed
+                                const ratingCategoryByName = !ratingCategoryById ? categoryList.find(cat => 
+                                  cat.name?.toLowerCase() === property.label.toLowerCase() ||
+                                  cat.name?.toLowerCase().replace(/\s+/g, '') === property.label.toLowerCase().replace(/\s+/g, '')
+                                ) : null;
+                                
+                                // Also check if we have a direct match in the categories object
+                                const directRating = categories[property.id];
+                                
+                                // Use the first available rating
+                                const rating = directRating || 
+                                              ratingCategoryById?.rating || 
+                                              ratingCategoryByName?.rating || 
+                                              0;
+                                
+                                // Render the appropriate color indicator based on rating
+                                switch(rating) {
+                                  case 1:
+                                    return <div className="w-8 h-8 rounded-full !bg-red-500 !border-2 !border-red-500" title="Red rating" />;
+                                  case 2:
+                                    return <div className="w-8 h-8 rounded-full !bg-yellow-300 !border-2 !border-yellow-400" title="Yellow rating" />;
+                                  case 3:
+                                    return <div className="w-8 h-8 rounded-full !bg-green-500 !border-2 !border-green-500" title="Green rating" />;
+                                  default:
+                                    return <div className="w-8 h-8 rounded-full !bg-white !border-2 !border-gray-300 dark:!border-gray-500" title="No rating" />;
+                                }
+                              })()}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        {categoryList.length > 0 ? `${categoryList.length} ${categoryList.length === 1 ? 'category' : 'categories'} rated` : 'No ratings yet'}
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                // Show interactive buttons during recording/editing mode
+                <div className="space-y-3">
+                  {contentToReview.labelProperties?.map((property) => (
+                    <div key={property.id}>
+                      <div className="mb-1 dark:text-white">{property.label}</div>
+                      <div className="flex items-center space-x-2">
+                        {/* Red (1), Yellow (2), Green (3) system */}
+                        <button
+                          type="button"
+                          onClick={() => handleCategoryChange(property.id, 1)}
+                          className={`w-8 h-8 rounded-full !outline-none !border-2 ${(categories[property.id] ?? 0) === 1 ? "!bg-red-500 !border-red-500" : "!bg-white !border-red-500 hover:!bg-red-100"}`}
+                          aria-label="Red rating"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleCategoryChange(property.id, 2)}
+                          className={`w-8 h-8 rounded-full !outline-none !border-2 ${(categories[property.id] ?? 0) === 2 ? "!bg-yellow-300 !border-yellow-400" : "!bg-white !border-yellow-400 hover:!bg-yellow-100"}`}
+                          aria-label="Yellow rating"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleCategoryChange(property.id, 3)}
+                          className={`w-8 h-8 rounded-full !outline-none !border-2 ${(categories[property.id] ?? 0) === 3 ? "!bg-green-500 !border-green-500" : "!bg-white !border-green-500 hover:!bg-green-100"}`}
+                          aria-label="Green rating"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

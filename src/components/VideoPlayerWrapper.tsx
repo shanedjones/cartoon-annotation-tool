@@ -1190,12 +1190,33 @@ export default function VideoPlayerWrapper({
                         <div>
                           {category.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}
                         </div>
-                        <div className="text-yellow-500 flex text-sm">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <span key={star} className={star <= (rating as number) ? 'text-yellow-500' : 'text-gray-300'}>
-                              ★
-                            </span>
-                          ))}
+                        <div className="flex items-center space-x-2">
+                          {(() => {
+                            const ratingValue = rating as number;
+                            
+                            // Display colored indicator based on the rating value
+                            switch(ratingValue) {
+                              case 1:
+                                return <div className="w-6 h-6 rounded-full bg-red-500" title="Red rating" />;
+                              case 2:
+                                return <div className="w-6 h-6 rounded-full bg-yellow-500" title="Yellow rating" />;
+                              case 3:
+                                return <div className="w-6 h-6 rounded-full bg-green-500" title="Green rating" />;
+                              default:
+                                return <div className="w-6 h-6 rounded-full bg-gray-200" title="No rating" />;
+                            }
+                          })()}
+                          <span className="text-sm text-gray-500">
+                            {(() => {
+                              const ratingValue = rating as number;
+                              switch(ratingValue) {
+                                case 1: return "Needs work";
+                                case 2: return "Acceptable";
+                                case 3: return "Good";
+                                default: return "Not rated";
+                              }
+                            })()}
+                          </span>
                         </div>
                       </li>
                     ))}

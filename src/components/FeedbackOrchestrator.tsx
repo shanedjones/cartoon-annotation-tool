@@ -441,9 +441,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           const cats = currentSessionData.categories as Record<string, number | boolean>;
           Object.keys(cats).forEach(key => {
             const value = cats[key];
-            // Only include ratings that have a positive numeric value
+            // Include all non-zero ratings, including booleans converted to numbers
             if (typeof value === 'number' && value > 0) {
               categories[key] = value;
+            } else if (typeof value === 'boolean' && value) {
+              categories[key] = 1; // Convert true to 1
             }
           });
         }
@@ -623,7 +625,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Create new categories object with the updated rating
       const updatedCategories = {
         ...currentCategories,
-        [category]: rating
+        [category]: rating > 0 ? rating : null // Store as null if rating is 0, otherwise store the actual rating
       };
       
       console.log('Updated categories object:', updatedCategories);
@@ -641,7 +643,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     }, 50);
     
     console.log(`Updated session categories with ${category}: ${rating}`);
-  }, [generateId, currentSession]);
+
+    // Also save this as a category event to ensure proper recording
+    const event = {
+      id: generateId(),
+      type: 'category' as const,
+      timeOffset: Date.now() - (recordingStartTimeRef.current || Date.now()),
+      payload: { category, rating },
+      priority: 4
+    };
+    
+    // Add to events array if we're recording
+    if (isActive && recordingStartTimeRef.current) {
+      eventsRef.current.push(event);
+    }
+  }, [generateId, currentSession, isActive]);
   
   /**
    * Complete the replay process
@@ -1171,20 +1187,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         setCurrentSession({ ...session });
       }
       
-      // Create a boolean version for compatibility with components expecting boolean values
-      const booleanCategories: Record<string, boolean> = {};
+      // Ensure we're sending the numeric values directly, not boolean conversions
+      const numericCategories: Record<string, number> = {};
       Object.entries(categoriesState).forEach(([key, value]) => {
-        booleanCategories[key] = value > 0;
+        // Ensure values are stored as numbers
+        numericCategories[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
       });
       
       // Notify parent right away
-      onCategoriesLoaded(booleanCategories);
+      onCategoriesLoaded(numericCategories);
       
       // Also schedule a delayed notification to ensure component has mounted
       setTimeout(() => {
         if (onCategoriesLoaded) {
           console.log('Delayed call to onCategoriesLoaded with:', categoriesState);
-          onCategoriesLoaded(booleanCategories);
+          onCategoriesLoaded(numericCategories);
         }
       }, 100);
     } else {
