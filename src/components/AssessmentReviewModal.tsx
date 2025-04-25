@@ -2,15 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 
-interface FocusArea {
-  id: string;
-  content: string;
-  order: number;
-}
-
 interface AssessmentReview {
   notes: string;
-  focusAreas: FocusArea[];
 }
 
 interface AssessmentReviewModalProps {
@@ -20,23 +13,11 @@ interface AssessmentReviewModalProps {
   onClose: (saved?: boolean) => void;
 }
 
-const DEFAULT_FOCUS_AREAS: FocusArea[] = [
-  { id: 'area-a', content: 'Focus Area A', order: 0 },
-  { id: 'area-b', content: 'Focus Area B', order: 1 },
-  { id: 'area-c', content: 'Focus Area C', order: 2 },
-  { id: 'area-d', content: 'Focus Area D', order: 3 },
-  { id: 'area-e', content: 'Focus Area E', order: 4 },
-  { id: 'area-f', content: 'Focus Area F', order: 5 },
-  { id: 'area-g', content: 'Focus Area G', order: 6 },
-];
-
 export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, onClose }: AssessmentReviewModalProps) {
   const [notes, setNotes] = useState('');
-  const [focusAreas, setFocusAreas] = useState<FocusArea[]>([...DEFAULT_FOCUS_AREAS]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [loadingReview, setLoadingReview] = useState(true);
-  const [draggedItem, setDraggedItem] = useState<number | null>(null);
 
   // Load existing review data if available
   useEffect(() => {
@@ -51,30 +32,18 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
             
             if (data && data.notes) {
               setNotes(data.notes);
-              
-              // If we have saved focus areas, use those, otherwise use defaults
-              if (data.focusAreas && Array.isArray(data.focusAreas) && data.focusAreas.length > 0) {
-                // Sort by order
-                const sortedAreas = [...data.focusAreas].sort((a, b) => a.order - b.order);
-                setFocusAreas(sortedAreas);
-              } else {
-                setFocusAreas([...DEFAULT_FOCUS_AREAS]);
-              }
             } else {
               // No existing review, use defaults
               setNotes('');
-              setFocusAreas([...DEFAULT_FOCUS_AREAS]);
             }
           } else {
             // If 404, it's a new review
             setNotes('');
-            setFocusAreas([...DEFAULT_FOCUS_AREAS]);
           }
         } catch (error) {
           console.error('Error fetching assessment review:', error);
           // Use defaults on error
           setNotes('');
-          setFocusAreas([...DEFAULT_FOCUS_AREAS]);
         } finally {
           setLoadingReview(false);
         }
@@ -93,11 +62,7 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
       
       // Prepare review data
       const reviewData = {
-        notes,
-        focusAreas: focusAreas.map((area, index) => ({
-          ...area,
-          order: index // Update order based on current position
-        }))
+        notes
       };
       
       // Save to API
@@ -127,59 +92,6 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
     }
   };
 
-  // Handle drag start
-  const handleDragStart = (index: number) => {
-    setDraggedItem(index);
-  };
-
-  // Handle drag over
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedItem === null) return;
-    
-    if (draggedItem !== index) {
-      const newFocusAreas = [...focusAreas];
-      const draggedItemContent = newFocusAreas[draggedItem];
-      
-      // Remove the dragged item
-      newFocusAreas.splice(draggedItem, 1);
-      // Insert it at the new position
-      newFocusAreas.splice(index, 0, draggedItemContent);
-      
-      // Update state and dragged item index
-      setFocusAreas(newFocusAreas);
-      setDraggedItem(index);
-    }
-  };
-
-  // Handle drag end
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-  };
-
-  // Move focus area up
-  const moveFocusAreaUp = (index: number) => {
-    if (index === 0) return; // Already at the top
-    
-    const newFocusAreas = [...focusAreas];
-    const temp = newFocusAreas[index];
-    newFocusAreas[index] = newFocusAreas[index - 1];
-    newFocusAreas[index - 1] = temp;
-    
-    setFocusAreas(newFocusAreas);
-  };
-  
-  // Move focus area down
-  const moveFocusAreaDown = (index: number) => {
-    if (index === focusAreas.length - 1) return; // Already at the bottom
-    
-    const newFocusAreas = [...focusAreas];
-    const temp = newFocusAreas[index];
-    newFocusAreas[index] = newFocusAreas[index + 1];
-    newFocusAreas[index + 1] = temp;
-    
-    setFocusAreas(newFocusAreas);
-  };
 
   if (!isOpen) return null;
 
@@ -208,48 +120,6 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
-            </div>
-            
-            <div>
-              <h3 className="block text-sm font-medium text-gray-700 mb-3">
-                Focus Areas (Reorder by priority - highest priority first)
-              </h3>
-              
-              <ul className="space-y-2">
-                {focusAreas.map((area, index) => (
-                  <li
-                    key={area.id}
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragEnd={handleDragEnd}
-                    className={`bg-gray-50 border ${draggedItem === index ? 'border-indigo-500' : 'border-gray-200'} rounded-md p-3 flex items-center cursor-move`}
-                  >
-                    <span className="w-8 h-8 flex items-center justify-center bg-indigo-100 rounded-full text-indigo-800 font-semibold mr-3">
-                      {index + 1}
-                    </span>
-                    <span className="flex-1">{area.content}</span>
-                    <div className="flex space-x-1">
-                      <button
-                        onClick={() => moveFocusAreaUp(index)}
-                        disabled={index === 0}
-                        className={`p-1 rounded hover:bg-gray-200 ${index === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'}`}
-                        title="Move up"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() => moveFocusAreaDown(index)}
-                        disabled={index === focusAreas.length - 1}
-                        className={`p-1 rounded hover:bg-gray-200 ${index === focusAreas.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'}`}
-                        title="Move down"
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
             </div>
             
             {saveError && (

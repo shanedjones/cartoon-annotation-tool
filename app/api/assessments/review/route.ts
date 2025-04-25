@@ -60,7 +60,7 @@ export async function GET(request: Request) {
       return NextResponse.json(session.review, { status: 200 });
     } else {
       return NextResponse.json(
-        { notes: '', focusAreas: [] },
+        { notes: '' },
         { status: 200 }
       );
     }
