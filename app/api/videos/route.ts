@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContainer } from '@/src/lib/db';
-import { getCosmosConfig } from '@/src/utils/validateEnv';
+import { handleRouteError, handleBadRequest, handleNotFound } from '@/src/utils/api';
 
 // Connection and validation will be done inside the handler functions
 // to prevent issues during build time
@@ -60,11 +60,7 @@ export async function GET(request: Request) {
     
     return NextResponse.json(sessions, { status: 200 });
   } catch (error) {
-    console.error('Error fetching data from Cosmos DB:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch data from database' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'video data fetch');
   }
 }
 
@@ -79,10 +75,7 @@ export async function POST(request: Request) {
     if (data.athlete) {
       // Validate session required fields
       if (!data.athlete.name || !data.date || !data.timeWindow) {
-        return NextResponse.json(
-          { error: 'Missing required fields for session: athlete.name, date, timeWindow' },
-          { status: 400 }
-        );
+        return handleBadRequest('Missing required fields for session: athlete.name, date, timeWindow');
       }
       
       // Ensure the session has an ID or generate one
@@ -106,10 +99,7 @@ export async function POST(request: Request) {
       // We're submitting an individual swing
       // Validate required fields
       if (!data.title || !data.videoUrl) {
-        return NextResponse.json(
-          { error: 'Missing required fields: title, videoUrl' },
-          { status: 400 }
-        );
+        return handleBadRequest('Missing required fields: title, videoUrl');
       }
       
       // Ensure the swing has an ID or generate one
@@ -131,11 +121,7 @@ export async function POST(request: Request) {
       return NextResponse.json(createdSwing, { status: 201 });
     }
   } catch (error) {
-    console.error('Error creating data in Cosmos DB:', error);
-    return NextResponse.json(
-      { error: 'Failed to create data in database' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'video data creation');
   }
 }
 
@@ -147,10 +133,7 @@ export async function PUT(request: Request) {
     const data = await request.json();
     
     if (!data.id) {
-      return NextResponse.json(
-        { error: 'Missing ID' },
-        { status: 400 }
-      );
+      return handleBadRequest('Missing ID');
     }
     
     // Check if this is a session update or a swing update
@@ -160,10 +143,7 @@ export async function PUT(request: Request) {
     const { resource: existingItem } = await container.item(data.id, data.id).read();
     
     if (!existingItem) {
-      return NextResponse.json(
-        { error: 'Item not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Item');
     }
     
     // Update status based on specific conditions
@@ -211,10 +191,6 @@ export async function PUT(request: Request) {
     
     return NextResponse.json(updatedItem, { status: 200 });
   } catch (error) {
-    console.error('Error updating data in Cosmos DB:', error);
-    return NextResponse.json(
-      { error: 'Failed to update data in database' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'video data update');
   }
 }

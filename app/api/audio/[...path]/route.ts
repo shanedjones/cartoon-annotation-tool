@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BlobServiceClient } from '@azure/storage-blob';
+import { handleRouteError, handleBadRequest } from '@/src/utils/api';
 
 export async function GET(
   request: NextRequest,
@@ -11,9 +12,10 @@ export async function GET(
     const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
     
     if (!connectionString) {
-      return NextResponse.json(
-        { error: 'Azure Storage connection string not configured' },
-        { status: 500 }
+      return handleRouteError(
+        new Error('Missing connection string'),
+        'audio storage configuration',
+        'Azure Storage connection string not configured'
       );
     }
 
@@ -24,10 +26,7 @@ export async function GET(
     const blobName = Array.isArray(params.path) ? params.path.join('/') : '';
     
     if (!blobName) {
-      return NextResponse.json(
-        { error: 'No blob path specified' },
-        { status: 400 }
-      );
+      return handleBadRequest('No blob path specified');
     }
 
     console.log(`Proxying request for blob: ${blobName}`);
@@ -45,9 +44,10 @@ export async function GET(
       const downloadResponse = await blobClient.downloadToBuffer();
       
       if (!downloadResponse || downloadResponse.length === 0) {
-        return NextResponse.json(
-          { error: 'Failed to download blob or empty blob' },
-          { status: 500 }
+        return handleRouteError(
+          new Error('Empty or missing blob data'),
+          'audio download',
+          'Failed to download blob or empty blob'
         );
       }
       
@@ -92,24 +92,21 @@ export async function GET(
         
         return nextResponse;
       } catch (altError) {
-        console.error('Alternative download method also failed:', altError);
-        return NextResponse.json(
-          { error: 'Failed to download blob using multiple methods' },
-          { status: 500 }
+        return handleRouteError(
+          altError,
+          'audio download (alternative method)',
+          'Failed to download blob using multiple methods'
         );
       }
     }
     
     // This code is unreachable - kept here in case we need it later
-    return NextResponse.json(
-      { error: 'Invalid code path reached' },
-      { status: 500 }
+    return handleRouteError(
+      new Error('Invalid code path reached'),
+      'audio proxy logic',
+      'Invalid code path reached'
     );
   } catch (error) {
-    console.error('Error proxying blob:', error);
-    return NextResponse.json(
-      { error: 'Failed to proxy blob' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'audio proxy', 'Failed to proxy blob');
   }
 }

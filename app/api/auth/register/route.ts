@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createUser, findUserByEmail } from "@/src/lib/auth";
+import { handleRouteError, handleBadRequest, handleConflict } from "@/src/utils/api";
 
 export async function POST(request: Request) {
   try {
@@ -7,19 +8,13 @@ export async function POST(request: Request) {
 
     // Validate input
     if (!email || !name || !password) {
-      return NextResponse.json(
-        { message: "Missing required fields" },
-        { status: 400 }
-      );
+      return handleBadRequest("Missing required fields");
     }
 
     // Check if user already exists
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
-      return NextResponse.json(
-        { message: "User with this email already exists" },
-        { status: 409 }
-      );
+      return handleConflict("User with this email already exists");
     }
 
     // Create new user
@@ -27,9 +22,10 @@ export async function POST(request: Request) {
 
     // Check if user was created successfully
     if (!user) {
-      return NextResponse.json(
-        { message: "Failed to create user" },
-        { status: 500 }
+      return handleRouteError(
+        new Error("User creation failed"),
+        "user registration",
+        "Failed to create user"
       );
     }
 
@@ -44,10 +40,6 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Registration error:", error);
-    return NextResponse.json(
-      { message: "An error occurred during registration" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "user registration", "An error occurred during registration");
   }
 }

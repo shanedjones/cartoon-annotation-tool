@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadAudioBlob, ensureContainer } from '@/src/utils/azureStorage';
+import { handleRouteError, handleBadRequest } from '@/src/utils/api';
 
 // Container initialization will be done at runtime during the first request
 
@@ -10,11 +11,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await ensureContainer();
       console.log('Container initialization successful');
     } catch (err) {
-      console.error('Failed to initialize Azure Storage container:', err);
-      return NextResponse.json(
-        { error: `Failed to initialize storage: ${err instanceof Error ? err.message : 'Unknown error'}` },
-        { status: 500 }
-      );
+      return handleRouteError(err, 'storage initialization', 'Failed to initialize storage');
     }
 
     // Get the form data from the request
@@ -23,20 +20,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const sessionId = formData.get('sessionId') as string;
     
     if (!audioFile || !sessionId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: audio, sessionId' },
-        { status: 400 }
-      );
+      return handleBadRequest('Missing required fields: audio, sessionId');
     }
     
     // Convert File to Blob
     const audioBuffer = await audioFile.arrayBuffer();
     
     if (!audioBuffer) {
-      console.error('Failed to get array buffer from file');
-      return NextResponse.json(
-        { error: 'Failed to process audio file' },
-        { status: 500 }
+      return handleRouteError(
+        new Error('Failed to get array buffer from file'),
+        'audio processing',
+        'Failed to process audio file'
       );
     }
     
@@ -48,10 +42,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Return the blob URL
     return NextResponse.json({ url: blobUrl }, { status: 200 });
   } catch (error) {
-    console.error('Error uploading audio blob:', error);
-    return NextResponse.json(
-      { error: 'Failed to upload audio blob' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'audio upload', 'Failed to upload audio blob');
   }
 }

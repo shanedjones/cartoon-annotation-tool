@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContainer } from '@/src/lib/db';
+import { handleRouteError, handleBadRequest, handleNotFound } from '@/src/utils/api';
 
 // Connection and validation will be done inside the handler functions
 // to prevent issues during build time
@@ -10,10 +11,7 @@ export async function GET(request: Request) {
   const sessionId = searchParams.get('sessionId');
 
   if (!sessionId) {
-    return NextResponse.json(
-      { error: 'Missing sessionId parameter' },
-      { status: 400 }
-    );
+    return handleBadRequest('Missing sessionId parameter');
   }
 
   try {
@@ -24,10 +22,7 @@ export async function GET(request: Request) {
     const { resource: session } = await container.item(sessionId, sessionId).read();
     
     if (!session) {
-      return NextResponse.json(
-        { error: 'Assessment session not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Assessment session');
     }
     
     // Return the review data if it exists
@@ -40,11 +35,7 @@ export async function GET(request: Request) {
       );
     }
   } catch (error) {
-    console.error('Error fetching assessment review:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch assessment review' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'assessment review fetch');
   }
 }
 
@@ -58,20 +49,14 @@ export async function POST(request: Request) {
     const { sessionId, review } = data;
     
     if (!sessionId || !review) {
-      return NextResponse.json(
-        { error: 'Missing required fields: sessionId, review' },
-        { status: 400 }
-      );
+      return handleBadRequest('Missing required fields: sessionId, review');
     }
     
     // Get the existing session
     const { resource: session } = await container.item(sessionId, sessionId).read();
     
     if (!session) {
-      return NextResponse.json(
-        { error: 'Assessment session not found' },
-        { status: 404 }
-      );
+      return handleNotFound('Assessment session');
     }
     
     // Update the session with the review data
@@ -86,10 +71,6 @@ export async function POST(request: Request) {
     
     return NextResponse.json(updatedSession.review, { status: 200 });
   } catch (error) {
-    console.error('Error saving assessment review:', error);
-    return NextResponse.json(
-      { error: 'Failed to save assessment review' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'assessment review save');
   }
 }
