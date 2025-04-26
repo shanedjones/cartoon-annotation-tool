@@ -305,13 +305,13 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
     
     // If we're already loading this specific URL, don't start another load
     if (loadingUrlRef.current === state.videoUrl) {
-      console.log('Already loading this URL, skipping duplicate request:', state.videoUrl);
+      
       return;
     }
     
     // If we're already loading and it's a different URL, cancel the old load and start a new one
     if (state.isLoading) {
-      console.log('Switching to load new URL:', state.videoUrl);
+      
     }
     
     // Start loading this URL
@@ -320,7 +320,7 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
         // Mark we're loading this specific URL
         loadingUrlRef.current = state.videoUrl;
         dispatch({ type: 'SET_LOADING', payload: { isLoading: true } });
-        console.log('Starting to load video:', state.videoUrl);
+        
         
         // Check if this is a local file URL or blob URL (which we shouldn't try to cache)
         const isLocalOrBlobUrl = 
@@ -329,7 +329,7 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
           state.videoUrl.startsWith('file:');
           
         if (isLocalOrBlobUrl) {
-          console.log('Using local URL directly, skipping cache:', state.videoUrl);
+          
           dispatch({ type: 'SET_CACHED_URL', payload: { url: state.videoUrl } });
           dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
           return;
@@ -340,12 +340,12 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
         
         // Make sure we're still loading the same URL (user might have changed it while we were loading)
         if (loadingUrlRef.current !== state.videoUrl) {
-          console.log('URL changed during cache lookup, aborting load of:', state.videoUrl);
+          
           return;
         }
         
         if (cachedVideo) {
-          console.log('Found video in cache:', state.videoUrl);
+          
           dispatch({ type: 'SET_CACHED_URL', payload: { url: cachedVideo.blobUrl } });
           dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
           return;
@@ -359,20 +359,20 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
             isCrossOrigin = videoUrlObj.origin !== window.location.origin;
           }
         } catch (e) {
-          console.warn('Error parsing URL, assuming same-origin:', e);
+          
         }
         
         if (isCrossOrigin) {
-          console.log('Cross-origin video, may have CORS issues:', state.videoUrl);
+          
         }
         
         // Not in cache, need to download and cache
-        console.log('Video not in cache, downloading:', state.videoUrl);
+        
         const blobUrl = await cacheVideo(state.videoUrl);
         
         // Make sure we're still loading the same URL
         if (loadingUrlRef.current !== state.videoUrl) {
-          console.log('URL changed during fetch, aborting load of:', state.videoUrl);
+          
           return;
         }
         
@@ -383,7 +383,7 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
         const stats = await getVideoCacheStats();
         dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
       } catch (error) {
-        console.error('Error loading video:', error);
+        
         
         // Check if URL is still the same before setting error
         if (loadingUrlRef.current === state.videoUrl) {
@@ -512,7 +512,7 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
         const stats = await getVideoCacheStats();
         dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
       } catch (error) {
-        console.error('Error clearing video cache:', error);
+        
         dispatch({ 
           type: 'SET_ERROR', 
           payload: { 

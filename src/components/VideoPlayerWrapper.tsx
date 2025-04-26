@@ -39,31 +39,25 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
   try {
     // Validate input parameters
     if (!base64 || typeof base64 !== 'string') {
-      console.error('Invalid base64 input: not a string or empty', typeof base64);
       throw new Error('Invalid base64 input: not a string or empty');
     }
     
     if (!mimeType || typeof mimeType !== 'string') {
-      console.warn('Invalid or missing MIME type, using default: audio/webm');
       mimeType = 'audio/webm'; // Fallback to default
     }
     
     // First ensure we have a proper data URL with the correct format
     if (!base64.startsWith('data:')) {
-      console.error('Invalid base64 string format - missing data: prefix');
-      console.debug('String starts with:', base64.substring(0, Math.min(20, base64.length)));
       throw new Error('Invalid base64 string format - missing data: prefix');
     }
     
     if (!base64.includes(',')) {
-      console.error('Invalid base64 string format - missing comma separator');
       throw new Error('Invalid base64 string format - missing comma separator');
     }
     
     // Extract the base64 part after the comma
     const base64Data = base64.split(',')[1];
     if (!base64Data) {
-      console.error('Invalid base64 string - no data after comma');
       throw new Error('Invalid base64 string - no data after comma');
     }
     
@@ -72,7 +66,6 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
     const mimeMatch = headerPart.match(/^data:(.*?)(;base64)?$/);
     if (mimeMatch && mimeMatch[1]) {
       // If the data URL contains a MIME type, use it instead of the provided mimeType
-      console.log(`Using MIME type from data URL (${mimeMatch[1]}) instead of provided type (${mimeType})`);
       mimeType = mimeMatch[1];
     }
     
@@ -94,18 +87,14 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
       
       // Validate created blob
       if (blob.size === 0) {
-        console.warn('Created an empty blob from base64 data, possible data corruption');
       } else {
-        console.log(`Successfully converted base64 to Blob: size=${blob.size}, type=${blob.type}`);
       }
       
       return blob;
     } catch (binaryError) {
-      console.error('Error processing binary data:', binaryError);
       throw new Error(`Failed to process binary data: ${binaryError instanceof Error ? binaryError.message : String(binaryError)}`);
     }
   } catch (error) {
-    console.error('Error converting base64 to Blob:', error);
     throw error;
   }
 };
@@ -113,11 +102,9 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
 // Helper function to prepare audio chunks for saving to JSON
 const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> => {
   if (!chunks || chunks.length === 0) {
-    console.log('No audio chunks to prepare for save');
     return [];
   }
   
-  console.log(`Preparing ${chunks.length} audio chunks for save...`);
   
   // Create a deep copy of the chunks
   return Promise.all(chunks.map(async (chunk, index) => {
@@ -127,13 +114,13 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
       
       // Only convert if it's a Blob and not already a string
       if (chunk.blob instanceof Blob) {
-        console.log(`Chunk ${index}: Converting Blob to base64, size: ${chunk.blob.size}, type: ${chunk.blob.type}`);
+        
         
         // Convert Blob to base64 string for storage
         const base64 = await blobToBase64(chunk.blob);
         
         // Log length of base64 string for debugging
-        console.log(`Chunk ${index}: Base64 conversion complete, string length: ${base64.length}`);
+        
         
         // Save with MIME type and other properties
         return {
@@ -145,12 +132,12 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
         };
       } else if (typeof chunk.blob === 'string' && chunk.blob.startsWith('data:')) {
         // Already a data URL, verify it's properly formatted
-        console.log(`Chunk ${index}: Already a data URL, length: ${chunk.blob.length}`);
+        
         
         // Verify data URL format
         const parts = chunk.blob.split(',');
         if (parts.length !== 2) {
-          console.warn(`Chunk ${index}: Invalid data URL format - wrong number of parts`);
+          
         }
         
         // Return as is, but ensure all properties are set
@@ -161,7 +148,7 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
           blobUrl: chunk.blobUrl // Keep the Azure Storage blob URL if it exists
         };
       } else {
-        console.warn(`Chunk ${index}: Unknown blob format: ${typeof chunk.blob}`);
+        
         
         // Return with minimal valid properties
         return {
@@ -173,12 +160,12 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
         };
       }
     } catch (error) {
-      console.error(`Error converting audio chunk ${index} for storage:`, error);
+      
       return null;
     }
   })).then(results => {
     const validResults = results.filter(Boolean); // Remove any failed conversions
-    console.log(`Successfully prepared ${validResults.length} of ${chunks.length} audio chunks for save`);
+    
     return validResults;
   });
 };
@@ -186,38 +173,38 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
 // Helper function to restore audio chunks when loading saved data
 const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
   if (!savedChunks || savedChunks.length === 0) {
-    console.log('No audio chunks to restore');
+    
     return [];
   }
   
-  console.log(`Restoring ${savedChunks.length} audio chunks...`);
+  
   
   return savedChunks.map((savedChunk, index) => {
     try {
       // If blob is already a Blob object, just return the chunk as is
       if (savedChunk.blob instanceof Blob) {
-        console.log(`Chunk ${index}: Already a Blob object`);
+        
         return savedChunk;
       }
       
       // If blob is a string (data URL), validate and keep as a string for compatibility
       if (typeof savedChunk.blob === 'string') {
         if (savedChunk.blob.startsWith('data:')) {
-          console.log(`Chunk ${index}: Found data URL, keeping as string for AudioRecorder component`);
+          
           
           // Try to validate the data URL format
           try {
             const dataUrlParts = savedChunk.blob.split(',');
             if (dataUrlParts.length !== 2) {
-              console.warn(`Chunk ${index}: Invalid data URL format - wrong number of parts`);
+              
             }
             // Check if the mime type part is valid
             const mimeMatch = dataUrlParts[0].match(/:(.*?);/);
             if (!mimeMatch) {
-              console.warn(`Chunk ${index}: Data URL has no valid MIME type`);
+              
             }
           } catch (validationError) {
-            console.warn(`Chunk ${index}: Error validating data URL:`, validationError);
+            
           }
           
           // Ensure all required properties are present
@@ -231,18 +218,16 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
             blobUrl: savedChunk.blobUrl // Keep the Azure Storage blob URL if it exists
           };
         } else {
-          console.warn(`Chunk ${index}: String blob doesn't start with 'data:' prefix: ${savedChunk.blob.substring(0, 20)}...`);
+          
         }
       }
       
-      console.warn(`Unknown blob format in chunk ${index}:`, typeof savedChunk.blob);
-      // Log more details to aid debugging
+      
       if (typeof savedChunk.blob === 'string') {
-        console.info(`Chunk ${index} string length: ${savedChunk.blob.length}, starts with: ${savedChunk.blob.substring(0, 30)}...`);
-      } else if (savedChunk.blob === null) {
-        console.warn(`Chunk ${index}: Blob is null`);
+              } else if (savedChunk.blob === null) {
+        
       } else if (savedChunk.blob === undefined) {
-        console.warn(`Chunk ${index}: Blob is undefined`);
+        
       }
       
       // Return a simplified chunk as a fallback (audio won't play but won't crash either)
@@ -256,7 +241,7 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
         blobUrl: savedChunk.blobUrl // Keep the Azure Storage blob URL if it exists
       };
     } catch (error) {
-      console.error(`Error restoring audio chunk ${index}:`, error);
+      
       return null;
     }
   }).filter(Boolean as any); // Remove any failed conversions
@@ -351,7 +336,7 @@ const convertSessionToLegacyData = (session: FeedbackSession): FeedbackData => {
     }
     else if (event.type === 'marker') {
       // Skip markers, as they don't have a direct equivalent in the legacy format
-      console.log('Skipping marker event in legacy conversion:', event.payload.text);
+      
     }
   });
   
@@ -391,7 +376,7 @@ export default function VideoPlayerWrapper({
   try {
     videoContext = useVideo();
   } catch (error) {
-    console.warn('VideoContext not available:', error);
+    
     videoContext = { setVideoUrl: () => {}, state: {} };
   }
   
@@ -463,7 +448,7 @@ export default function VideoPlayerWrapper({
   // Stop recording
   const stopRecording = useCallback(() => {
     if (orchestratorRef.current) {
-      console.log('Stopping recording session');
+      
       
       // End recording session
       orchestratorRef.current.endRecordingSession();
@@ -471,7 +456,7 @@ export default function VideoPlayerWrapper({
       
       // Reset video to beginning
       if (videoRef.current) {
-        console.log('Resetting video position to start');
+        
         videoRef.current.currentTime = 0;
         
         // If it's playing, pause it
@@ -482,7 +467,7 @@ export default function VideoPlayerWrapper({
       
       // Clear annotations
       if (annotationCanvasComponentRef.current) {
-        console.log('Clearing annotations after recording stopped');
+        
         if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
           annotationCanvasComponentRef.current.clearCanvasDrawings();
         }
@@ -496,7 +481,7 @@ export default function VideoPlayerWrapper({
       // Make sure session availability is updated immediately
       if (typeof window !== 'undefined') {
         window.__hasRecordedSession = true;
-        console.log('Session available flag set to true after stopping recording');
+        
         
         // Dispatch a custom event to notify about session availability
         window.dispatchEvent(new Event('session-available'));
@@ -511,35 +496,35 @@ export default function VideoPlayerWrapper({
     
     // Prepare canvas
     if (annotationCanvasComponentRef.current && annotationCanvasComponentRef.current.clearCanvasDrawings) {
-      console.log('Clearing annotations before starting replay');
+      
       annotationCanvasComponentRef.current.clearCanvasDrawings();
     }
     
     // Prepare video if available
     if (videoRef.current) {
-      console.log('Resetting video position before starting replay');
+      
       videoRef.current.currentTime = 0;
     }
     
     if (orchestratorRef.current && currentSession) {
       // First, handle categories clearing if needed
       if (onCategoriesCleared) {
-        console.log('Clearing categories before replay');
+        
         onCategoriesCleared();
       }
       
-      console.log('Replaying session with categories:', currentSession.categories);
+      
       
       // Load the session if needed
       if (typeof window !== 'undefined' && !window.__sessionReady) {
-        console.log('Loading session data');
+        
         orchestratorRef.current.loadSession(currentSession);
       }
       
       // Now batch the state updates to reduce re-renders
       try {
         // Batch state updates together to minimize renders
-        console.log('Batching state updates for replay');
+        
         setMode('replay');
         setIsActive(true);
         
@@ -547,17 +532,17 @@ export default function VideoPlayerWrapper({
         // before starting the replay, which prevents race conditions
         setTimeout(() => {
           if (orchestratorRef.current) {
-            console.log('Starting replay after state updates');
+            
             orchestratorRef.current.startReplay();
             
             // Set the completed review status if needed
             if (typeof window !== 'undefined' && window.__isCompletedVideo) {
-              console.log('Starting replay of completed review');
+              
             }
           }
         }, 0);
       } catch (error) {
-        console.error('Error in replay state updates:', error);
+        
       }
     } else {
       alert('No recorded session to replay. Record a session first.');
@@ -580,7 +565,7 @@ export default function VideoPlayerWrapper({
       
       // Reset video to beginning
       if (videoRef.current) {
-        console.log('Resetting video position to start after replay');
+        
         videoRef.current.currentTime = 0;
         
         // If it's playing, pause it
@@ -591,7 +576,7 @@ export default function VideoPlayerWrapper({
       
       // Clear annotations
       if (annotationCanvasComponentRef.current) {
-        console.log('Clearing annotations after replay stopped');
+        
         if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
           annotationCanvasComponentRef.current.clearCanvasDrawings();
         }
@@ -613,13 +598,13 @@ export default function VideoPlayerWrapper({
     const categoriesCopy = JSON.parse(JSON.stringify(categories));
     
     // Log the actual values we're trying to save
-    console.log('Current categories to save:', categoriesCopy);
+    
     
     // Log which categories are true (selected)
     const selectedCategories = Object.entries(categoriesCopy)
       .filter(([_, value]) => value)
       .map(([key]) => key);
-    console.log('Selected categories:', selectedCategories);
+    
     
     // Add the categories to the session
     const sessionWithCategories = {
@@ -636,13 +621,13 @@ export default function VideoPlayerWrapper({
     // Update session availability flag immediately
     if (typeof window !== 'undefined') {
       window.__hasRecordedSession = true;
-      console.log('Session available flag set to true');
+      
       
       // Dispatch a custom event to notify about session availability
       window.dispatchEvent(new Event('session-available'));
     }
     
-    console.log('Session completed with categories:', sessionWithCategories);
+    
     
     // Call the parent's onSessionComplete callback if provided
     if (onSessionComplete) {
@@ -652,7 +637,7 @@ export default function VideoPlayerWrapper({
   
   // Handle audio recording completed
   const handleAudioRecorded = useCallback((audioTrack: AudioTrack) => {
-    console.log('Audio recorded:', audioTrack);
+    
   }, []);
   
   // Draw annotation
@@ -661,49 +646,40 @@ export default function VideoPlayerWrapper({
     if (videoRef.current && !path.videoTime) {
       path.videoTime = videoRef.current.currentTime * 1000;
       
-      console.log('Setting videoTime for new annotation:', path.videoTime);
+      
     }
     
     // Pass annotation to the annotation canvas component via the VideoPlayer
     if (annotationCanvasComponentRef.current) {
-      // Log the attempt to draw to aid debugging
-      console.log('Drawing annotation via handleManualAnnotation:', {
-        pathPoints: path.points?.length || 0,
-        color: path.color,
-        width: path.width,
-        videoTime: path.videoTime,
-        timeOffset: (path as any).timeOffset, // For debug only
-        isReplay: !!path.videoTime // If videoTime is set, it's likely a replay
-      });
       
       try {
         // Use the handleManualAnnotation method exposed by the AnnotationCanvas
         annotationCanvasComponentRef.current.handleManualAnnotation(path);
       } catch (error) {
-        console.error('Error drawing annotation:', error);
+        
       }
     } else {
-      console.warn('Could not draw annotation: annotation canvas ref is not available');
+      
     }
   }, []);
   
   // Clear annotations
   const clearAnnotations = useCallback(() => {
     if (annotationCanvasComponentRef.current) {
-      console.log('Clearing annotations via clearCanvasDrawings');
+      
       
       try {
         // Use the clearCanvasDrawings method exposed by the AnnotationCanvas
         if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
           annotationCanvasComponentRef.current.clearCanvasDrawings();
         } else {
-          console.warn('clearCanvasDrawings method not found on annotationCanvas');
+          
         }
       } catch (error) {
-        console.error('Error clearing annotations:', error);
+        
       }
     } else {
-      console.warn('Could not clear annotations: annotation canvas ref is not available');
+      
     }
   }, []);
   
@@ -719,7 +695,7 @@ export default function VideoPlayerWrapper({
       const sessionCopy = JSON.parse(JSON.stringify(currentSession));
       
       // Ensure categories are included in the download
-      console.log('Current session categories before download:', sessionCopy.categories);
+      
       
       // Deep copy the categories to ensure they're not references
       const categoriesCopy = JSON.parse(JSON.stringify(categories));
@@ -728,20 +704,20 @@ export default function VideoPlayerWrapper({
       const selectedCategories = Object.entries(categoriesCopy)
         .filter(([_, value]) => value)
         .map(([key]) => key);
-      console.log('Selected categories for download:', selectedCategories);
+      
       
       // Make sure we have the latest categories
       sessionCopy.categories = categoriesCopy;
-      console.log('Updated session categories for download:', sessionCopy.categories);
+      
       
       // Prepare audio chunks for serialization
       if (sessionCopy.audioTrack && sessionCopy.audioTrack.chunks.length > 0) {
         try {
-          console.log(`Preparing ${sessionCopy.audioTrack.chunks.length} audio chunks for save...`);
+          
           sessionCopy.audioTrack.chunks = await prepareAudioChunksForSave(sessionCopy.audioTrack.chunks);
-          console.log('Audio chunks prepared successfully:', sessionCopy.audioTrack.chunks.length);
+          
         } catch (error) {
-          console.error('Failed to prepare audio chunks for saving:', error);
+          
           alert('There was an issue preparing audio data for download. Some audio content may be missing.');
         }
       }
@@ -756,7 +732,7 @@ export default function VideoPlayerWrapper({
       linkElement.click();
       document.body.removeChild(linkElement);
     } catch (error) {
-      console.error('Error during download process:', error);
+      
       alert('Failed to download session data. See console for details.');
     }
   }, [currentSession, categories]);
@@ -779,7 +755,7 @@ export default function VideoPlayerWrapper({
           const loadedSession = jsonData as FeedbackSession;
           
           // Log if we have categories
-          console.log('Loaded session categories:', loadedSession.categories);
+          
           
           // Restore audio chunks with proper Blob objects if they exist
           if (loadedSession.audioTrack && loadedSession.audioTrack.chunks) {
@@ -790,7 +766,7 @@ export default function VideoPlayerWrapper({
           // Also update legacy format for compatibility
           setFeedbackData(convertSessionToLegacyData(loadedSession));
           
-          console.log('Loaded feedback session:', loadedSession);
+          
         } else {
           // It's the legacy FeedbackData format
           const legacyData = jsonData as FeedbackData;
@@ -805,16 +781,16 @@ export default function VideoPlayerWrapper({
           const newSession = convertLegacyDataToSession(legacyData);
           setCurrentSession(newSession);
           
-          console.log('Loaded legacy feedback data and converted to session:', legacyData);
+          
         }
       } catch (error) {
-        console.error("Failed to parse uploaded file:", error);
+        
         alert("Invalid feedback data file. Please upload a valid JSON file.");
       }
     };
     
     reader.onerror = (error) => {
-      console.error('Error reading file:', error);
+      
       alert('Error reading the file. Please try again.');
     };
     
@@ -829,14 +805,14 @@ export default function VideoPlayerWrapper({
   // Method to record a category change
   const recordCategoryChange = useCallback((category: string, rating: number) => {
     if (orchestratorRef.current) {
-      console.log(`Recording category change in orchestrator: ${category} = ${rating}`);
+      
       
       // Check if recording is active - if not, initiate a minimal session if needed
       if (!isActive && mode === 'record') {
-        console.log('Not actively recording, but will still save category rating');
+        
         // If we don't have a current session, create a simple one for storing categories
         if (!currentSession) {
-          console.log('Creating minimal session for categories');
+          
           const newSession = {
             id: `temp-${Date.now()}`,
             videoId: videoId || 'unknown',
@@ -852,7 +828,7 @@ export default function VideoPlayerWrapper({
       // Always store category changes, even if not actively recording
       orchestratorRef.current.handleCategoryEvent(category, rating);
     } else {
-      console.warn('Unable to record category change - orchestrator not available');
+      
     }
   }, [mode, isActive, currentSession, videoId]);
   
@@ -861,13 +837,6 @@ export default function VideoPlayerWrapper({
     // Store the video player reference
     annotationCanvasComponentRef.current = videoPlayerInstance?.annotationCanvas;
     
-    // Log the reference to ensure we have it
-    console.log('Got video player ref with annotation canvas:', {
-      videoPlayer: !!videoPlayerInstance,
-      annotationCanvas: !!videoPlayerInstance?.annotationCanvas,
-      canvasMethods: videoPlayerInstance?.annotationCanvas ? 
-        Object.keys(videoPlayerInstance.annotationCanvas) : []
-    });
   }, []);
   
   // Listen for replay progress to detect completion
@@ -877,12 +846,12 @@ export default function VideoPlayerWrapper({
       const progress = orchestratorRef.current.replayProgress;
       if (progress === 100) {
         // Replay has completed, reset the UI state
-        console.log('Detected replay completion via progress = 100%, resetting UI state');
+        
         setIsActive(false);
         
         // Reset video to beginning
         if (videoRef.current) {
-          console.log('Auto-resetting video position to start after replay completion');
+          
           videoRef.current.currentTime = 0;
           
           // If it's playing, pause it
@@ -893,7 +862,7 @@ export default function VideoPlayerWrapper({
         
         // Clear annotations
         if (annotationCanvasComponentRef.current) {
-          console.log('Auto-clearing annotations after replay completion');
+          
           if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
             annotationCanvasComponentRef.current.clearCanvasDrawings();
           }
@@ -947,7 +916,7 @@ export default function VideoPlayerWrapper({
     // Notify parent component about replay mode changes
     if (onReplayModeChange) {
       const isReplay = mode === 'replay';
-      console.log(`Notifying parent about replay mode: ${isReplay}`);
+      
       onReplayModeChange(isReplay);
     }
     
@@ -962,7 +931,7 @@ export default function VideoPlayerWrapper({
   // Load session but only start replay if not a completed video
   useEffect(() => {
     if (initialSession && !isActive && mode === 'record') {
-      console.log("Initial session provided, preparing for replay");
+      
       
       // Set a small delay to ensure everything is properly initialized
       setTimeout(() => {
@@ -975,13 +944,13 @@ export default function VideoPlayerWrapper({
           
           // Check if this is a new session or a completed video
           if (typeof window !== 'undefined' && !window.__isCompletedVideo) {
-            console.log("Auto-starting replay for new session");
+            
             // For new reviews, we auto-start and switch to replay mode
             setMode('replay');
             orchestratorRef.current.startReplay();
             setIsActive(true);
           } else {
-            console.log("Completed video review - replay is ready but not auto-started");
+            
             // For completed videos, just set ready flag but don't change mode yet
             if (typeof window !== 'undefined') {
               window.__sessionReady = true;
@@ -1000,13 +969,13 @@ export default function VideoPlayerWrapper({
     const videoSource = useVideoSource();
     contextVideoUrl = videoSource?.effectiveUrl;
   } catch (error) {
-    console.warn('VideoSource not available:', error);
+    
     contextVideoUrl = videoUrl; // Fallback to prop
   }
   
   // Log when the effective URL changes
   useEffect(() => {
-    console.log('VideoPlayerWrapper: Context effective URL:', contextVideoUrl);
+    
   }, [contextVideoUrl]);
   
   return (
@@ -1067,7 +1036,7 @@ export default function VideoPlayerWrapper({
               ?.map(e => {
                 // Make sure the tool property is preserved during replay
                 const tool = e.payload.path.tool || 'freehand';
-                console.log(`Preparing annotation for replay: tool=${tool}, points=${e.payload.path.points?.length}`);
+                
                 
                 return {
                   ...e.payload.path,
@@ -1079,7 +1048,7 @@ export default function VideoPlayerWrapper({
               }) || feedbackData.annotations || []}
             videoUrl={videoUrl}
             onLoadingStateChange={(isLoading) => {
-              console.log('Video loading state changed:', isLoading);
+              
               setIsVideoLoading(isLoading);
               if (onVideoLoadingChange) {
                 onVideoLoadingChange(isLoading);
@@ -1129,21 +1098,21 @@ export default function VideoPlayerWrapper({
           onCategoriesLoaded={(loadedCategories) => {
             // When a session is loaded with categories, we need to notify the parent component
             if (loadedCategories) {
-              console.log('WRAPPER: Received loaded categories from orchestrator:', loadedCategories);
+              
               
               // First clear existing categories
               if (onCategoriesCleared) {
-                console.log('WRAPPER: Clearing existing categories before loading new ones');
+                
                 onCategoriesCleared();
               }
               
               // Check if we have any true categories
               const hasCheckedCategories = Object.values(loadedCategories).some(isChecked => isChecked);
-              console.log(`WRAPPER: Has checked categories: ${hasCheckedCategories}`);
+              
               
               // Then load the saved categories using the callback if available
               if (hasCheckedCategories && onCategoriesLoaded) {
-                console.log('WRAPPER: Passing categories to parent component');
+                
                 
                 // Delay slightly to ensure UI state is updated properly after clearing
                 setTimeout(() => {
@@ -1155,10 +1124,10 @@ export default function VideoPlayerWrapper({
                   onCategoriesLoaded(numberCategories);
                 }, 100);
               } else {
-                console.log('WRAPPER: No checked categories or no callback available');
+                
               }
             } else {
-              console.warn('WRAPPER: No categories data received from orchestrator');
+              
             }
           }}
           ref={getOrchestratorRef}

@@ -14,13 +14,13 @@ export const uploadAudioToStorage = async (audioBlob: Blob, sessionId: string): 
       throw new Error('Invalid audio blob provided for upload');
     }
     
-    console.log(`Preparing to upload audio blob: size=${audioBlob.size}, type=${audioBlob.type}`);
+    
     
     const formData = new FormData();
     formData.append('audio', new File([audioBlob], 'audio.webm', { type: audioBlob.type || 'audio/webm' }));
     formData.append('sessionId', sessionId);
     
-    console.log('Sending audio blob to API endpoint');
+    
     
     const response = await fetch('/api/audio', {
       method: 'POST',
@@ -44,10 +44,10 @@ export const uploadAudioToStorage = async (audioBlob: Blob, sessionId: string): 
       throw new Error('No URL returned from audio upload API');
     }
     
-    console.log('Successfully uploaded audio blob, received URL:', data.url);
+    
     return data.url;
   } catch (error) {
-    console.error('Error uploading audio to storage:', error);
+    
     throw error;
   }
 };
@@ -67,7 +67,7 @@ export const downloadAudioFromUrl = async (url: string): Promise<Blob> => {
     
     return await response.blob();
   } catch (error) {
-    console.error('Error downloading audio from URL:', error);
+    
     throw error;
   }
 };

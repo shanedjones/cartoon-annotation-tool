@@ -82,12 +82,12 @@ function HomeContent() {
           
           // Check if this video has a saved review session
           if (selectedVideo.reviewSession) {
-            console.log("Found saved review session:", selectedVideo.reviewSession);
+            
             setSavedReviewSession(selectedVideo.reviewSession);
             
             // If status is "Completed", make session available for replay but don't auto-start
             if (selectedVideo.status === "Completed") {
-              console.log("Completed review found, making session available for replay");
+              
               // Use type assertion to add custom properties to window
               (window as any).__hasRecordedSession = true;
               (window as any).__isCompletedVideo = true; // Mark as already completed
@@ -96,7 +96,7 @@ function HomeContent() {
               
               // Load categories from the saved session for immediate display
               if (selectedVideo.reviewSession.categories) {
-                console.log("Loading categories from saved session:", selectedVideo.reviewSession.categories);
+                
                 
                 // Convert categories to the expected format
                 const savedCategories: Record<string, number> = {};
@@ -120,7 +120,7 @@ function HomeContent() {
                     }));
                     
                   if (formattedCategories.length > 0) {
-                    console.log("Setting formatted categories for display:", formattedCategories);
+                    
                     setCategoryList(formattedCategories);
                   }
                 }
@@ -129,7 +129,7 @@ function HomeContent() {
           }
         }
       } catch (error) {
-        console.error("Error loading video:", error);
+        
       }
     };
     
@@ -263,7 +263,7 @@ function HomeContent() {
           
           // If we just stopped recording, set saving state to true
           if (wasRecording && !currentlyRecording && !isSaving && !isSavingComplete) {
-            console.log('Recording stopped, entering saving state');
+            
             setIsSaving(true);
           }
         }
@@ -271,12 +271,12 @@ function HomeContent() {
         // Check session availability
         const hasSession = !!window.__hasRecordedSession;
         if (hasSession !== hasRecordedSession) {
-          console.log(`Session availability changed: ${hasSession}`);
+          
           setHasRecordedSession(hasSession);
           
           // If we just got a session and were in saving state, we're done saving
           if (hasSession && isSaving) {
-            console.log('Session available, saving complete');
+            
             setIsSaving(false);
             setIsSavingComplete(true);
             setIsCompletedVideo(true); // Mark as completed to prevent recording button from reappearing
@@ -286,12 +286,12 @@ function HomeContent() {
         // Check if this is a completed video
         const isCompleted = !!window.__isCompletedVideo;
         if (isCompleted !== isCompletedVideo) {
-          console.log(`Completed video status changed: ${isCompleted}`);
+          
           setIsCompletedVideo(isCompleted);
           
           // If video was just marked as completed and we were saving, we're done
           if (isCompleted && isSaving) {
-            console.log('Video marked completed, saving complete');
+            
             setIsSaving(false);
             setIsSavingComplete(true);
           }
@@ -300,14 +300,14 @@ function HomeContent() {
         // Check if session is ready for replay
         const sessionReady = !!window.__sessionReady;
         if (sessionReady !== isSessionReady) {
-          console.log(`Session ready status changed: ${sessionReady}`);
+          
           setIsSessionReady(sessionReady);
         }
         
         // Check if session is actively being replayed
         const isReplayActive = !!window.__isReplaying;
         if (isReplayActive !== isReplayMode) {
-          console.log(`Replay active status changed: ${isReplayActive}`);
+          
           setIsReplayMode(isReplayActive);
         }
       }
@@ -321,12 +321,12 @@ function HomeContent() {
     
     // Listen for session availability events
     const handleSessionChange = () => {
-      console.log('Received session change event');
+      
       checkState();
     };
     
     const handleSessionReady = () => {
-      console.log('Received session ready event');
+      
       checkState();
     };
     
@@ -361,7 +361,7 @@ function HomeContent() {
   
   // Save the review session to Cosmos DB when a recording is completed
   const onSessionComplete = useCallback(async (session: FeedbackSession) => {
-    console.log('Session complete:', session);
+    
     
     // If this is a review of a specific swing from the inbox, save the session to Cosmos DB
     if (videoId) {
@@ -380,14 +380,14 @@ function HomeContent() {
           const isSwingId = videoId.includes('swing-');
           
           if (isSwingId) {
-            console.log("Processing swing within a session...");
+            
             
             // Find which session contains this swing
             const sessionQueryResponse = await fetch(`/api/videos/session?swingId=${videoId}`);
             
             if (sessionQueryResponse.ok) {
               const sessionData = await sessionQueryResponse.json();
-              console.log("Found session data:", sessionData.id);
+              
               
               // Update the swing within the session
               if (sessionData && sessionData.id) {
@@ -411,13 +411,13 @@ function HomeContent() {
                 });
                 
                 if (updateSwingResponse.ok) {
-                  console.log("Saved review session to Cosmos DB and updated swing status to Completed");
+                  
                 } else {
-                  console.error("Failed to update swing within session:", await updateSwingResponse.text());
+                  
                 }
               }
             } else {
-              console.error("Failed to find session for swing:", await sessionQueryResponse.text());
+              
               
               // Fallback: try to update the swing directly as standalone
               const updateResponse = await fetch('/api/videos', {
@@ -433,9 +433,9 @@ function HomeContent() {
               });
               
               if (updateResponse.ok) {
-                console.log("Saved review session to standalone swing");
+                
               } else {
-                console.error("Failed to update swing:", await updateResponse.text());
+                
               }
             }
           } else {
@@ -453,14 +453,14 @@ function HomeContent() {
             });
             
             if (updateResponse.ok) {
-              console.log("Saved review session to Cosmos DB and updated status to Completed");
+              
             } else {
-              console.error("Failed to update video with review session:", await updateResponse.text());
+              
             }
           }
         }
       } catch (error) {
-        console.error("Error saving review session:", error);
+        
       }
     }
     
@@ -476,7 +476,7 @@ function HomeContent() {
       setIsSaving(false);
       setIsSavingComplete(true);
       setIsCompletedVideo(true); // Mark as completed to prevent recording button from reappearing
-      console.log('Completed saving session to database');
+      
     }
   }, [videoId]);
 
@@ -603,7 +603,7 @@ function HomeContent() {
                                 
                                 // Debug ratings for the first category
                                 if (property.id === "setupAlignment") {
-                                  console.log(`Rating for ${property.label}: directRating=${directRating}, byId=${ratingCategoryById?.rating}, byName=${ratingCategoryByName?.rating}, final=${rating}`);
+                                  
                                 }
                                 
                                 // Render the appropriate color indicator based on rating

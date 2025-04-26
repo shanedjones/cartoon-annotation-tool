@@ -103,7 +103,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
             });
           })
           .catch(err => {
-            console.error('Error during canvas clearing:', err);
+            
             // Still call the completion handler even if there was an error
             if (onClearComplete) {
               onClearComplete();

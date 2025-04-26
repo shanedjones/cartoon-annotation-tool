@@ -76,7 +76,7 @@ export default function InboxPage() {
         
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching sessions:', err);
+        
         setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
         setLoading(false);
       }

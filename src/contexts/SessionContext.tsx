@@ -261,7 +261,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       
       return Promise.resolve();
     } catch (error) {
-      console.error('Error saving session:', error);
+      
       return Promise.reject(error);
     }
   }, [state.session]);

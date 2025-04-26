@@ -41,7 +41,7 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
             setNotes('');
           }
         } catch (error) {
-          console.error('Error fetching assessment review:', error);
+          
           // Use defaults on error
           setNotes('');
         } finally {
@@ -85,7 +85,7 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
         setSaveError(errorData.error || 'Failed to save assessment review');
       }
     } catch (error) {
-      console.error('Error saving assessment review:', error);
+      
       setSaveError('An unexpected error occurred');
     } finally {
       setIsSaving(false);

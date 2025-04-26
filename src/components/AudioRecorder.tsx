@@ -54,7 +54,7 @@ export default function AudioRecorder({
         // Stop the tracks after permission check
         stream.getTracks().forEach(track => track.stop());
       } catch (err) {
-        console.error('Error accessing microphone:', err);
+        
         setError('Microphone access denied. Please enable microphone permissions in your browser.');
         setAudioPermissionGranted(false);
       }
@@ -71,10 +71,10 @@ export default function AudioRecorder({
       // It will be properly set in startAudioRecording() before the recorder starts.
       recordingStartTimeRef.current = null;
       
-      console.log('Starting audio recording because isRecording=true');
+      
       startAudioRecording();
     } else if (!isRecording && isRecordingAudio) {
-      console.log('Stopping audio recording because isRecording=false');
+      
       stopAudioRecording();
     }
     
@@ -128,7 +128,7 @@ export default function AudioRecorder({
       }
       
       setRecordingFormat(mimeType || 'default format');
-      console.log('Using audio format:', mimeType || 'default');
+      
       
       // Create recorder with quality settings
       const recorderOptions = {
@@ -149,7 +149,7 @@ export default function AudioRecorder({
       // Handle recording stop
       recorder.onstop = async () => {
         if (chunksRef.current.length === 0) {
-          console.warn('No audio chunks recorded');
+          
           return;
         }
         
@@ -157,7 +157,7 @@ export default function AudioRecorder({
         
         // Check if recordingStartTimeRef is set, if not use current time as fallback
         if (!recordingStartTimeRef.current) {
-          console.warn('Recording start time not set, using fallback current time');
+          
           recordingStartTimeRef.current = Date.now() - (elapsedTime * 1000);
         }
         
@@ -166,11 +166,6 @@ export default function AudioRecorder({
         const calculatedDuration = recordingStartTimeRef.current ? now - recordingStartTimeRef.current : 0;
         
         // Compare the timer-based duration with the calculated duration
-        console.log('Duration calculation:', {
-          timerBasedDuration: elapsedTime * 1000,
-          calculatedDuration: calculatedDuration,
-          usingCalculated: calculatedDuration > 0
-        });
         
         // Use the calculated duration if it's greater than 0, otherwise fall back to the timer-based duration
         const finalDuration = calculatedDuration > 0 ? calculatedDuration : elapsedTime * 1000;
@@ -190,25 +185,11 @@ export default function AudioRecorder({
             // Pass the chunk to the parent component
             onAudioChunk(audioChunk);
             
-            console.log('Audio chunk recorded successfully:', {
-              duration: `${(finalDuration/1000).toFixed(2)}s`,
-              size: `${Math.round(audioBlob.size / 1024)} KB`,
-              format: mimeType || 'audio/webm',
-              videoPosition: `${currentVideoTime.toFixed(2)}s`,
-              audioStartTime: new Date(recordingStartTimeRef.current).toLocaleTimeString(),
-              calculatedDuration: `${(calculatedDuration/1000).toFixed(2)}s`,
-              timerDuration: `${elapsedTime}s`
-            });
           } catch (error) {
-            console.error('Error processing audio chunk:', error);
+            
             setError(`Failed to process audio recording: ${error instanceof Error ? error.message : String(error)}`);
           }
         } else {
-          console.warn('No valid audio data to save', {
-            chunks: chunksRef.current.length,
-            blobSize: audioBlob.size,
-            hasStartTime: !!recordingStartTimeRef.current
-          });
         }
         
         // Stop all tracks to release the microphone
@@ -232,7 +213,7 @@ export default function AudioRecorder({
       const startTime = Date.now();
       recordingStartTimeRef.current = startTime;
       
-      console.log('Setting recording start time:', startTime, 'at', new Date(startTime).toLocaleTimeString());
+      
       
       // Start the recorder AFTER setting the start time reference to ensure proper timing
       recorder.start();
@@ -240,10 +221,10 @@ export default function AudioRecorder({
       
       // Double-check that the start time was set correctly
       if (!recordingStartTimeRef.current) {
-        console.warn('Warning: recordingStartTimeRef.current is null after setting it!');
+        
         // Emergency fallback - set it again
         recordingStartTimeRef.current = Date.now();
-        console.log('Emergency reset of recordingStartTimeRef to:', recordingStartTimeRef.current);
+        
       }
       
       // Update elapsed time every second
@@ -252,7 +233,7 @@ export default function AudioRecorder({
       }, 1000);
       
     } catch (error) {
-      console.error('Error starting recording:', error);
+      
       setError(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
@@ -266,9 +247,9 @@ export default function AudioRecorder({
     
     // If recordingStartTimeRef is missing, try to reconstruct it from elapsed time
     if (!recordingStartTimeRef.current) {
-      console.warn('stopAudioRecording: recordingStartTimeRef.current is null, calculating from current time');
+      
       recordingStartTimeRef.current = recordingEndTime - finalElapsedTimeMs;
-      console.log('Reconstructed recordingStartTimeRef.current:', recordingStartTimeRef.current);
+      
     }
     
     // Calculate duration for logging
@@ -276,21 +257,13 @@ export default function AudioRecorder({
       ? recordingEndTime - recordingStartTimeRef.current 
       : 0;
       
-    console.log('Stopping audio recording with duration info:', {
-      timerDuration: `${finalElapsedTimeMs}ms`,
-      calculatedDuration: `${calculatedDuration}ms`,
-      startTime: recordingStartTimeRef.current 
-        ? new Date(recordingStartTimeRef.current).toLocaleTimeString() 
-        : 'unknown',
-      endTime: new Date(recordingEndTime).toLocaleTimeString()
-    });
     
     // Now stop the media recorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
         mediaRecorderRef.current.stop();
       } catch (e) {
-        console.error('Error stopping media recorder:', e);
+        
       }
     }
     
@@ -323,20 +296,19 @@ export default function AudioRecorder({
     try {
       // More comprehensive validation of data URL format
       if (!dataURL || typeof dataURL !== 'string') {
-        console.error('Invalid data URL: not a string or empty', typeof dataURL);
+        
         throw new Error('Invalid data URL: not a string or empty');
       }
       
       if (!dataURL.startsWith('data:')) {
-        console.error('Invalid data URL format - missing data: prefix');
-        console.debug('URL starts with:', dataURL.substring(0, Math.min(20, dataURL.length)));
+        
         throw new Error('Invalid data URL format - missing data: prefix');
       }
       
       // Split the data URL into parts - header and payload
       const parts = dataURL.split(',');
       if (parts.length !== 2) {
-        console.error('Invalid data URL format - wrong number of parts:', parts.length);
+        
         throw new Error('Invalid data URL format - wrong number of parts');
       }
       
@@ -349,18 +321,18 @@ export default function AudioRecorder({
       if (mimeMatch && mimeMatch[1]) {
         mime = mimeMatch[1];
       } else {
-        console.warn('Could not extract MIME type from data URL, using default:', mime);
+        
       }
       
       // Verify that we have a base64 encoded payload
       if (!headerPart.includes(';base64')) {
-        console.warn('Data URL does not specify base64 encoding, may cause issues');
+        
       }
       
       // Get base64 data
       const base64Data = parts[1];
       if (!base64Data) {
-        console.error('Empty base64 data in data URL');
+        
         throw new Error('Empty base64 data in data URL');
       }
       
@@ -382,18 +354,18 @@ export default function AudioRecorder({
         
         // Validate the created blob
         if (blob.size === 0) {
-          console.warn('Created an empty blob from data URL, possible data corruption');
+          
         } else {
-          console.log(`Successfully converted data URL to Blob: size=${blob.size}, type=${blob.type}`);
+          
         }
         
         return blob;
       } catch (binaryError) {
-        console.error('Error processing binary data:', binaryError);
+        
         throw new Error(`Failed to process binary data: ${binaryError instanceof Error ? binaryError.message : String(binaryError)}`);
       }
     } catch (error) {
-      console.error('Error converting data URL to Blob:', error);
+      
       // Return an empty blob instead of throwing to prevent UI failures
       return new Blob([], { type: 'audio/webm' });
     }
@@ -408,7 +380,7 @@ export default function AudioRecorder({
           URL.revokeObjectURL(player.src);
         }
       } catch (e) {
-        console.warn('Error cleaning up audio player:', e);
+        
       }
     });
     
@@ -431,19 +403,6 @@ export default function AudioRecorder({
     replayAudioChunks.forEach((chunk, index) => {
       const chunkId = chunk.startTime; // Use startTime as unique ID
       
-      // Log more details about the chunk the first time we see it during replay
-      if (replayAudioChunks.length > 0 && index === 0) {
-        console.log(`Audio replay details (${replayAudioChunks.length} chunks):`, {
-          currentVideoTimeMs: videoTimeMs,
-          firstChunk: {
-            startTime: new Date(chunk.startTime).toLocaleTimeString(),
-            durationMs: chunk.duration,
-            videoTimeMs: chunk.videoTime,
-            blobType: chunk.blob instanceof Blob ? 'Blob' : typeof chunk.blob,
-            blobLength: typeof chunk.blob === 'string' ? chunk.blob.length : (chunk.blob instanceof Blob ? chunk.blob.size : 'unknown'),
-            mimeType: chunk.mimeType || 'not specified'
-          }
-        });
       }
       
       // Check if this chunk should be playing based on video time
@@ -454,19 +413,6 @@ export default function AudioRecorder({
       // Is this chunk already playing?
       const isPlaying = playingChunksRef.current.has(chunkId);
       
-      // Log playback state changes for debugging
-      if (shouldPlay !== isPlaying) {
-        console.log(`Chunk ${index} playback state changing:`, {
-          chunkId,
-          shouldPlay,
-          isPlaying,
-          videoTimeMs,
-          chunkVideoTime: chunk.videoTime,
-          chunkEndTime: chunk.videoTime + chunk.duration,
-          duration: chunk.duration,
-          diff: videoTimeMs - chunk.videoTime
-        });
-      }
       
       // If should play but not playing yet
       if (shouldPlay && !isPlaying) {
@@ -481,7 +427,7 @@ export default function AudioRecorder({
               if (chunk.blobUrl) {
                 // Use the Azure Storage blob URL if available
                 audioUrl = chunk.blobUrl;
-                console.log(`Chunk ${chunkId}: Using Azure Storage blob URL for playback: ${chunk.blobUrl}`);
+                
                 
                 // We'll handle the CORS issue by using Audio element directly
                 // instead of trying to fetch the blob first
@@ -490,39 +436,29 @@ export default function AudioRecorder({
               else if (chunk.url) {
                 // Use provided URL if available
                 audioUrl = chunk.url;
-                console.log(`Chunk ${chunkId}: Using provided URL for playback`);
+                
               } else if (chunk.blob instanceof Blob) {
                 // Create URL from Blob
                 audioUrl = URL.createObjectURL(chunk.blob);
-                console.log(`Chunk ${chunkId}: Created URL from Blob object for audio playback:`, {
-                  blobSize: chunk.blob.size,
-                  blobType: chunk.blob.type
-                });
               } else if (typeof chunk.blob === 'string' && chunk.blob.startsWith('data:')) {
                 // Data URL - can either use directly or convert to blob first
-                console.log(`Chunk ${chunkId}: Processing data URL for playback, length: ${chunk.blob.length}`);
+                
                 
                 // Option 1: Convert data URL to blob first (more reliable across browsers)
                 const convertedBlob = dataURLToBlob(chunk.blob);
                 audioUrl = URL.createObjectURL(convertedBlob);
-                console.log(`Chunk ${chunkId}: Converted data URL to Blob URL for playback:`, {
-                  blobSize: convertedBlob.size,
-                  blobType: convertedBlob.type
-                });
                 
                 // Option 2 (alternative): Use data URL directly
                 // audioUrl = chunk.blob;
-                // console.log(`Chunk ${chunkId}: Using data URL directly for playback`);
+                // 
               } else {
-                console.error(`Chunk ${chunkId}: Invalid audio blob format:`, typeof chunk.blob);
+                
                 if (typeof chunk.blob === 'string') {
-                  console.error(`Chunk ${chunkId}: String blob does not start with 'data:' - first 30 chars:`, 
-                    chunk.blob.substring(0, 30));
                 }
                 return;
               }
             } catch (formatError) {
-              console.error(`Chunk ${chunkId}: Error processing audio format:`, formatError);
+              
               return;
             }
             
@@ -531,27 +467,22 @@ export default function AudioRecorder({
             
             // Enhanced error and event handling for debugging
             audio.onloadedmetadata = () => {
-              console.log(`Chunk ${chunkId}: Audio metadata loaded:`, {
-                duration: audio.duration,
-                readyState: audio.readyState,
-                src: audio.src.substring(0, 50) + '...' // Log truncated src for debugging
-              });
             };
             
             audio.oncanplay = () => {
-              console.log(`Chunk ${chunkId}: Audio can play now, ready state:`, audio.readyState);
+              
             };
             
             audio.onplay = () => {
-              console.log(`Chunk ${chunkId}: Audio playback started`);
+              
             };
             
             audio.onended = () => {
-              console.log(`Chunk ${chunkId}: Audio playback ended normally, duration:`, audio.duration);
+              
               playingChunksRef.current.delete(chunkId);
               // Only revoke if we created the URL (not for Azure Storage URLs, data URLs, or provided URLs)
               if (!chunk.url && !chunk.blobUrl && chunk.blob instanceof Blob) {
-                console.log(`Chunk ${chunkId}: Revoking local blob URL:`, audioUrl);
+                
                 URL.revokeObjectURL(audioUrl);
               }
             };
@@ -571,12 +502,12 @@ export default function AudioRecorder({
                 }
               };
               
-              console.error(`Chunk ${chunkId}: Error playing audio:`, errorDetails);
+              
               setError(`Audio playback error: ${audio.error?.message || 'Unknown error'}`);
               playingChunksRef.current.delete(chunkId);
               // Only revoke if we created the URL (not for Azure Storage URLs, data URLs, or provided URLs)
               if (!chunk.url && !chunk.blobUrl && chunk.blob instanceof Blob) {
-                console.log(`Chunk ${chunkId}: Revoking local blob URL on error:`, audioUrl);
+                
                 URL.revokeObjectURL(audioUrl);
               }
             };
@@ -584,7 +515,7 @@ export default function AudioRecorder({
             // Store the audio element
             audioPlayersRef.current.set(chunkId, audio);
           } catch (e) {
-            console.error('Error creating audio player:', e);
+            
             return;
           }
         }
@@ -608,13 +539,13 @@ export default function AudioRecorder({
               
               // Set up a one-time click handler to try again
               const clickHandler = () => {
-                audio.play().catch(e => console.warn('Still could not play audio after interaction:', e));
+                audio.play().catch(e => 
                 document.removeEventListener('click', clickHandler);
                 setError(null);
               };
               document.addEventListener('click', clickHandler, { once: true });
             } else {
-              console.error('Error playing audio:', error);
+              
             }
           });
         }

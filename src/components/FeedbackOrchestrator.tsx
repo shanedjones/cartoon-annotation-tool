@@ -158,21 +158,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                     videoTime: event.timeOffset
                   };
                   
-                  console.log(`Executing drawing at global time ${event.timeOffset}ms`);
+                  
                   drawAnnotation(pathWithTiming);
                 } catch (error) {
-                  console.error('Error during annotation drawing:', error);
+                  
                 }
               }
               break;
             case 'clear':
               try {
-                console.log(`Executing canvas clear at global time ${event.timeOffset}ms`);
+                
                 // Record the global time when the clear happened in context
                 updateClearTime(event.timeOffset);
                 clearAnnotations();
               } catch (error) {
-                console.error('Error during annotation clearing:', error);
+                
               }
               break;
           }
@@ -308,7 +308,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         }
       }
       
-      console.log(`Using audio format: ${mimeType || 'default'}`);
+      
       
       // Configure recorder
       const recorder = new MediaRecorder(stream, {
@@ -354,12 +354,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           if (audioBlob && audioBlob.size > 0) {
             // Upload the blob to Azure Storage
             blobUrl = await uploadAudioToStorage(audioBlob, sessionId);
-            console.log('Audio blob uploaded to Azure Storage:', blobUrl);
+            
           } else {
-            console.warn('No valid audio blob to upload to Azure Storage');
+            
           }
         } catch (error) {
-          console.error('Failed to upload audio to Azure Storage:', error);
+          
           // Continue with local blob if upload fails
         }
         
@@ -385,7 +385,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         const currentSessionData = currentSession || { categories: {} };
         
         // Make sure we have the most up-to-date categories
-        console.log('Building final session with categories:', currentSessionData.categories);
+        
         
         // Create a properly-typed categories object
         const categories: Record<string, number> = {};
@@ -405,7 +405,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           });
         }
         
-        console.log('Final clean categories object for saving:', categories);
+        
         
         const session: FeedbackSession = {
           id: sessionId,
@@ -430,7 +430,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       const startTime = Date.now();
       recordingStartTimeRef.current = startTime;
       
-      console.log(`Starting recording session at ${new Date(startTime).toISOString()}`);
+      
       recorder.start();
       
       // Create the new session object
@@ -447,7 +447,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       setIsActive(true);
       
     } catch (error) {
-      console.error('Failed to start recording session:', error);
+      
       alert(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [isActive, generateId, onAudioRecorded, onSessionComplete]);
@@ -458,7 +458,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const endRecordingSession = useCallback(() => {
     if (!isActive) return;
     
-    console.log('Ending recording session');
+    
     
     // Stop audio recording
     if (audioRecorderRef.current && audioRecorderRef.current.state !== 'inactive') {
@@ -505,7 +505,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     };
     
     eventsRef.current.push(event);
-    console.log(`Recorded ${type} event at ${timeOffset}ms:`, payload);
+    
     
     return event;
   }, [isActive, generateId]);
@@ -521,25 +521,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Handle annotation events (drawing, clearing)
    */
   const handleAnnotationEvent = useCallback((action: string, path?: DrawingPath) => {
-    console.log(`Recording annotation event: ${action}`, {
-      hasPath: !!path,
-      pointsCount: path?.points?.length || 0,
-      color: path?.color,
-      width: path?.width
-    });
     
     // Record the event in the timeline
     const event = recordEvent('annotation', { action, path });
     
-    // For debugging during development
-    if (event) {
-      console.log(`Annotation event recorded with ID: ${event.id}`, {
-        timeOffset: event.timeOffset,
-        eventCount: eventsRef.current.length
-      });
-    } else {
-      console.warn('Failed to record annotation event - recording may not be active');
-    }
     
     return event;
   }, [recordEvent]);
@@ -555,7 +540,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Record a category change - store only in categories object, not as events
    */
   const handleCategoryEvent = useCallback((category: string, rating: number) => {
-    console.log(`Recording category change: ${category} = ${rating}`);
+    
     
     // Allow category updates even when not recording
     // This ensures category changes are saved regardless of recording state
@@ -583,7 +568,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         [category]: rating > 0 ? rating : null // Store as null if rating is 0, otherwise store the actual rating
       };
       
-      console.log('Updated categories object:', updatedCategories);
+      
       
       // Update existing session - only update categories, don't add to events
       return {
@@ -594,10 +579,10 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Log the current session after update (for debugging)
     setTimeout(() => {
-      console.log('Current session after category update:', currentSession);
+      
     }, 50);
     
-    console.log(`Updated session categories with ${category}: ${rating}`);
+    
 
     // Also save this as a category event to ensure proper recording
     const event = {
@@ -620,7 +605,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const completeReplay = useCallback(() => {
     // Reset global timeline position and last clear time when replay completes
     resetTimelinePosition();
-    console.log('Timeline position and lastClearTime reset to 0ms via context at completion');
+    
     
     // Clean up audio player
     if (audioPlayer) {
@@ -629,7 +614,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Only revoke object URL if it's a local blob (not an Azure Storage URL)
       const isLocalBlob = audioPlayer.dataset.isLocalBlob === 'true';
       if (isLocalBlob && audioPlayer.src.startsWith('blob:')) {
-        console.log('Revoking local blob URL:', audioPlayer.src);
+        
         URL.revokeObjectURL(audioPlayer.src);
       }
       
@@ -642,7 +627,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Reset video position to the beginning
     if (videoElementRef.current) {
-      console.log('Replay complete: resetting video position to start');
+      
       videoElementRef.current.currentTime = 0;
       
       // If it's playing, pause it
@@ -653,17 +638,17 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Clear all annotations when replay is done using the new state-based reset
     try {
-      console.log('Replay complete: performing state-based canvas reset');
+      
       // Try the new resetCanvas method first
       if (canvasRef.current && canvasRef.current.resetCanvas) {
         canvasRef.current.resetCanvas();
       } else {
         // Fall back to the original clear method if resetCanvas isn't available
-        console.log('Replay complete: falling back to standard clear annotations');
+        
         clearAnnotations();
       }
     } catch (error) {
-      console.error('Error clearing annotations on replay completion:', error);
+      
     }
     
     // Ensure any pending events are cleared
@@ -676,18 +661,18 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Reset the replay flags in the window object to return to initial state
     if (typeof window !== 'undefined') {
       window.__isReplaying = false;
-      console.log('Reset replay flag in window object');
+      
     }
     
     // Use setTimeout to reset progress to 0 after a brief delay
     // This gives users visual feedback that replay completed successfully
     setTimeout(() => {
       setReplayProgress(0);
-      console.log('Replay progress reset to 0');
+      
       
       // Call resetState on the parent component to fully reset to initial state
       if (typeof window !== 'undefined' && window.__videoPlayerWrapper && window.__videoPlayerWrapper.resetState) {
-        console.log('Calling resetState on VideoPlayerWrapper to reset to initial state');
+        
         window.__videoPlayerWrapper.resetState();
       }
     }, 1500);
@@ -698,14 +683,14 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Helper function to simulate timeline without audio
    */
   const simulateTimelineWithoutAudio = useCallback((session: FeedbackSession) => {
-    console.log('Using simulated timeline instead of audio playback');
+    
     
     // Calculate the total duration from events or use a default
     const totalDuration = session.events.length > 0 
       ? Math.max(...session.events.map(e => e.timeOffset)) + 5000
       : 30000; // Default 30s if no events
     
-    console.log(`Simulating timeline for ${totalDuration}ms`);
+    
     
     let elapsed = 0;
     const interval = 100; // 100ms updates
@@ -721,7 +706,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         
         // Log global time position every second to avoid flooding logs
         if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
-          console.log(`Timeline position updated via context (simulated): ${elapsed}ms`);
+          
         }
         
         // Use Promise.resolve().then to ensure position updates complete before event processing
@@ -731,7 +716,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         
         if (elapsed >= totalDuration) {
           clearInterval(timelineInterval);
-          console.log('Simulated timeline complete, cleaning up and resetting...');
+          
           completeReplay();
           // Ensure the active state is updated
           setIsActive(false);
@@ -751,7 +736,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Reset global timeline position and last clear time at the start of replay
     resetTimelinePosition();
-    console.log('Timeline position and lastClearTime reset to 0ms via context');
+    
     
     setIsActive(true);
     setReplayProgress(0);
@@ -794,18 +779,18 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         
         // First check if we have a blob URL from Azure Storage
         if (mainAudioChunk.blobUrl) {
-          console.log('Using Azure Storage blob URL for audio playback:', mainAudioChunk.blobUrl);
+          
           // Use the direct URL from Azure Storage
           audioUrl = mainAudioChunk.blobUrl;
         }
         // Fall back to local blob or data URL if no Azure URL is available
         else if (mainAudioChunk.blob instanceof Blob) {
-          console.log('Using local Blob object for audio playback');
+          
           audioUrl = URL.createObjectURL(mainAudioChunk.blob);
           isLocalBlob = true;
         } else if (typeof mainAudioChunk.blob === 'string' && mainAudioChunk.blob.startsWith('data:')) {
           // Handle data URL
-          console.log('Converting data URL to Blob for audio playback');
+          
           const parts = mainAudioChunk.blob.split(',');
           if (parts.length !== 2) {
             throw new Error('Invalid data URL format');
@@ -826,13 +811,13 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           audioUrl = URL.createObjectURL(blob);
           isLocalBlob = true;
         } else if (!mainAudioChunk.blob) {
-          console.error('No valid audio blob or blob URL in the session');
+          
           return;
         } else {
           throw new Error('Unsupported audio format');
         }
         
-        console.log(`Creating audio player with URL: ${audioUrl.substring(0, 50)}...`);
+        
         
         const audio = new Audio();
         
@@ -841,15 +826,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         
         // Add a load listener to detect when audio is ready
         audio.onloadeddata = () => {
-          console.log('Audio data loaded successfully:', {
-            duration: audio.duration,
-            readyState: audio.readyState
-          });
         };
         
         // Set up audio events
         audio.onplay = () => {
-          console.log('Audio playback started');
+          
         };
         
         // Set src after adding listeners
@@ -867,7 +848,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
             
             // Log global time position every 250ms (to avoid flooding logs)
             if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
-              console.log(`Timeline position updated via context: ${currentTime}ms`);
+              
             }
             
             // Use Promise.resolve().then to ensure position updates complete before event processing
@@ -879,7 +860,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         };
         
         audio.onended = () => {
-          console.log('Audio playback complete, cleaning up and resetting UI...');
+          
           completeReplay();
           // Ensure the active state in parent component is also updated
           setIsActive(false);
@@ -895,21 +876,21 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
             networkState: audio.networkState,
             error: audio.error
           };
-          console.error('Audio playback error:', errorInfo);
+          
           
           // Try to recover by stopping and restarting
           try {
             audio.pause();
             setTimeout(() => {
-              console.log('Attempting to restart audio playback after error...');
+              
               audio.load();
               audio.play().catch(err => {
-                console.error('Failed to restart audio playback:', err);
+                
                 completeReplay(); // Stop the replay if we can't recover
               });
             }, 1000);
           } catch (recoverError) {
-            console.error('Error attempting to recover from audio playback error:', recoverError);
+            
             completeReplay(); // Stop the replay if we can't recover
           }
         };
@@ -921,44 +902,44 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         
         // Wait a moment to ensure the audio is loaded before playing
         setTimeout(() => {
-          console.log('Attempting to start audio playback...');
+          
           
           // First check if audio is ready
           if (audio.readyState >= 2) { // HAVE_CURRENT_DATA or better
-            console.log('Audio is ready to play, starting playback');
+            
             audio.play().catch(error => {
-              console.error('Failed to start audio playback despite ready state:', error);
+              
               
               // Show a user-friendly message for autoplay policy errors
               if (error.name === 'NotAllowedError') {
                 alert('Audio playback requires user interaction. Please click anywhere on the page and try again.');
               } else {
                 // Fall back to simulated playback if audio fails completely
-                console.log('Switching to simulated timeline mode due to audio error');
+                
                 simulateTimelineWithoutAudio(currentSession);
               }
             });
           } else {
-            console.warn(`Audio not ready yet, readyState: ${audio.readyState}. Retrying in 1 second...`);
+            
             
             // Retry after a delay
             setTimeout(() => {
-              console.log('Retrying audio playback...');
+              
               audio.play().catch(error => {
-                console.error('Failed to start audio playback on retry:', error);
+                
                 
                 // Fall back to simulated playback if audio fails completely
-                console.log('Switching to simulated timeline mode due to audio error');
+                
                 simulateTimelineWithoutAudio(currentSession);
               });
             }, 1000);
           }
         }, 500);
       } catch (error) {
-        console.error('Error creating audio player for replay:', error);
+        
       }
     } else {
-      console.warn('No audio track found for replay. Using simulated timeline.');
+      
       
       // Use the dedicated helper function for simulated timeline
       simulateTimelineWithoutAudio(currentSession);
@@ -971,11 +952,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
   const stopReplay = useCallback(() => {
     if (!isActive) return;
     
-    console.log('Stopping replay session');
+    
     
     // Reset global timeline position and last clear time when stopping replay
     resetTimelinePosition();
-    console.log('Timeline position and lastClearTime reset to 0ms via context');
+    
     
     // Clean up audio player
     if (audioPlayer) {
@@ -984,7 +965,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Only revoke object URL if it's a local blob (not an Azure Storage URL)
       const isLocalBlob = audioPlayer.dataset.isLocalBlob === 'true';
       if (isLocalBlob && audioPlayer.src.startsWith('blob:')) {
-        console.log('Revoking local blob URL:', audioPlayer.src);
+        
         URL.revokeObjectURL(audioPlayer.src);
       }
       
@@ -997,7 +978,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Reset video position to the beginning
     if (videoElementRef.current) {
-      console.log('Replay stopped: resetting video position to start');
+      
       videoElementRef.current.currentTime = 0;
       
       // If it's playing, pause it
@@ -1008,17 +989,17 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Clear all annotations when replay is stopped using the new state-based reset
     try {
-      console.log('Replay stopped: performing state-based canvas reset');
+      
       // Try the new resetCanvas method first
       if (canvasRef.current && canvasRef.current.resetCanvas) {
         canvasRef.current.resetCanvas();
       } else {
         // Fall back to the original clear method if resetCanvas isn't available
-        console.log('Replay stopped: falling back to standard clear annotations');
+        
         clearAnnotations();
       }
     } catch (error) {
-      console.error('Error clearing annotations when stopping replay:', error);
+      
     }
     
     // Ensure any pending events are cleared
@@ -1033,9 +1014,9 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Load a session for replay
    */
   const loadSession = useCallback(async (session: FeedbackSession) => {
-    console.log('Loading session for replay, session ID:', session.id);
-    console.log('Total events in session:', session.events.length);
-    console.log('All event types:', session.events.map(e => e.type));
+    
+    
+    
     
     // If we have audio chunks with blobUrl from Azure Storage, preload them and convert to proxy URLs
     if (session.audioTrack && session.audioTrack.chunks && session.audioTrack.chunks.length > 0) {
@@ -1048,7 +1029,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         const chunk = session.audioTrack.chunks[i];
         if (chunk.blobUrl) {
           try {
-            console.log('Processing Azure Storage blob URL:', chunk.blobUrl);
+            
             
             // Convert Azure Storage URL to our proxy URL to avoid CORS issues
             try {
@@ -1057,7 +1038,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
               
               // Create a proxy URL that goes through our Next.js API
               const proxyUrl = `/api/audio/${blobPath}`;
-              console.log(`Converted Azure URL to proxy URL: ${proxyUrl}`);
+              
               
               // Update the chunk's URL to use our proxy instead
               session.audioTrack.chunks[i] = {
@@ -1065,15 +1046,15 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                 blobUrl: proxyUrl
               };
             } catch (urlError) {
-              console.warn('Failed to convert Azure URL to proxy URL:', urlError);
+              
               // Keep original URL if conversion fails
             }
             
             if (typeof window !== 'undefined') {
-              console.log('Using proxy URL to avoid CORS issues:', session.audioTrack.chunks[i].blobUrl);
+              
             }
           } catch (error) {
-            console.error('Error processing audio blob URL:', error);
+            
             // Continue with next chunk
           }
         }
@@ -1090,7 +1071,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // Detailed log of all events to debug
     session.events.forEach((event, index) => {
-      console.log(`Event ${index}: type=${event.type}, timeOffset=${event.timeOffset}, payload=`, event.payload);
+      
     });
     
     // Combine both approaches for most reliable category data
@@ -1098,7 +1079,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     
     // First collect categories from direct property if available (primary source)
     if (session.categories && Object.keys(session.categories).length > 0) {
-      console.log('Session has categories property directly:', session.categories);
+      
       
       // Add all categories from session.categories
       Object.entries(session.categories).forEach(([category, rating]) => {
@@ -1107,12 +1088,12 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         }
       });
       
-      console.log('Added categories from direct property:', Object.keys(categoriesState));
+      
     }
     
     // Then also check category events as a fallback or supplementary source
     const allCategoryEvents = session.events.filter(event => event.type === 'category');
-    console.log(`Found ${allCategoryEvents.length} total category events in session`);
+    
     
     // Add or update categories from events
     allCategoryEvents.forEach(event => {
@@ -1120,7 +1101,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         // Only add if not already present (prefer session.categories) or if it's zero in categories
         if (!categoriesState[event.payload.category] || categoriesState[event.payload.category] === 0) {
           categoriesState[event.payload.category] = event.payload.rating;
-          console.log(`Added category from event: ${event.payload.category} = ${event.payload.rating}`);
+          
         }
       }
     });
@@ -1130,11 +1111,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       .filter(([_, rating]) => rating > 0)
       .map(([category]) => category);
     
-    console.log(`Final state has ${ratedCategories.length} rated categories:`, ratedCategories);
+    
     
     // Even if we have no ratings, send the empty state to ensure UI is updated
     if (onCategoriesLoaded) {
-      console.log('Final categories state to send:', categoriesState);
+      
       
       // Update session's categories property for future reference
       if (Object.keys(categoriesState).length > 0) {
@@ -1155,14 +1136,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Also schedule a delayed notification to ensure component has mounted
       setTimeout(() => {
         if (onCategoriesLoaded) {
-          console.log('Delayed call to onCategoriesLoaded with:', categoriesState);
+          
           onCategoriesLoaded(numericCategories);
         }
       }, 100);
     } else {
-      console.warn('No callback available for notifying categories', {
-        categoriesState: Object.keys(categoriesState).length
-      });
     }
   }, [onCategoriesLoaded]);
   
@@ -1187,7 +1165,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         // Only revoke object URL if it's a local blob (not an Azure Storage URL)
         const isLocalBlob = audioPlayer.dataset.isLocalBlob === 'true';
         if (isLocalBlob && audioPlayer.src.startsWith('blob:')) {
-          console.log('Revoking local blob URL:', audioPlayer.src);
+          
           URL.revokeObjectURL(audioPlayer.src);
         }
       }

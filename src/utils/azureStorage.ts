@@ -11,7 +11,7 @@ const initializeStorageClient = () => {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
   
-  console.log(`DEBUG - initializeStorageClient() - container name: "${containerName}"`);
+  
   
   if (!connectionString) {
     throw new Error('Azure Storage connection string is not configured');
@@ -19,19 +19,19 @@ const initializeStorageClient = () => {
   
   try {
     if (!blobServiceClient) {
-      console.log('Initializing Azure Storage client with connection string');
+      
       
       try {
         // Log the formation of the storage client
-        console.log(`DEBUG - Creating BlobServiceClient from connection string`);
-        blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-        console.log(`DEBUG - BlobServiceClient created successfully`);
         
-        console.log(`DEBUG - Creating container client for "${containerName}"`);
+        blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+        
+        
+        
         containerClient = blobServiceClient.getContainerClient(containerName);
-        console.log(`DEBUG - Container client URL: ${containerClient.url}`);
+        
       } catch (innerError) {
-        console.error(`DEBUG - Error during client creation: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`);
+        
         if (innerError instanceof Error && innerError.message.includes('Invalid URL')) {
           console.error(`DEBUG - URL construction error details:`, 
             `Container name: "${containerName}"`,
@@ -43,7 +43,7 @@ const initializeStorageClient = () => {
     
     return { blobServiceClient, containerClient };
   } catch (error) {
-    console.error('Error initializing storage client:', error);
+    
     if (error instanceof Error) {
       throw new Error(`Failed to initialize Azure Storage: ${error.message}`);
     } else {
@@ -58,8 +58,8 @@ export const ensureContainer = async (): Promise<void> => {
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
     const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
     
-    console.log(`DEBUG - Container name: "${containerName}"`);
-    console.log(`DEBUG - Connection string format check: ${connectionString.includes('DefaultEndpointsProtocol') ? 'Valid format' : 'Invalid format'}`);
+    
+    
     
     if (connectionString.includes('DefaultEndpointsProtocol')) {
       // Log the parts of the connection string to debug issues
@@ -70,22 +70,22 @@ export const ensureContainer = async (): Promise<void> => {
         }
         return acc;
       }, {} as Record<string, string>);
-      console.log(`DEBUG - Connection string parts: ${JSON.stringify(parts)}`);
+      
     }
     
     const { containerClient } = initializeStorageClient();
     
     // Log the container URL
-    console.log(`DEBUG - Container URL: ${containerClient.url}`);
+    
     
     // Create container without specifying public access level
     await containerClient.createIfNotExists();
-    console.log(`Container "${containerName}" is ready`);
+    
   } catch (error) {
-    console.error('Error ensuring container exists:', error);
+    
     if (error instanceof Error) {
-      console.error(`DEBUG - Error message: ${error.message}`);
-      console.error(`DEBUG - Error stack: ${error.stack}`);
+      
+      
     }
     throw error;
   }
@@ -101,12 +101,12 @@ export const uploadAudioBlob = async (
       throw new Error('Invalid audio blob provided');
     }
     
-    console.log(`Starting upload for session: ${sessionId}`);
+    
     const { containerClient } = initializeStorageClient();
     
     // Generate a unique filename
     const blobName = `${sessionId}/${uuidv4()}.webm`;
-    console.log(`Generated blob name: ${blobName}`);
+    
     
     // Get a block blob client
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
@@ -118,7 +118,7 @@ export const uploadAudioBlob = async (
       throw new Error('Failed to convert blob to array buffer');
     }
     
-    console.log(`Uploading blob with size: ${arrayBuffer.byteLength} bytes`);
+    
     
     // Upload the blob
     const uploadOptions = {
@@ -128,7 +128,7 @@ export const uploadAudioBlob = async (
     };
     
     await blockBlobClient.uploadData(arrayBuffer, uploadOptions);
-    console.log(`Audio blob uploaded: ${blobName}`);
+    
     
     // Get the direct URL for the blob
     const blobUrl = blockBlobClient.url;
@@ -137,12 +137,12 @@ export const uploadAudioBlob = async (
       throw new Error('Failed to generate URL for uploaded blob');
     }
     
-    console.log(`Generated URL for blob: ${blobUrl}`);
+    
     
     // Return the URL for the uploaded blob
     return blobUrl;
   } catch (error) {
-    console.error('Error uploading audio blob:', error);
+    
     throw error;
   }
 };
@@ -154,7 +154,7 @@ export const downloadAudioBlob = async (blobUrl: string): Promise<Blob> => {
       throw new Error(`Invalid blob URL: ${blobUrl}`);
     }
     
-    console.log(`Attempting to download blob from URL: ${blobUrl}`);
+    
     
     // Extract the blob name from the URL
     try {
@@ -167,23 +167,23 @@ export const downloadAudioBlob = async (blobUrl: string): Promise<Blob> => {
       }
       
       const blobName = pathParts.slice(2).join('/'); // Skip the first two segments (/container/blob)
-      console.log(`Extracted blob name: ${blobName}`);
+      
       
       const { containerClient } = initializeStorageClient();
       const blockBlobClient = containerClient.getBlockBlobClient(blobName);
       
       // Download the blob
       const downloadResponse = await blockBlobClient.download();
-      console.log(`Blob download response received, converting to blob...`);
+      
       
       // Convert the stream to a blob
       const data = await streamToBlob(downloadResponse.readableStreamBody);
       return data;
     } catch (urlError) {
-      console.error('Error parsing URL:', urlError);
+      
       
       // Fallback to direct fetch
-      console.log('Attempting direct fetch as fallback...');
+      
       const response = await fetch(blobUrl);
       if (!response.ok) {
         throw new Error(`HTTP error, status: ${response.status}`);
@@ -192,7 +192,7 @@ export const downloadAudioBlob = async (blobUrl: string): Promise<Blob> => {
       return blob;
     }
   } catch (error) {
-    console.error('Error downloading audio blob:', error);
+    
     throw error;
   }
 };
@@ -239,7 +239,7 @@ async function streamToBlob(stream: NodeJS.ReadableStream | null | undefined): P
         }
       }
     } catch (error) {
-      console.error('Error reading stream chunks:', error);
+      
       throw error;
     }
   }

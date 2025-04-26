@@ -38,7 +38,7 @@ function initializeDB(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = (event) => {
-      console.error('Video Cache DB error:', event);
+      
       reject(new Error('Failed to open video cache database'));
     };
 
@@ -69,7 +69,7 @@ export async function cacheVideo(url: string): Promise<string> {
     // Check if already in cache
     const existingItem = await getFromCache(url);
     if (existingItem) {
-      console.log('Video already in cache:', url);
+      
       // Update last accessed time
       await updateLastAccessed(url);
       return existingItem.blobUrl;
@@ -83,17 +83,17 @@ export async function cacheVideo(url: string): Promise<string> {
         isCrossOrigin = videoUrlObj.origin !== window.location.origin;
       }
     } catch (e) {
-      console.warn('Error parsing URL, assuming same-origin:', e);
+      
     }
     
     // Error on cross-origin URLs to avoid CORS issues
     if (isCrossOrigin) {
-      console.log('Cross-origin video detected, cannot cache:', url);
+      
       throw new Error('Cross-origin videos cannot be loaded. Please contact technical support.');
     }
     
     // For same-origin URLs, attempt to fetch
-    console.log('Fetching same-origin video to cache:', url);
+    
     try {
       // Try direct fetch
       const response = await fetch(url, { 
@@ -119,15 +119,15 @@ export async function cacheVideo(url: string): Promise<string> {
         lastAccessed: Date.now(),
       });
       
-      console.log('Video cached successfully:', url);
+      
       return blobUrl;
     } catch (fetchError) {
-      console.error('Error with direct fetch:', fetchError);
+      
       // Don't create a placeholder - throw the error to be handled by the caller
       throw new Error('Failed to fetch video. Please contact technical support.');
     }
   } catch (error) {
-    console.error('Error caching video:', error);
+    
     // Rethrow the error to be handled by the caller
     throw error;
   }
@@ -168,7 +168,7 @@ export async function getFromCache(url: string): Promise<VideoCacheItem | null> 
       };
     });
   } catch (error) {
-    console.error('Error getting video from cache:', error);
+    
     return null;
   }
 }
@@ -195,7 +195,7 @@ async function storeInCache(entry: VideoCacheEntry): Promise<void> {
       };
     });
   } catch (error) {
-    console.error('Error storing video in cache:', error);
+    
     throw error;
   }
 }
@@ -237,7 +237,7 @@ async function updateLastAccessed(url: string): Promise<void> {
       };
     });
   } catch (error) {
-    console.error('Error updating last accessed time:', error);
+    
   }
 }
 
@@ -265,7 +265,7 @@ async function getCacheTotalSize(): Promise<number> {
       };
     });
   } catch (error) {
-    console.error('Error calculating cache size:', error);
+    
     return 0;
   }
 }
@@ -281,11 +281,11 @@ async function ensureCacheSpace(newItemSize: number): Promise<void> {
     
     // Check if adding the new item would exceed the max cache size
     if (currentSize + newItemSize > MAX_CACHE_SIZE) {
-      console.log('Cache cleanup needed. Current size:', currentSize, 'New item size:', newItemSize);
+      
       await removeOldestItems(currentSize + newItemSize - MAX_CACHE_SIZE);
     }
   } catch (error) {
-    console.error('Error ensuring cache space:', error);
+    
   }
 }
 
@@ -324,18 +324,18 @@ async function removeOldestItems(bytesToFree: number): Promise<void> {
           
           const deleteRequest = cursor.delete();
           deleteRequest.onerror = () => {
-            console.error('Failed to delete old cache item:', entry.url);
+            
           };
           
           cursor.continue();
         } else {
-          console.log(`Freed ${freedBytes} bytes from cache`);
+          
           resolve();
         }
       };
     });
   } catch (error) {
-    console.error('Error removing oldest items from cache:', error);
+    
   }
 }
 
@@ -376,13 +376,13 @@ export async function clearVideoCache(): Promise<void> {
         };
         
         clearRequest.onsuccess = () => {
-          console.log('Video cache cleared successfully');
+          
           resolve();
         };
       };
     });
   } catch (error) {
-    console.error('Error clearing video cache:', error);
+    
   }
 }
 
@@ -425,7 +425,7 @@ export async function getVideoCacheStats(): Promise<{ count: number; totalSize: 
       };
     });
   } catch (error) {
-    console.error('Error getting cache stats:', error);
+    
     return { count: 0, totalSize: 0 };
   }
 }
