@@ -99,13 +99,6 @@ export async function GET(
         );
       }
     }
-    
-    // This code is unreachable - kept here in case we need it later
-    return handleRouteError(
-      new Error('Invalid code path reached'),
-      'audio proxy logic',
-      'Invalid code path reached'
-    );
   } catch (error) {
     return handleRouteError(error, 'audio proxy', 'Failed to proxy blob');
   }
