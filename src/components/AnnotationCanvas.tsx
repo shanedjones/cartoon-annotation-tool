@@ -71,11 +71,9 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
 
   // Clear the canvas
   const clearCanvasDrawings = useCallback(() => {
-    console.log('AnnotationCanvas: Starting canvas clear operation');
     const ctx = getContext();
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
-      console.log('AnnotationCanvas: Canvas context cleared');
     }
     setAllDrawings([]);
     
@@ -83,7 +81,6 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     return new Promise<void>(resolve => {
       // Use requestAnimationFrame to wait for the next frame after state update
       requestAnimationFrame(() => {
-        console.log('AnnotationCanvas: Canvas clear state update processed');
         resolve();
       });
     });
@@ -101,7 +98,6 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
             requestAnimationFrame(() => {
               // Now that the canvas is definitely cleared, notify the parent
               if (onClearComplete) {
-                console.log('AnnotationCanvas: Canvas clearing complete, notifying parent');
                 onClearComplete();
               }
             });
@@ -162,15 +158,9 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     // Only run this effect when replaying
     if (!isReplaying) return;
     
-    console.log("REPLAY EFFECT RUNNING", {
-      isReplaying,
-      annotationsCount: replayAnnotations?.length || 0,
-      globalTimePosition
-    });
     
     const ctx = getContext();
     if (!ctx) {
-      console.error("Failed to get canvas context for annotation replay");
       return;
     }
     
@@ -179,32 +169,12 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     
     // Exit early if no annotations to draw
     if (!replayAnnotations || replayAnnotations.length === 0) {
-      console.log("No annotations to replay");
       return;
     }
-    
-    // Always log the annotation data once to diagnose issues
-    if (Math.random() < 0.1) {
-      console.log("Annotation replay data:", 
-        replayAnnotations.slice(0, 2).map(a => ({
-          hasPoints: Boolean(a?.points),
-          pointsLength: a?.points?.length,
-          globalTimeOffset: (a as any).globalTimeOffset,
-          timeOffset: (a as any).timeOffset,
-          videoTime: a.videoTime,
-          timestamp: a.timestamp
-        }))
-      );
-    }
-    
+        
     // Also track video time for debugging
     const videoTimeMs = currentTime * 1000; // Convert to milliseconds
-    
-    // Log global timeline information periodically (every second)
-    if (Math.floor(globalTimePosition / 1000) !== Math.floor((globalTimePosition - 100) / 1000)) {
-      console.log(`Annotation replay: Global time: ${globalTimePosition}ms, Last clear: ${lastClearTime}ms, Annotations: ${replayAnnotations.length}`);
-    }
-    
+        
     // First, filter annotations to only include those created after the last clear
     // This ensures "clear" actions are properly respected during replay
     const visibleAnnotations = replayAnnotations.filter(annotation => {
@@ -223,15 +193,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         
         // Now check if this annotation should be visible at the current timeline position
         const isVisible = globalTimeOffset <= globalTimePosition;
-        
-        if (Math.random() < 0.01) { // Reduce logging frequency
-          console.log(`Annotation with globalTimeOffset: ${globalTimeOffset}ms at time: ${globalTimePosition}ms, lastClear: ${lastClearTime}ms`, {
-            visible: isVisible,
-            afterClear: globalTimeOffset > lastClearTime,
-            videoTime: videoTimeMs
-          });
-        }
-        
+                
         return isVisible;
       }
       
@@ -258,19 +220,11 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       return annotation.timestamp <= videoTimeMs;
     });
     
-    // Always log when we have visible annotations
+    // Draw visible annotations
     if (visibleAnnotations.length > 0) {
-      console.log(`Showing ${visibleAnnotations.length} of ${replayAnnotations.length} annotations at global time ${globalTimePosition}ms`);
       
       // Draw each visible annotation
       visibleAnnotations.forEach(path => {
-        console.log("Drawing path:", {
-          points: path.points?.length,
-          color: path.color,
-          width: path.width,
-          tool: path.tool || 'freehand'
-        });
-        
         // Ensure tool type is set for backwards compatibility
         if (!path.tool) {
           path.tool = 'freehand';
@@ -278,8 +232,6 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         
         drawPath(ctx, path);
       });
-    } else if (Math.random() < 0.1) {
-      console.log(`No visible annotations at time ${globalTimePosition}ms (of ${replayAnnotations.length} total)`);
     }
   }, [isReplaying, replayAnnotations, currentTime, width, height, globalTimePosition, lastClearTime, getContext, drawPath]);
 
@@ -300,18 +252,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   }, [allDrawings, isReplaying, width, height]);
 
   // Method to handle an annotation that was generated programmatically
-  const handleManualAnnotation = (path: DrawingPath) => {
-    // Log additional timing information for debugging
-    console.log('Handling manual annotation:', {
-      path: path,
-      points: path.points?.length || 0,
-      videoTime: path.videoTime || 'not set',
-      timestamp: path.timestamp || 'not set',
-      timeOffset: (path as any).timeOffset || 'not set',
-      currentVideoTime: currentTime * 1000,
-      tool: path.tool || 'freehand' // Default to freehand if not specified
-    });
-    
+  const handleManualAnnotation = (path: DrawingPath) => {    
     // Make sure tool type is set
     const completePath = {
       ...path,
@@ -465,8 +406,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
             onAnnotationAdded(newPath);
           }
           
-          console.log('Created line from', startPoint, 'to', endPosition);
-        }
+            }
       }
       setStartPoint(null);
     } else if (currentPath.length > 1) {
@@ -501,13 +441,11 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     
     // Drawing manipulation methods
     clearCanvasDrawings: () => {
-      console.log('AnnotationCanvas: Clearing all drawings');
       clearCanvasDrawings();
     },
     
     // New state-based reset method that bypasses the timeline completely
     resetCanvas: () => {
-      console.log('AnnotationCanvas: Complete state-based canvas reset');
       
       // Use double requestAnimationFrame for reliable clearing
       requestAnimationFrame(() => {
@@ -527,19 +465,12 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
           const ctx = getContext();
           if (ctx) {
             ctx.clearRect(0, 0, width, height);
-            console.log('AnnotationCanvas: Second clearing pass complete');
           }
         });
       });
     },
     
     handleManualAnnotation: (path: DrawingPath) => {
-      console.log('AnnotationCanvas: Handling manual annotation:', {
-        pointsCount: path.points?.length || 0,
-        color: path.color,
-        width: path.width,
-        videoTime: path.videoTime
-      });
       handleManualAnnotation(path);
     }
   }));

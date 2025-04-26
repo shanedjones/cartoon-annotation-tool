@@ -491,7 +491,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onRecordAction(action);
         }
       }
-      }
     },
     
     clearAllAnnotations: () => {
@@ -516,7 +515,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onRecordAction(action);
         }
       }
-    }
     }
   }));
   
