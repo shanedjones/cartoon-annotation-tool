@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
-import { getCosmosConfig } from '@/src/utils/validateEnv';
+import { getContainer } from '@/src/lib/db';
 
 // Connection and validation will be done inside the handler functions
 // to prevent issues during build time
 
 export async function PUT(request: Request) {
   try {
-    // Get validated Cosmos DB configuration
-    const { endpoint, key, databaseId, containerId } = getCosmosConfig();
-
-    // Initialize the Cosmos client
-    const client = new CosmosClient({ endpoint, key });
-    const database = client.database(databaseId);
-    const container = database.container(containerId);
+    // Get container from the singleton client
+    const container = getContainer();
 
     const data = await request.json();
     const { sessionId, swing } = data;

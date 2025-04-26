@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
-import { getCosmosConfig } from '@/src/utils/validateEnv';
+import { getContainer } from '@/src/lib/db';
 
 // Connection and validation will be done inside the handler functions
 // to prevent issues during build time
@@ -17,13 +16,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Get validated Cosmos DB configuration
-    const { endpoint, key, databaseId, containerId } = getCosmosConfig();
-
-    // Initialize the Cosmos client
-    const client = new CosmosClient({ endpoint, key });
-    const database = client.database(databaseId);
-    const container = database.container(containerId);
+    // Get container from singleton client
+    const container = getContainer();
     
     // Find which session contains this swing
     const querySpec = {

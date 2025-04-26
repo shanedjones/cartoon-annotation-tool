@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
+import { getContainer } from '@/src/lib/db';
 import { getCosmosConfig } from '@/src/utils/validateEnv';
 
 // Connection and validation will be done inside the handler functions
@@ -11,13 +11,8 @@ export async function GET(request: Request) {
   const status = searchParams.get('status');
 
   try {
-    // Get validated Cosmos DB configuration
-    const { endpoint, key, databaseId, containerId } = getCosmosConfig();
-
-    // Initialize the Cosmos client
-    const client = new CosmosClient({ endpoint, key });
-    const database = client.database(databaseId);
-    const container = database.container(containerId);
+    // Get container from singleton client
+    const container = getContainer();
     
     let querySpec;
     
@@ -75,13 +70,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    // Get validated Cosmos DB configuration
-    const { endpoint, key, databaseId, containerId } = getCosmosConfig();
-
-    // Initialize the Cosmos client
-    const client = new CosmosClient({ endpoint, key });
-    const database = client.database(databaseId);
-    const container = database.container(containerId);
+    // Get container from singleton client
+    const container = getContainer();
     
     const data = await request.json();
     
@@ -151,13 +141,8 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    // Get validated Cosmos DB configuration
-    const { endpoint, key, databaseId, containerId } = getCosmosConfig();
-
-    // Initialize the Cosmos client
-    const client = new CosmosClient({ endpoint, key });
-    const database = client.database(databaseId);
-    const container = database.container(containerId);
+    // Get container from singleton client
+    const container = getContainer();
     
     const data = await request.json();
     

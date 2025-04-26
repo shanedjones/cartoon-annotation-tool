@@ -2,26 +2,20 @@
 require('dotenv').config({ path: '.env' });
 
 const bcrypt = require('bcrypt');
-const { CosmosClient } = require('@azure/cosmos');
-
-// Cosmos DB connection
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT,
-  key: process.env.COSMOS_KEY,
-});
+const { getCosmosClient, validateEnv } = require('./db');
 
 // Validate environment variables
-if (!process.env.COSMOS_DATABASE_ID) {
-  throw new Error('COSMOS_DATABASE_ID environment variable is required');
-}
-
-if (!process.env.COSMOS_USERS_CONTAINER_ID) {
-  throw new Error('COSMOS_USERS_CONTAINER_ID environment variable is required');
-}
+const env = validateEnv([
+  'COSMOS_DATABASE_ID',
+  'COSMOS_USERS_CONTAINER_ID'
+]);
 
 // Database and container names
-const databaseId = process.env.COSMOS_DATABASE_ID;
-const containerId = process.env.COSMOS_USERS_CONTAINER_ID;
+const databaseId = env.COSMOS_DATABASE_ID;
+const containerId = env.COSMOS_USERS_CONTAINER_ID;
+
+// Get Cosmos client from singleton
+const client = getCosmosClient();
 
 console.log(`Using database: ${databaseId}`);
 console.log(`Using container: ${containerId}`);

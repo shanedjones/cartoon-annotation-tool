@@ -2,23 +2,13 @@
 // Usage: node scripts/seed-cosmos-db.js
 
 require('dotenv').config();
-const { CosmosClient } = require('@azure/cosmos');
+const { getCosmosClient, getCosmosConfig } = require('./db');
 
-// Cosmos DB connection configuration
-const endpoint = process.env.COSMOS_ENDPOINT;
-const key = process.env.COSMOS_KEY;
-const databaseId = process.env.COSMOS_DATABASE_ID || '';
-const containerId = process.env.COSMOS_CONTAINER_ID || '';
-
-// Check for required environment variables
-if (!endpoint || !key) {
-  console.error('Error: COSMOS_ENDPOINT and COSMOS_KEY environment variables are required.');
-  console.error('Please create a .env file with these values or set them in your environment.');
-  process.exit(1);
-}
+// Get Cosmos DB configuration
+const { databaseId, containerId } = getCosmosConfig();
 
 // Initialize the Cosmos client
-const client = new CosmosClient({ endpoint, key });
+const client = getCosmosClient();
 
 // Define the clubs and strengths
 const clubs = ["Driver", "7 Iron", "PW"];
