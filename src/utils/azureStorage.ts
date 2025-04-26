@@ -1,5 +1,6 @@
 import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
 import { v4 as uuidv4 } from 'uuid';
+import { getAzureStorageConfig } from './validateEnv';
 
 // Initialize the BlobServiceClient
 let blobServiceClient: BlobServiceClient;
@@ -7,15 +8,8 @@ let containerClient: ContainerClient;
 
 // Initialize the storage client
 const initializeStorageClient = () => {
-  // Get connection string at runtime from environment
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
-  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
-  
-  
-  
-  if (!connectionString) {
-    throw new Error('Azure Storage connection string is not configured');
-  }
+  // Get validated Azure Storage configuration
+  const { connectionString, containerName } = getAzureStorageConfig();
   
   try {
     if (!blobServiceClient) {
@@ -55,11 +49,7 @@ const initializeStorageClient = () => {
 // Create the container if it doesn't exist
 export const ensureContainer = async (): Promise<void> => {
   try {
-    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
-    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'audio-recordings';
-    
-    
-    
+    const { connectionString } = getAzureStorageConfig();
     
     if (connectionString.includes('DefaultEndpointsProtocol')) {
       // Log the parts of the connection string to debug issues
