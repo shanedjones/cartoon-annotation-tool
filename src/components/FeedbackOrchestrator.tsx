@@ -565,7 +565,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       // Create new categories object with the updated rating
       const updatedCategories = {
         ...currentCategories,
-        [category]: rating > 0 ? rating : null // Store as null if rating is 0, otherwise store the actual rating
+        [category]: rating > 0 ? rating : false // Store as false if rating is 0, otherwise store the actual rating
       };
       
       

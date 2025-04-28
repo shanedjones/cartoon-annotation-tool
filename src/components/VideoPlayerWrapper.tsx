@@ -555,8 +555,8 @@ export default function VideoPlayerWrapper({
       orchestratorRef.current.stopReplay();
       setIsActive(false);
       
-      // Reset mode back to empty to return to initial state
-      setMode('');
+      // Reset mode back to initial state
+      setMode('record');
       
       // Notify parent that replay is no longer active
       if (onReplayModeChange) {
@@ -898,7 +898,7 @@ export default function VideoPlayerWrapper({
         stopReplay,
         resetState: () => {
           // Reset state to initial condition after replay
-          setMode('');
+          setMode('record');
           setIsActive(false);
           if (onReplayModeChange) {
             onReplayModeChange(false);

@@ -403,8 +403,6 @@ export default function AudioRecorder({
     replayAudioChunks.forEach((chunk, index) => {
       const chunkId = chunk.startTime; // Use startTime as unique ID
       
-      }
-      
       // Check if this chunk should be playing based on video time
       const shouldPlay = 
         videoTimeMs >= chunk.videoTime && 
@@ -539,9 +537,10 @@ export default function AudioRecorder({
               
               // Set up a one-time click handler to try again
               const clickHandler = () => {
-                audio.play().catch(e => 
-                document.removeEventListener('click', clickHandler);
-                setError(null);
+                audio.play().catch(e => {
+                  document.removeEventListener('click', clickHandler);
+                  setError(null);
+                });
               };
               document.addEventListener('click', clickHandler, { once: true });
             } else {
