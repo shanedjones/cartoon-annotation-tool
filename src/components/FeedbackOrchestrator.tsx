@@ -683,14 +683,18 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
    * Helper function to simulate timeline without audio
    */
   const simulateTimelineWithoutAudio = useCallback((session: FeedbackSession) => {
-    
+    // Ensure video is initially paused when starting a timeline simulation
+    if (videoElementRef.current) {
+      videoElementRef.current.pause();
+    }
     
     // Calculate the total duration from events or use a default
     const totalDuration = session.events.length > 0 
       ? Math.max(...session.events.map(e => e.timeOffset)) + 5000
       : 30000; // Default 30s if no events
     
-    
+    // Debugging the timeline simulation
+    console.log(`Starting timeline simulation with ${session.events.length} events over ${totalDuration}ms`);
     
     let elapsed = 0;
     const interval = 100; // 100ms updates
@@ -737,6 +741,11 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     // Reset global timeline position and last clear time at the start of replay
     resetTimelinePosition();
     
+    // Make sure we have a reference to the video element and it's paused at the start
+    if (videoElementRef.current) {
+      videoElementRef.current.pause();
+      videoElementRef.current.currentTime = 0;
+    }
     
     setIsActive(true);
     setReplayProgress(0);

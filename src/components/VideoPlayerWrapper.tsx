@@ -502,8 +502,10 @@ export default function VideoPlayerWrapper({
     
     // Prepare video if available
     if (videoRef.current) {
-      
+      // Reset to beginning but don't start playing
       videoRef.current.currentTime = 0;
+      // Ensure video is paused to start
+      videoRef.current.pause();
     }
     
     if (orchestratorRef.current && currentSession) {
