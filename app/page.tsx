@@ -4,6 +4,11 @@ import VideoPlayerWrapper from "../src/components/VideoPlayerWrapper";
 import { useState, useCallback, useEffect, Suspense } from "react";
 import type { FeedbackSession } from "@/src/components/FeedbackOrchestrator";
 import { useSearchParams } from 'next/navigation';
+import HomeHeader from "@/src/components/HomeHeader";
+import CategoryPanel from "@/src/components/CategoryPanel";
+import KeyMetricsPanel from "@/src/components/KeyMetricsPanel";
+import SessionControls from "@/src/components/SessionControls";
+
 function HomeContent() {
   interface DataLabelingProperty {
     id: string;
@@ -219,7 +224,7 @@ function HomeContent() {
       window.removeEventListener('session-available', handleSessionChange);
       window.removeEventListener('session-ready', handleSessionReady);
     };
-  }, [hasRecordedSession, isCompletedVideo, isSessionReady, isRecording, isSaving, isSavingComplete]);
+  }, [hasRecordedSession, isCompletedVideo, isSessionReady, isRecording, isSaving, isSavingComplete, isReplayMode]);
   const [isClient, setIsClient] = useState(false);
   const [savedReviewSession, setSavedReviewSession] = useState(null);
   useEffect(() => {
@@ -317,208 +322,35 @@ function HomeContent() {
   return (
     <div className="min-h-screen p-4">
       <main className="max-w-6xl mx-auto">
-        <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
-          <div className="flex items-center gap-4 mt-4 sm:mt-0">
-            <div className="flex space-x-2">
-              {}
-              {isSaving ? (
-                <span className="text-gray-500 py-2 px-4">Saving...</span>
-              ) : isSavingComplete ? (
-                <span className="py-2 px-4">Recording saved.</span>
-              ) : (
-                !isCompletedVideo && !isRecording && (
-                  <button
-                    onClick={() => document.getElementById('startRecordingButton')?.click()}
-                    disabled={isReplayMode || isVideoLoading}
-                    className={
-                      isReplayMode || isVideoLoading
-                        ? "!bg-gray-300 !text-gray-500 py-2 px-4 rounded-md cursor-not-allowed"
-                        : "!bg-green-600 !text-white py-2 px-4 rounded-md"
-                    }
-                  >
-                    {isVideoLoading
-                      ? "Loading video..."
-                      : "Start Recording"
-                    }
-                  </button>
-                )
-              )}
-              {}
-              {isRecording && (
-                <button
-                  onClick={() => document.getElementById('stopButton')?.click()}
-                  className="!bg-red-500 !text-white py-2 px-4 rounded-md"
-                >
-                  Stop Recording
-                </button>
-              )}
-              {}
-              {(isCompletedVideo || hasRecordedSession || isReplayMode) && !isSavingComplete && !isSaving && (
-                <button
-                  onClick={() => document.getElementById(isReplayMode ? 'stopButton' : 'startReplayButton')?.click()}
-                  disabled={isClient &&
-                    (isRecording ||
-                    isVideoLoading ||
-                    (!hasRecordedSession && !isReplayMode) ||
-                    (hasRecordedSession && !isSessionReady && !isReplayMode))}
-                  className={
-                    isClient &&
-                      (isRecording ||
-                      isVideoLoading ||
-                      (!hasRecordedSession && !isReplayMode) ||
-                      (hasRecordedSession && !isSessionReady && !isReplayMode))
-                      ? "!bg-gray-300 !text-gray-500 py-2 px-4 rounded-md cursor-not-allowed"
-                      : isReplayMode
-                        ? "!bg-yellow-500 !text-white py-2 px-4 rounded-md"
-                        : "!bg-green-600 !text-white py-2 px-4 rounded-md"
-                  }
-                >
-                  {isReplayMode
-                    ? "Stop Replay"
-                    : (hasRecordedSession && !isSessionReady) || isVideoLoading
-                      ? "Loading..."
-                      : "Replay Session"
-                  }
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-        {}
-        {videoId && contentToReview && (
-          <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
-            <h2 className="text-xl font-semibold dark:text-white">{contentToReview.videoTitle}</h2>
-            <p className="text-gray-600 dark:text-gray-300">{contentToReview.videoDescription}</p>
-          </div>
-        )}
+        <HomeHeader 
+          isVideoLoading={isVideoLoading}
+          isRecording={isRecording}
+          isReplayMode={isReplayMode}
+          isSaving={isSaving}
+          isSavingComplete={isSavingComplete}
+          isCompletedVideo={isCompletedVideo}
+          hasRecordedSession={hasRecordedSession}
+          isSessionReady={isSessionReady}
+          isClient={isClient}
+          videoTitle={contentToReview?.videoTitle}
+          videoDescription={contentToReview?.videoDescription}
+        />
+        
         <div className="flex flex-col lg:flex-row gap-4">
           {}
           {contentToReview && <div className="lg:w-1/5">
-            <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 h-full">
-              <h2 className="text-xl font-semibold mb-3 dark:text-white">{contentToReview.dataLabelingTitle}</h2>
-              {}
-              {!isRecording && isCompletedVideo ? (
-                <div>
-                  {contentToReview && (
-                    <>
-                      <ul className="space-y-3">
-                        {contentToReview.labelProperties?.map((property) => (
-                          <li key={property.id}>
-                            <div className="font-medium dark:text-white">{property.label}</div>
-                            <div className="flex mt-1 space-x-2">
-                              {}
-                              {(() => {
-                                const ratingCategoryById = categoryList.find(cat =>
-                                  cat.id && cat.id === property.id
-                                );
-                                const ratingCategoryByName = !ratingCategoryById ? categoryList.find(cat =>
-                                  cat.name?.toLowerCase() === property.label.toLowerCase() ||
-                                  cat.name?.toLowerCase().replace(/\s+/g, '') === property.label.toLowerCase().replace(/\s+/g, '')
-                                ) : null;
-                                const directRating = categories[property.id];
-                                const rating = directRating ||
-                                              ratingCategoryById?.rating ||
-                                              ratingCategoryByName?.rating ||
-                                              0;
-                                if (property.id === "setupAlignment") {
-                                }
-                                switch(rating) {
-                                  case 1:
-                                    return <div className="w-8 h-8 rounded-full !bg-red-500 !border-2 !border-red-500" title="Red rating" />;
-                                  case 2:
-                                    return <div className="w-8 h-8 rounded-full !bg-yellow-300 !border-2 !border-yellow-400" title="Yellow rating" />;
-                                  case 3:
-                                    return <div className="w-8 h-8 rounded-full !bg-green-500 !border-2 !border-green-500" title="Green rating" />;
-                                  default:
-                                    return <div className="w-8 h-8 rounded-full !bg-white !border-2 !border-gray-300 dark:!border-gray-500" title="No rating" />;
-                                }
-                              })()}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        {categoryList.length > 0 ? `${categoryList.length} ${categoryList.length === 1 ? 'category' : 'categories'} rated` : 'No ratings yet'}
-                      </p>
-                    </>
-                  )}
-                </div>
-              ) : isReplayMode ? (
-                <div>
-                  {contentToReview && (
-                    <>
-                      <ul className="space-y-3">
-                        {contentToReview.labelProperties?.map((property) => (
-                          <li key={property.id}>
-                            <div className="font-medium dark:text-white">{property.label}</div>
-                            <div className="flex mt-1 space-x-2">
-                              {}
-                              {(() => {
-                                const ratingCategoryById = categoryList.find(cat =>
-                                  cat.id && cat.id === property.id
-                                );
-                                const ratingCategoryByName = !ratingCategoryById ? categoryList.find(cat =>
-                                  cat.name?.toLowerCase() === property.label.toLowerCase() ||
-                                  cat.name?.toLowerCase().replace(/\s+/g, '') === property.label.toLowerCase().replace(/\s+/g, '')
-                                ) : null;
-                                const directRating = categories[property.id];
-                                const rating = directRating ||
-                                              ratingCategoryById?.rating ||
-                                              ratingCategoryByName?.rating ||
-                                              0;
-                                switch(rating) {
-                                  case 1:
-                                    return <div className="w-8 h-8 rounded-full !bg-red-500 !border-2 !border-red-500" title="Red rating" />;
-                                  case 2:
-                                    return <div className="w-8 h-8 rounded-full !bg-yellow-300 !border-2 !border-yellow-400" title="Yellow rating" />;
-                                  case 3:
-                                    return <div className="w-8 h-8 rounded-full !bg-green-500 !border-2 !border-green-500" title="Green rating" />;
-                                  default:
-                                    return <div className="w-8 h-8 rounded-full !bg-white !border-2 !border-gray-300 dark:!border-gray-500" title="No rating" />;
-                                }
-                              })()}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        {categoryList.length > 0 ? `${categoryList.length} ${categoryList.length === 1 ? 'category' : 'categories'} rated` : 'No ratings yet'}
-                      </p>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {contentToReview.labelProperties?.map((property) => (
-                    <div key={property.id}>
-                      <div className="mb-1 dark:text-white">{property.label}</div>
-                      <div className="flex items-center space-x-2">
-                        {}
-                        <button
-                          type="button"
-                          onClick={() => handleCategoryChange(property.id, 1)}
-                          className={`w-8 h-8 rounded-full !outline-none !border-2 ${(categories[property.id] ?? 0) === 1 ? "!bg-red-500 !border-red-500" : "!bg-white !border-red-500 hover:!bg-red-100"}`}
-                          aria-label="Red rating"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleCategoryChange(property.id, 2)}
-                          className={`w-8 h-8 rounded-full !outline-none !border-2 ${(categories[property.id] ?? 0) === 2 ? "!bg-yellow-300 !border-yellow-400" : "!bg-white !border-yellow-400 hover:!bg-yellow-100"}`}
-                          aria-label="Yellow rating"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleCategoryChange(property.id, 3)}
-                          className={`w-8 h-8 rounded-full !outline-none !border-2 ${(categories[property.id] ?? 0) === 3 ? "!bg-green-500 !border-green-500" : "!bg-white !border-green-500 hover:!bg-green-100"}`}
-                          aria-label="Green rating"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CategoryPanel 
+              dataLabelingTitle={contentToReview.dataLabelingTitle}
+              labelProperties={contentToReview.labelProperties}
+              categories={categories}
+              isRecording={isRecording}
+              isCompletedVideo={isCompletedVideo}
+              isReplayMode={isReplayMode}
+              categoryList={categoryList}
+              handleCategoryChange={handleCategoryChange}
+            />
           </div>}
+          
           {}
           <div className="lg:w-3/5">
             {contentToReview ? <VideoPlayerWrapper
@@ -535,54 +367,21 @@ function HomeContent() {
             /> : <div className="flex items-center justify-center h-64 bg-gray-100 dark:bg-gray-800 rounded-lg">
               <p className="text-gray-500 dark:text-gray-400">Please select a video to review</p>
             </div>}
-            {}
-            {hasRecordedSession && (
-              <div className="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-                <h3 className="text-lg font-semibold mb-2 dark:text-white">Recorded Session</h3>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => document.getElementById('downloadDataButton')?.click()}
-                    disabled={isClient && (isRecording || !hasRecordedSession)}
-                    className={isClient && (isRecording || !hasRecordedSession) ? "bg-gray-300 text-gray-500 py-2 px-4 rounded-md" : "bg-blue-500 text-white py-2 px-4 rounded-md"}
-                  >
-                    Download Data
-                  </button>
-                  <label className="bg-purple-500 text-white py-2 px-4 rounded-md cursor-pointer inline-block">
-                    Load Data
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={(e) => {
-                        const fileInput = document.getElementById('fileUploadInput') as HTMLInputElement;
-                        if (fileInput && e.target.files && e.target.files.length > 0) {
-                          const dataTransfer = new DataTransfer();
-                          dataTransfer.items.add(e.target.files[0]);
-                          fileInput.files = dataTransfer.files;
-                          const event = new Event('change', { bubbles: true });
-                          fileInput.dispatchEvent(event);
-                        }
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
-            )}
+            
+            <SessionControls 
+              hasRecordedSession={hasRecordedSession}
+              isRecording={isRecording}
+              isClient={isClient}
+            />
           </div>
+          
           {}
           {contentToReview?.keyMetrics && contentToReview.keyMetrics.length > 0 && (
             <div className="lg:w-1/5">
-              <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 h-full">
-                <h2 className="text-xl font-semibold mb-3 dark:text-white">{contentToReview.keyMetricsTitle || "Key Metrics"}</h2>
-                <div className="flex flex-col gap-3">
-                  {contentToReview.keyMetrics.map((metric, index) => (
-                    <div key={index} className="p-2 bg-white dark:bg-gray-700 rounded shadow-sm">
-                      <span className="block text-xs text-gray-500 dark:text-gray-300">{metric.name}</span>
-                      <span className="text-lg font-semibold dark:text-white">{metric.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <KeyMetricsPanel 
+                keyMetricsTitle={contentToReview.keyMetricsTitle}
+                keyMetrics={contentToReview.keyMetrics}
+              />
             </div>
           )}
         </div>
