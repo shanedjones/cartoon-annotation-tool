@@ -795,8 +795,8 @@ export default function VideoPlayerWrapper({
           <div className="max-h-48 overflow-y-auto mt-4">
             <h4 className="font-medium text-sm mb-2">Timeline Events:</h4>
             <ul className="text-xs bg-white rounded p-2">
-              {currentSession.events.map((event, index) => (
-                <li key={index} className="mb-1 p-2 border-b">
+              {currentSession.events.map((event) => (
+                <li key={event.id} className="mb-1 p-2 border-b">
                   <span className="font-semibold">{event.type}</span> at{' '}
                   <span className="font-mono">{(event.timeOffset / 1000).toFixed(2)}s</span>
                   {event.type === 'video' && (
