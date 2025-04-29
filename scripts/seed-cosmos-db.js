@@ -1,30 +1,16 @@
-// Seed script for Cosmos DB
-// Usage: node scripts/seed-cosmos-db.js
-
 require('dotenv').config();
 const { getCosmosClient, getCosmosConfig } = require('./db');
-
-// Get Cosmos DB configuration
 const { databaseId, containerId } = getCosmosConfig();
-
-// Initialize the Cosmos client
 const client = getCosmosClient();
-
-// Define the clubs and strengths
 const clubs = ["Driver", "7 Iron", "PW"];
 const strengths = ["Head-to-Head", "Neck-to-Neck", "Chest-to-Chest"];
-
-// Function to generate swings for a session
 function generateSwings(sessionId, startIndex = 1) {
   const swings = [];
   let swingCounter = startIndex;
-
   clubs.forEach(club => {
     strengths.forEach(strength => {
       const swingId = `swing-${sessionId}-${swingCounter}`;
       swingCounter++;
-
-      // Create descriptions based on club and strength
       let description = "";
       if (club === "Driver") {
         description = `Focus on stance and alignment during the ${strength} position. Check for proper weight distribution and follow-through.`;
@@ -33,13 +19,10 @@ function generateSwings(sessionId, startIndex = 1) {
       } else {
         description = `Check the hand position and loft presentation during the ${strength} position. Note the divot pattern.`;
       }
-
-      // Create metrics based on club
       let metrics = {};
       let labelProperties = [];
       let dataLabelingTitle = "";
       let keyMetricsTitle = "";
-
       if (club === "Driver") {
         dataLabelingTitle = "Driver Analysis";
         keyMetricsTitle = "Driver Metrics";
@@ -99,14 +82,12 @@ function generateSwings(sessionId, startIndex = 1) {
           "Shot Dispersion": `${(2 + Math.random() * 3).toFixed(1)} feet`
         };
       }
-
-      // Create the swing
       swings.push({
         id: swingId,
         title: `${club} - ${strength}`,
         description: description,
-        thumbnailUrl: `https://images.unsplash.com/photo-${Math.floor(Math.random() * 1000000000)}`,
-        videoUrl: "https://cartoonannotationsta.blob.core.windows.net/videos/downTheLine.mp4",
+        thumbnailUrl: `https:
+        videoUrl: "https:
         duration: `0:${Math.floor(Math.random() * 20) + 30}`,
         status: "Not Started",
         dataLabelingTitle: dataLabelingTitle,
@@ -116,11 +97,8 @@ function generateSwings(sessionId, startIndex = 1) {
       });
     });
   });
-
   return swings;
 }
-
-// Sample assessment session data to seed
 const assessmentData = [
   {
     id: "session-001",
@@ -193,64 +171,45 @@ const assessmentData = [
     swings: generateSwings("005")
   }
 ];
-
 async function main() {
   try {
-    // Create database if it doesn't exist
     console.log(`Checking for database: ${databaseId}...`);
     const { database } = await client.databases.createIfNotExists({ id: databaseId });
     console.log(`Database: ${database.id} ${database.id === databaseId ? 'exists' : 'created'}`);
-
-    // Create container if it doesn't exist
     console.log(`Checking for container: ${containerId}...`);
-    const { container } = await database.containers.createIfNotExists({ 
+    const { container } = await database.containers.createIfNotExists({
       id: containerId,
-      partitionKey: { paths: ["/id"] } 
+      partitionKey: { paths: ["/id"] }
     });
     console.log(`Container: ${container.id} ${container.id === containerId ? 'exists' : 'created'}`);
-
-    // Check if the container is already populated
     const { resources: existingItems } = await container.items.query({
       query: "SELECT VALUE COUNT(1) FROM c"
     }).fetchAll();
-
     const itemCount = existingItems[0];
     if (itemCount > 0) {
       console.log(`Container already contains ${itemCount} items. Do you want to clear and reseed? (yes/no)`);
-      // In a real script, you would add user input here
-      // For this example, we'll assume "yes" and continue
       console.log('Proceeding with clear and reseed...');
-      
-      // Delete existing items
       console.log('Deleting existing items...');
       const { resources: allItems } = await container.items.query({
         query: "SELECT c.id FROM c"
       }).fetchAll();
-      
       for (const item of allItems) {
         await container.item(item.id, item.id).delete();
         console.log(`Deleted item: ${item.id}`);
       }
     }
-
-    // Insert sample data
     console.log('Inserting sample assessment data...');
-    
-    // Count the total number of swings across all sessions
     const totalSwings = assessmentData.reduce((total, session) => total + session.swings.length, 0);
     console.log(`Creating ${assessmentData.length} assessment sessions with a total of ${totalSwings} swings...`);
-    
     for (const session of assessmentData) {
       const { resource: createdItem } = await container.items.create(session);
       console.log(`Created session: ${createdItem.id} with ${session.swings.length} swings`);
     }
-
     console.log('Seed data inserted successfully');
   } catch (error) {
     console.error('Error seeding Cosmos DB:', error);
   }
 }
-
 main()
   .then(() => console.log('Seeding completed successfully'))
   .catch(error => console.error('Seeding failed:', error));

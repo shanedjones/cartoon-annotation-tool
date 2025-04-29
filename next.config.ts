@@ -1,7 +1,5 @@
 import type { NextConfig } from "next";
-
 const nextConfig: NextConfig = {
-  /* config options here */
   env: {
     COSMOS_ENDPOINT: process.env.COSMOS_ENDPOINT,
     COSMOS_KEY: process.env.COSMOS_KEY,
@@ -12,5 +10,4 @@ const nextConfig: NextConfig = {
   },
   output: 'standalone',
 };
-
 export default nextConfig;

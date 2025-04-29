@@ -1,71 +1,52 @@
 'use client';
-
 import React, { useState, useEffect } from 'react';
-
 interface AssessmentReview {
   notes: string;
 }
-
 interface AssessmentReviewModalProps {
   sessionId: string;
   athleteName: string;
   isOpen: boolean;
   onClose: (saved?: boolean) => void;
 }
-
 export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, onClose }: AssessmentReviewModalProps) {
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [loadingReview, setLoadingReview] = useState(true);
-
-  // Load existing review data if available
   useEffect(() => {
     if (isOpen && sessionId) {
       const fetchReview = async () => {
         try {
           setLoadingReview(true);
           const response = await fetch(`/api/assessments/review?sessionId=${sessionId}`);
-          
           if (response.ok) {
             const data = await response.json();
-            
             if (data && data.notes) {
               setNotes(data.notes);
             } else {
-              // No existing review, use defaults
               setNotes('');
             }
           } else {
-            // If 404, it's a new review
             setNotes('');
           }
         } catch (error) {
-          
-          // Use defaults on error
           setNotes('');
         } finally {
           setLoadingReview(false);
         }
       };
-      
       fetchReview();
     }
   }, [isOpen, sessionId]);
-
   const handleSave = async () => {
     if (!sessionId) return;
-    
     try {
       setIsSaving(true);
       setSaveError('');
-      
-      // Prepare review data
       const reviewData = {
         notes
       };
-      
-      // Save to API
       const response = await fetch('/api/assessments/review', {
         method: 'POST',
         headers: {
@@ -76,32 +57,25 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
           review: reviewData
         }),
       });
-      
       if (response.ok) {
-        // Close modal and indicate success to parent
         onClose(true);
       } else {
         const errorData = await response.json();
         setSaveError(errorData.error || 'Failed to save assessment review');
       }
     } catch (error) {
-      
       setSaveError('An unexpected error occurred');
     } finally {
       setIsSaving(false);
     }
   };
-
-
   if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800">Assessment Review: {athleteName}</h2>
         </div>
-        
         {loadingReview ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -121,7 +95,6 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
                 onChange={(e) => setNotes(e.target.value)}
               />
             </div>
-            
             {saveError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md">
                 {saveError}
@@ -129,7 +102,6 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
             )}
           </div>
         )}
-        
         <div className="p-4 border-t border-gray-200 flex justify-end space-x-2">
           <button
             onClick={(e) => onClose()}

@@ -1,24 +1,17 @@
 'use client';
-
 import React, { useState, useRef, useEffect } from 'react';
 import type { DrawingPath, DrawingTool } from './AnnotationCanvas';
 import AnnotationCanvas from './AnnotationCanvas';
-
-// Define the types of events we want to record
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
-
-// Define the structure of a recorded action
 export interface RecordedAction {
   type: ActionType;
-  timestamp: number; // Time in milliseconds since recording started
-  videoTime: number; // Current time in the video
+  timestamp: number;
+  videoTime: number;
   details?: {
-    [key: string]: any; // Additional details specific to the action
+    [key: string]: any;
   };
 }
-
 import { AudioChunk } from './AudioRecorder';
-
 export interface FeedbackData {
   sessionId: string;
   videoId: string;
@@ -28,7 +21,6 @@ export interface FeedbackData {
   annotations?: DrawingPath[];
   audioChunks?: AudioChunk[];
 }
-
 interface VideoPlayerProps {
   isRecording?: boolean;
   isReplaying?: boolean;
@@ -41,15 +33,12 @@ interface VideoPlayerProps {
   isCompletedVideo?: boolean;
   hasRecordedSession?: boolean;
 }
-
 interface VideoPlayerImperativeHandle {
   video: HTMLVideoElement | null;
   annotationCanvas: any;
 }
-
-// Define the VideoPlayer component with proper memoization
-const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerProps>(({ 
-  isRecording = false, 
+const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerProps>(({
+  isRecording = false,
   isReplaying = false,
   onRecordAction,
   setVideoRef,
@@ -60,15 +49,14 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   isCompletedVideo = false,
   hasRecordedSession = false
 }: VideoPlayerProps, ref) => {
-  // Component state
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
-  const [annotationColor, setAnnotationColor] = useState('#ffff00'); // Default yellow
-  const [annotationWidth, setAnnotationWidth] = useState(1); // Default thin
-  const [annotationTool, setAnnotationTool] = useState<DrawingTool>('line'); // Default line
+  const [annotationColor, setAnnotationColor] = useState('#ffff00');
+  const [annotationWidth, setAnnotationWidth] = useState(1);
+  const [annotationTool, setAnnotationTool] = useState<DrawingTool>('line');
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [shouldClearCanvas, setShouldClearCanvas] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,15 +65,11 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const [isLoadStarted, setIsLoadStarted] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  
-  // References
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
   const annotationCanvasRef = useRef<any>(null);
   const localBlobCache = useRef<Record<string, string>>({});
-  
-  // Initialize recording start time when recording begins
   useEffect(() => {
     if (isRecording && !recordingStartTimeRef.current) {
       recordingStartTimeRef.current = Date.now();
@@ -93,89 +77,61 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       recordingStartTimeRef.current = null;
     }
   }, [isRecording]);
-  
-  // Auto-play in replay mode and prevent pausing
   useEffect(() => {
     if (isReplaying && videoRef.current) {
-      // Force play when entering replay mode
       videoRef.current.play()
         .then(() => {
           setPlaying(true);
         })
         .catch(err => {
-          // Handle error silently
         });
     }
   }, [isReplaying]);
-  
-  // Track previous URL to detect changes
   const prevUrlRef = useRef(videoUrl);
-  
-  // Directly handle loading videos with improved error handling
   useEffect(() => {
-    // Skip if no URL
     if (!videoUrl) return;
-    
-    // Reset loading flags if URL changed
     if (prevUrlRef.current !== videoUrl) {
       setIsLoadStarted(false);
       prevUrlRef.current = videoUrl;
     }
-    
-    // Set loading state if not already loading
     if (!isLoadStarted) {
       setIsLoading(true);
       setIsLoadStarted(true);
       setHasError(false);
       setErrorMessage('');
-      
-      // In a real implementation, we would check cache here
-      // For now, directly set the cached source to the original URL
       setCachedVideoSrc(videoUrl);
     }
   }, [videoUrl, isLoadStarted]);
-  
-  // Handle video loading errors
   useEffect(() => {
     if (!videoRef.current) return;
-    
     const handleError = () => {
       console.error('Video loading error');
       setIsLoading(false);
       setHasError(true);
       setErrorMessage('Failed to load the video. Please try again or contact support.');
     };
-    
     videoRef.current.addEventListener('error', handleError);
-    
     return () => {
       if (videoRef.current) {
         videoRef.current.removeEventListener('error', handleError);
       }
     };
   }, [videoRef.current]);
-  
-  // Pass video element reference to parent component
   useEffect(() => {
     if (setVideoRef && videoRef.current) {
       setVideoRef(videoRef.current);
     }
-    
     return () => {
       if (setVideoRef) {
         setVideoRef(null);
       }
     };
   }, [setVideoRef, videoRef.current]);
-  
-  // Notify parent component of loading state changes
   useEffect(() => {
     if (onLoadingStateChange) {
       onLoadingStateChange(isLoading);
     }
   }, [isLoading, onLoadingStateChange]);
-
-  // Update video dimensions when video metadata is loaded
   useEffect(() => {
     const updateVideoDimensions = () => {
       if (videoRef.current && videoContainerRef.current) {
@@ -186,8 +142,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         });
       }
     };
-    
-    // Initial update
     if (videoRef.current) {
       if (videoRef.current.readyState >= 1) {
         updateVideoDimensions();
@@ -195,10 +149,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         videoRef.current.addEventListener('loadedmetadata', updateVideoDimensions);
       }
     }
-    
-    // Update dimensions on window resize
     window.addEventListener('resize', updateVideoDimensions);
-    
     return () => {
       window.removeEventListener('resize', updateVideoDimensions);
       if (videoRef.current) {
@@ -206,30 +157,18 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       }
     };
   }, [videoRef.current]);
-  
-  // Handle annotation being added
   const handleAnnotationAdded = (path: DrawingPath) => {
-    // Calculate the global timeline offset
-    const globalTimeOffset = isRecording && recordingStartTimeRef.current ? 
+    const globalTimeOffset = isRecording && recordingStartTimeRef.current ?
       Date.now() - recordingStartTimeRef.current : 0;
-    
-    // Update the annotation with both global time and video time
     const annotationWithTiming = {
       ...path,
-      // Store both the original timestamp (relative to the recording start)
       videoTime: currentTime * 1000,
-      // Add global timeline offset for proper replay synchronization
       globalTimeOffset: globalTimeOffset,
-      // Ensure tool type is always included
       tool: path.tool || 'freehand'
     };
-    
-    // If recording, pass the annotation to the parent
     if (isRecording && onAnnotationAdded) {
       onAnnotationAdded(annotationWithTiming);
     }
-    
-    // Record the annotation action
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
       const action: RecordedAction = {
         type: 'annotation',
@@ -240,60 +179,43 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       onRecordAction(action);
     }
   };
-  
-  // Clear annotations
   const clearAnnotations = () => {
     setShouldClearCanvas(true);
-    
-    // Record the clear action if recording
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
-      // Calculate global timeline offset
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
-      
       const action: RecordedAction = {
         type: 'annotation',
         timestamp: globalTimeOffset,
         videoTime: currentTime,
-        details: { 
-          action: 'clear', // Ensure consistent action name
+        details: {
+          action: 'clear',
           clear: true,
-          globalTimeOffset: globalTimeOffset // Add global timeline information
+          globalTimeOffset: globalTimeOffset
         }
       };
       onRecordAction(action);
     }
   };
-  
-  // Handle canvas clear completion
   const handleClearComplete = () => {
     setShouldClearCanvas(false);
   };
-  
-  // Function to record an action if recording is enabled
   const recordAction = (type: ActionType, details?: {[key: string]: any}) => {
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
-      // Calculate the global timeline offset
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
-      
       const action: RecordedAction = {
         type,
         timestamp: globalTimeOffset,
         videoTime: currentTime,
-        // Add global timeline information to all actions
         details: {
           ...details,
           globalTimeOffset: globalTimeOffset
         }
       };
-      
       onRecordAction(action);
     }
   };
-  
   const togglePlay = () => {
-    // Don't allow manual control in replay mode
     if (isReplaying) return;
-    
     if (videoRef.current) {
       if (playing) {
         videoRef.current.pause();
@@ -305,61 +227,42 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setPlaying(!playing);
     }
   };
-  
-  // Use requestAnimationFrame for smoother progress bar updates
   const timeUpdateRef = useRef<number | null>(null);
-  
   useEffect(() => {
     const updateTimeDisplay = () => {
       if (videoRef.current) {
-        // Update state to reflect the current video time
         const time = videoRef.current.currentTime;
         setCurrentTime(time);
       }
       timeUpdateRef.current = requestAnimationFrame(updateTimeDisplay);
     };
-    
-    // Start the animation frame loop
     timeUpdateRef.current = requestAnimationFrame(updateTimeDisplay);
-    
-    // Clean up
     return () => {
       if (timeUpdateRef.current !== null) {
         cancelAnimationFrame(timeUpdateRef.current);
       }
     };
   }, []);
-  
   const handleTimeUpdate = () => {
-    // We're now using requestAnimationFrame for smoother updates
-    // This event handler is kept for compatibility but doesn't update state directly
   };
-  
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       const duration = videoRef.current.duration;
       setDuration(duration);
     }
   };
-  
-  // Handle when video is fully loaded and can play through
   const handleCanPlayThrough = () => {
-    // Add a small delay to ensure video is really ready to play smoothly
-    // This prevents the loading spinner from disappearing too quickly
     setTimeout(() => {
       setIsLoading(false);
       setIsVideoCached(true);
     }, 250);
   };
-  
-  // Add additional event handler for duration change
   const handleDurationChange = () => {
     if (videoRef.current) {
       const duration = videoRef.current.duration;
       setDuration(duration);
     }
   };
-  
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     const result = seekToTime(time);
@@ -367,21 +270,17 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       recordAction('seek', { from: result.previousTime, to: result.newTime });
     }
   };
-  
-  // Add a separate function for direct seeking when clicking on the slider
   const handleSliderClick = (e: React.MouseEvent<HTMLInputElement>) => {
     const element = e.target as HTMLInputElement;
     const rect = element.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const percentage = offsetX / rect.width;
     const time = percentage * duration;
-    
     const result = seekToTime(time);
     if (result) {
       recordAction('seek', { from: result.previousTime, to: result.newTime });
     }
   };
-  
   const handlePlaybackRateChange = (rate: number) => {
     if (videoRef.current) {
       const previousRate = videoRef.current.playbackRate;
@@ -390,7 +289,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       recordAction('playbackRate', { from: previousRate, to: rate });
     }
   };
-  
   const formatTime = (time: number) => {
     if (!time || isNaN(time) || time < 0) {
       return '0:00';
@@ -399,8 +297,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
-  
-  // Helper function to seek to a specific time
   const seekToTime = (time: number) => {
     if (videoRef.current) {
       const previousTime = videoRef.current.currentTime;
@@ -411,13 +307,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
     return null;
   };
-  
-  // Add keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip keyboard controls during replay
       if (isReplaying) return;
-      
       if (e.key === ' ' || e.key === 'k') {
         togglePlay();
         recordAction('keyboardShortcut', { key: e.key, action: playing ? 'pause' : 'play' });
@@ -425,11 +317,11 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         if (videoRef.current) {
           const result = seekToTime(videoRef.current.currentTime - 5);
           if (result) {
-            recordAction('keyboardShortcut', { 
-              key: e.key, 
+            recordAction('keyboardShortcut', {
+              key: e.key,
               action: 'rewind',
               from: result.previousTime,
-              to: result.newTime 
+              to: result.newTime
             });
           }
         }
@@ -437,8 +329,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         if (videoRef.current) {
           const result = seekToTime(videoRef.current.currentTime + 5);
           if (result) {
-            recordAction('keyboardShortcut', { 
-              key: e.key, 
+            recordAction('keyboardShortcut', {
+              key: e.key,
               action: 'forward',
               from: result.previousTime,
               to: result.newTime
@@ -447,40 +339,27 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         }
       }
     };
-    
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [duration, playing, isRecording, isReplaying, currentTime]);
-  
-  // Expose handlers for AnnotationCanvas 
   const handleManualAnnotation = (path: DrawingPath) => {
     if (annotationCanvasRef.current) {
       annotationCanvasRef.current.handleManualAnnotation(path);
     }
   };
-  
   const clearAllAnnotations = () => {
     if (annotationCanvasRef.current) {
       annotationCanvasRef.current.clearCanvasDrawings();
     }
   };
-  
-  // Add methods to imperativeHandle 
   React.useImperativeHandle(ref, () => ({
-    // Expose the video element
     video: videoRef.current,
-    
-    // Expose the annotation canvas and its methods
     annotationCanvas: annotationCanvasRef.current,
-    
-    // Expose annotation methods directly at the top level for easier access
     handleManualAnnotation: (path: DrawingPath) => {
       if (annotationCanvasRef.current) {
         annotationCanvasRef.current.handleManualAnnotation(path);
-        
-        // If recording is active, also record this event
         if (isRecording && onRecordAction) {
           const action: RecordedAction = {
             type: 'annotation',
@@ -492,22 +371,17 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         }
       }
     },
-    
     clearAllAnnotations: () => {
       if (annotationCanvasRef.current) {
         annotationCanvasRef.current.clearCanvasDrawings();
-        
-        // If recording is active, also record this event
         if (isRecording && onRecordAction) {
-          // Calculate global timeline offset
           const globalTimeOffset = Date.now() - (recordingStartTimeRef.current || 0);
-          
           const action: RecordedAction = {
             type: 'annotation',
             timestamp: globalTimeOffset,
             videoTime: currentTime,
-            details: { 
-              action: 'clear', // Ensure consistent action name
+            details: {
+              action: 'clear',
               clear: true,
               globalTimeOffset: globalTimeOffset
             }
@@ -517,10 +391,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       }
     }
   }));
-  
   return (
     <div className="flex flex-col w-full max-w-5xl bg-gray-100 rounded-lg shadow-md overflow-hidden">
-      {/* Annotation Tools - now positioned above the video */}
+      {}
       {!isReplaying && !(isCompletedVideo || hasRecordedSession) && (
         <div className="p-3 bg-white border-b border-gray-200">
           <div className="flex flex-wrap items-center space-x-3">
@@ -535,7 +408,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
                 <option value="freehand">Pen</option>
               </select>
             </div>
-            
             <div className="flex items-center space-x-1">
               <label className="text-xs text-gray-600">Color:</label>
               <select
@@ -551,7 +423,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
                 <option value="#ffffff">White</option>
               </select>
             </div>
-            
             <div className="flex items-center space-x-1">
               <label className="text-xs text-gray-600">Width:</label>
               <select
@@ -565,7 +436,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
                 <option value="8">Very Thick</option>
               </select>
             </div>
-            
             <button
               onClick={clearAnnotations}
               className="py-1 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
@@ -575,7 +445,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           </div>
         </div>
       )}
-      
       <div className="relative" ref={videoContainerRef}>
         {isRecording && (
           <div className="absolute top-2 right-2 z-20 flex items-center px-2 py-1 bg-red-500 text-white rounded-md text-sm">
@@ -592,7 +461,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         {hasError && (
           <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-30">
             <div className="text-red-500 mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
+              <svg xmlns="http:
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
               </svg>
             </div>
@@ -613,7 +482,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           preload="metadata"
           muted
         />
-        
         {videoDimensions.width > 0 && videoDimensions.height > 0 && (
           <AnnotationCanvas
             ref={annotationCanvasRef}
@@ -633,8 +501,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           />
         )}
       </div>
-      
-      {/* Show controls only when not in replay mode and not showing a completed video */}
+      {}
       {!isReplaying && !(isCompletedVideo || hasRecordedSession) ? (
         <div className="p-4 bg-white">
           <div className="flex items-center mb-2 relative">
@@ -657,32 +524,28 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
               }}
             />
           </div>
-          
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center space-x-2">
               <button
                 onClick={togglePlay}
                 className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"
               >
-                {playing ? 
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                {playing ?
+                  <svg xmlns="http:
                     <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clipRule="evenodd" />
                   </svg>
                   :
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                  <svg xmlns="http:
                     <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286l-11.54 6.347c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
                   </svg>
                 }
               </button>
-              
-              
               <span className="text-sm text-gray-600">
                 {formatTime(currentTime)} / {duration ? formatTime(duration) : '0:00'}
               </span>
             </div>
-            
             <div className="flex items-center space-x-2">
-              <select 
+              <select
                 value={playbackRate}
                 onChange={(e) => handlePlaybackRateChange(parseFloat(e.target.value))}
                 className="bg-gray-200 text-sm rounded px-2 py-1"
@@ -696,7 +559,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           </div>
         </div>
       ) : (
-        /* Only show minimal info during replay mode */
         <div className="p-2 bg-white">
           <div className="flex justify-center">
             <span className="text-sm text-gray-600">
@@ -708,9 +570,5 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     </div>
   );
 }));
-
-// Add displayName for better debugging in React DevTools
 VideoPlayer.displayName = 'VideoPlayer';
-
-// Export with memo implementation
 export default VideoPlayer;

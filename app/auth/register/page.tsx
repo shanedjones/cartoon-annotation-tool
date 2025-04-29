@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-
 export default function Register() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -10,40 +9,31 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
     try {
-      // Register the user
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name, password }),
       });
-      
       const data = await response.json();
-      
       if (!response.ok) {
         throw new Error(data.message || 'Registration failed');
       }
-      
-      // Sign in the user after successful registration
       await signIn('credentials', {
         redirect: false,
         email,
         password,
       });
-      
       router.push('/inbox');
     } catch (error: any) {
       setError(error.message || 'An error occurred during registration');
       setLoading(false);
     }
   };
-  
   return (
     <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -51,14 +41,12 @@ export default function Register() {
           Create a new account
         </h2>
       </div>
-
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="text-red-500 text-sm">{error}</div>
             )}
-            
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Name
@@ -76,7 +64,6 @@ export default function Register() {
                 />
               </div>
             </div>
-            
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
@@ -94,7 +81,6 @@ export default function Register() {
                 />
               </div>
             </div>
-
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -112,7 +98,6 @@ export default function Register() {
                 />
               </div>
             </div>
-
             <div>
               <button
                 type="submit"
@@ -122,7 +107,6 @@ export default function Register() {
                 {loading ? "Creating account..." : "Create account"}
               </button>
             </div>
-            
             <div className="text-center text-sm">
               Already have an account?{" "}
               <a href="/auth/signin" className="font-medium text-indigo-600 hover:text-indigo-500">

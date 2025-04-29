@@ -1,24 +1,19 @@
 'use client';
-
 import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
-
 export interface Point {
   x: number;
   y: number;
 }
-
 export type DrawingTool = 'freehand' | 'line';
-
 export interface DrawingPath {
   points: Point[];
   color: string;
   width: number;
   timestamp: number;
-  videoTime?: number; // Time in the video when this annotation was created (in ms)
-  tool?: DrawingTool; // The tool used to create this drawing
+  videoTime?: number;
+  tool?: DrawingTool;
 }
-
 interface AnnotationCanvasProps {
   width: number;
   height: number;
@@ -34,7 +29,6 @@ interface AnnotationCanvasProps {
   clearCanvas?: boolean;
   onClearComplete?: () => void;
 }
-
 const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   width,
   height,
@@ -55,12 +49,8 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
   const [allDrawings, setAllDrawings] = useState<DrawingPath[]>([]);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
-  
-  // Get timeline context
   const { state: { currentPosition: globalTimePosition } } = useTimeline();
   const { lastClearTime } = useLastClearTime();
-  
-  // Get canvas context in a memoized way
   const getContext = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -68,43 +58,30 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     if (!ctx) return null;
     return ctx;
   }, [canvasRef]);
-
-  // Clear the canvas
   const clearCanvasDrawings = useCallback(() => {
     const ctx = getContext();
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
     }
     setAllDrawings([]);
-    
-    // Return a promise that resolves when the state update is likely complete
     return new Promise<void>(resolve => {
-      // Use requestAnimationFrame to wait for the next frame after state update
       requestAnimationFrame(() => {
         resolve();
       });
     });
   }, [getContext, width, height]);
-
-  // Listen for external clear command
   useEffect(() => {
     if (clearCanvas) {
-      // Use requestAnimationFrame to ensure we're in a proper animation frame
       requestAnimationFrame(() => {
-        // Clear the canvas and wait for completion
         clearCanvasDrawings()
           .then(() => {
-            // Use another requestAnimationFrame to ensure the clearing has been rendered
             requestAnimationFrame(() => {
-              // Now that the canvas is definitely cleared, notify the parent
               if (onClearComplete) {
                 onClearComplete();
               }
             });
           })
           .catch(err => {
-            
-            // Still call the completion handler even if there was an error
             if (onClearComplete) {
               onClearComplete();
             }
@@ -112,200 +89,121 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       });
     }
   }, [clearCanvas, onClearComplete]);
-
-  // Initialize canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     canvas.width = width;
     canvas.height = height;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
   }, [width, height]);
-
-  // Handle drawing a path
   const drawPath = useCallback((ctx: CanvasRenderingContext2D, path: DrawingPath) => {
     if (!path || !path.points || path.points.length < 2) return;
-
     ctx.beginPath();
     ctx.strokeStyle = path.color;
     ctx.lineWidth = path.width;
-    
-    // For line tool with just two points, draw a straight line
     if (path.tool === 'line' && path.points.length === 2) {
       const [start, end] = path.points;
       ctx.moveTo(start.x, start.y);
       ctx.lineTo(end.x, end.y);
     } else {
-      // For freehand or legacy paths, draw all points
       ctx.moveTo(path.points[0].x, path.points[0].y);
-      
       for (let i = 1; i < path.points.length; i++) {
         ctx.lineTo(path.points[i].x, path.points[i].y);
       }
     }
-    
     ctx.stroke();
   }, []);
-
-  // Draw annotations during replay
   useEffect(() => {
-    // Only run this effect when replaying
     if (!isReplaying) return;
-    
-    
     const ctx = getContext();
     if (!ctx) {
       return;
     }
-    
-    // Clear canvas before drawing
     ctx.clearRect(0, 0, width, height);
-    
-    // Exit early if no annotations to draw
     if (!replayAnnotations || replayAnnotations.length === 0) {
       return;
     }
-        
-    // Also track video time for debugging
-    const videoTimeMs = currentTime * 1000; // Convert to milliseconds
-        
-    // First, filter annotations to only include those created after the last clear
-    // This ensures "clear" actions are properly respected during replay
+    const videoTimeMs = currentTime * 1000;
     const visibleAnnotations = replayAnnotations.filter(annotation => {
       if (!annotation || !annotation.points || annotation.points.length < 2) {
-        return false; // Skip invalid annotations
+        return false;
       }
-      
-      // First, check if this annotation has globalTimeOffset and if it came after the last clear
       if ((annotation as any).globalTimeOffset !== undefined) {
         const globalTimeOffset = (annotation as any).globalTimeOffset;
-        
-        // Skip annotations that were drawn before the last clear
         if (globalTimeOffset <= lastClearTime) {
           return false;
         }
-        
-        // Now check if this annotation should be visible at the current timeline position
         const isVisible = globalTimeOffset <= globalTimePosition;
-                
         return isVisible;
       }
-      
-      // Next check for explicit timeOffset (added by FeedbackOrchestrator)
       if ((annotation as any).timeOffset !== undefined) {
         const timeOffset = (annotation as any).timeOffset;
-        
-        // Skip annotations drawn before the last clear
         if (timeOffset <= lastClearTime) {
           return false;
         }
-        
         const isVisible = timeOffset <= globalTimePosition;
         return isVisible;
       }
-      
-      // For legacy annotations without proper global timing, use video time
-      // This is just a fallback for backward compatibility
       if (annotation.videoTime !== undefined) {
         return annotation.videoTime <= videoTimeMs;
       }
-      
-      // Last fallback to timestamp (original recording time)
       return annotation.timestamp <= videoTimeMs;
     });
-    
-    // Draw visible annotations
     if (visibleAnnotations.length > 0) {
-      
-      // Draw each visible annotation
       visibleAnnotations.forEach(path => {
-        // Ensure tool type is set for backwards compatibility
         if (!path.tool) {
           path.tool = 'freehand';
         }
-        
         drawPath(ctx, path);
       });
     }
   }, [isReplaying, replayAnnotations, currentTime, width, height, globalTimePosition, lastClearTime, getContext, drawPath]);
-
-  // Draw all stored paths
   useEffect(() => {
-    if (isReplaying) return; // Don't draw local paths during replay
-    
+    if (isReplaying) return;
     const ctx = getContext();
     if (!ctx) return;
-    
-    // Clear canvas before drawing
     ctx.clearRect(0, 0, width, height);
-    
-    // Draw all stored paths
     allDrawings.forEach(path => {
       drawPath(ctx, path);
     });
   }, [allDrawings, isReplaying, width, height]);
-
-  // Method to handle an annotation that was generated programmatically
-  const handleManualAnnotation = (path: DrawingPath) => {    
-    // Make sure tool type is set
+  const handleManualAnnotation = (path: DrawingPath) => {
     const completePath = {
       ...path,
       tool: path.tool || 'freehand'
     };
-    
-    // Add to local drawings - preserve the original path with all timing information
     setAllDrawings(prev => [...prev, completePath]);
-    
-    // Report the annotation if we're recording
     if (isRecording && onAnnotationAdded) {
       onAnnotationAdded(completePath);
     }
   };
-
-  // Get mouse/touch position in canvas coordinates
   const getPointerPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
-
     const rect = canvas.getBoundingClientRect();
     let clientX: number, clientY: number;
-
     if ('touches' in e) {
-      // Touch event
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
     } else {
-      // Mouse event
       clientX = e.clientX;
       clientY = e.clientY;
     }
-
     return {
       x: clientX - rect.left,
       y: clientY - rect.top
     };
   };
-
-  // Draw temporary straight line during line tool usage
   const drawTemporaryLine = (start: Point, end: Point) => {
     const ctx = getContext();
     if (!ctx) return;
-
-    // Clear canvas before redrawing
     ctx.clearRect(0, 0, width, height);
-    
-    // Redraw all existing paths
     allDrawings.forEach(path => {
       drawPath(ctx, path);
     });
-    
-    // Draw the temporary line
     ctx.beginPath();
     ctx.strokeStyle = toolColor;
     ctx.lineWidth = toolWidth;
@@ -313,53 +211,36 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     ctx.lineTo(end.x, end.y);
     ctx.stroke();
   };
-
-  // Event handlers for drawing
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (isReplaying) return; // Drawing is always enabled, only check for replay mode
-    
+    if (isReplaying) return;
     setIsDrawing(true);
     setCurrentPath([]);
-
     const position = getPointerPosition(e);
     if (!position) return;
-    
-    // For line tool, just save the start point
     if (toolType === 'line') {
       setStartPoint(position);
       setCurrentPath([position]);
     } else {
-      // For freehand, start the path
       setCurrentPath([position]);
     }
   };
-
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || isReplaying) return; // Drawing is always enabled
-    
+    if (!isDrawing || isReplaying) return;
     if ('touches' in e) {
-      // Prevent scrolling while drawing
       e.preventDefault();
     }
-
     const position = getPointerPosition(e);
     if (!position) return;
-    
     if (toolType === 'line' && startPoint) {
-      // For line tool, continuously update the preview without adding points
       drawTemporaryLine(startPoint, position);
-      // Update current path to track the current end position
       setCurrentPath([startPoint, position]);
     } else {
-      // For freehand, add point to path and draw incremental line segment
       setCurrentPath(prev => [...prev, position]);
-      
       const ctx = getContext();
       if (ctx && currentPath.length > 0) {
         ctx.beginPath();
         ctx.strokeStyle = toolColor;
         ctx.lineWidth = toolWidth;
-        
         const lastPoint = currentPath[currentPath.length - 1];
         ctx.moveTo(lastPoint.x, lastPoint.y);
         ctx.lineTo(position.x, position.y);
@@ -367,18 +248,12 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       }
     }
   };
-
   const endDrawing = () => {
-    if (!isDrawing || isReplaying) return; // Drawing is always enabled
-    
+    if (!isDrawing || isReplaying) return;
     setIsDrawing(false);
-    
     if (toolType === 'line' && startPoint) {
-      // For line tool, create a path with just the start and end points
       if (currentPath.length === 2) {
         const endPosition = currentPath[1];
-        
-        // Only create a line if the end position is different from the start
         if (endPosition.x !== startPoint.x || endPosition.y !== startPoint.y) {
           const newPath: DrawingPath = {
             points: [startPoint, endPosition],
@@ -387,8 +262,6 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
             timestamp: Date.now(),
             tool: 'line'
           };
-          
-          // Draw the final line
           const ctx = getContext();
           if (ctx) {
             ctx.beginPath();
@@ -398,19 +271,14 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
             ctx.lineTo(endPosition.x, endPosition.y);
             ctx.stroke();
           }
-          
           setAllDrawings(prev => [...prev, newPath]);
-          
-          // Report the annotation if we're recording
           if (isRecording && onAnnotationAdded) {
             onAnnotationAdded(newPath);
           }
-          
             }
       }
       setStartPoint(null);
     } else if (currentPath.length > 1) {
-      // For freehand, create path with all points
       const newPath: DrawingPath = {
         points: [...currentPath],
         color: toolColor,
@@ -418,49 +286,29 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         timestamp: Date.now(),
         tool: 'freehand'
       };
-      
       setAllDrawings(prev => [...prev, newPath]);
-      
-      // Report the annotation if we're recording
       if (isRecording && onAnnotationAdded) {
         onAnnotationAdded(newPath);
       }
     }
-    
     setCurrentPath([]);
   };
-
-  // Expose methods to parent component
   useImperativeHandle(ref, () => ({
-    // Core canvas ref and state
     canvasRef,
     allDrawings,
-    
-    // Canvas utility methods
     getContext: () => getContext(),
-    
-    // Drawing manipulation methods
     clearCanvasDrawings: () => {
       clearCanvasDrawings();
     },
-    
-    // New state-based reset method that bypasses the timeline completely
     resetCanvas: () => {
-      
-      // Use double requestAnimationFrame for reliable clearing
       requestAnimationFrame(() => {
-        // Clear the physical canvas
         const ctx = getContext();
         if (ctx) {
           ctx.clearRect(0, 0, width, height);
         }
-        
-        // Reset all internal state
         setAllDrawings([]);
         setCurrentPath([]);
         setIsDrawing(false);
-        
-        // Force a second redraw in the next animation frame to ensure rendering
         requestAnimationFrame(() => {
           const ctx = getContext();
           if (ctx) {
@@ -469,12 +317,10 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
         });
       });
     },
-    
     handleManualAnnotation: (path: DrawingPath) => {
       handleManualAnnotation(path);
     }
   }));
-
   return (
     <canvas
       ref={canvasRef}
@@ -491,7 +337,5 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     />
   );
 });
-
 AnnotationCanvas.displayName = 'AnnotationCanvas';
-
 export default AnnotationCanvas;

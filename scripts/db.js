@@ -1,31 +1,22 @@
-// CommonJS version of the db.ts module for use in scripts
 const { CosmosClient } = require('@azure/cosmos');
-
-// Environment validation function
 function validateEnv(keys) {
-  // Default to common Cosmos DB environment variables if no keys provided
   const envKeysToValidate = keys || [
     'COSMOS_ENDPOINT',
     'COSMOS_KEY',
     'COSMOS_DATABASE_ID',
     'COSMOS_CONTAINER_ID'
   ];
-  
   const validatedEnv = {};
-  
   for (const key of envKeysToValidate) {
     if (!process.env[key]) {
       throw new Error(`${key} environment variable is required`);
     }
     validatedEnv[key] = process.env[key];
   }
-  
   return validatedEnv;
 }
-
 function getCosmosConfig() {
   const env = validateEnv();
-  
   return {
     endpoint: env.COSMOS_ENDPOINT,
     key: env.COSMOS_KEY,
@@ -33,43 +24,24 @@ function getCosmosConfig() {
     containerId: env.COSMOS_CONTAINER_ID
   };
 }
-
 let cosmosClient = null;
-
-/**
- * Returns a singleton instance of CosmosClient.
- * Initializes the client on first call and reuses it for subsequent calls.
- */
 function getCosmosClient() {
   if (!cosmosClient) {
     const { endpoint, key } = getCosmosConfig();
     cosmosClient = new CosmosClient({ endpoint, key });
   }
-  
   return cosmosClient;
 }
-
-/**
- * Gets the database instance from the singleton CosmosClient.
- * @param {string} [databaseId] Optional database ID (defaults to the one from environment)
- */
 function getDatabase(databaseId) {
   const client = getCosmosClient();
   const { databaseId: defaultDatabaseId } = getCosmosConfig();
   return client.database(databaseId || defaultDatabaseId);
 }
-
-/**
- * Gets a container instance from the singleton CosmosClient.
- * @param {string} [containerId] Optional container ID (defaults to the one from environment)
- * @param {string} [databaseId] Optional database ID (defaults to the one from environment)
- */
 function getContainer(containerId, databaseId) {
   const database = getDatabase(databaseId);
   const { containerId: defaultContainerId } = getCosmosConfig();
   return database.container(containerId || defaultContainerId);
 }
-
 module.exports = {
   getCosmosClient,
   getDatabase,

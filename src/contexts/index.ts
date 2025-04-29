@@ -1,6 +1,3 @@
-/**
- * Central exports for all contexts
- */
 export * from './AppProviders';
 export * from './TimelineContext';
 export * from './AnnotationContext';

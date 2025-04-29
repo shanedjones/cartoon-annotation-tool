@@ -1,122 +1,80 @@
 import { NextResponse } from 'next/server';
 import { getContainer } from '@/src/lib/db';
 import { handleRouteError, handleBadRequest, handleNotFound } from '@/src/utils/api';
-
-// Connection and validation will be done inside the handler functions
-// to prevent issues during build time
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   const status = searchParams.get('status');
-
   try {
-    // Get container from singleton client
     const container = getContainer();
-    
     let querySpec;
-    
     if (id) {
-      // Fetch specific session or swing by ID
       querySpec = {
         query: "SELECT * FROM c WHERE c.id = @id",
         parameters: [{ name: "@id", value: id }]
       };
     } else if (status && status !== 'All') {
-      // Filter by status
       querySpec = {
         query: "SELECT * FROM c WHERE c.status = @status",
         parameters: [{ name: "@status", value: status }]
       };
     } else {
-      // Get all sessions
       querySpec = {
         query: "SELECT * FROM c"
       };
     }
-
     const { resources: sessions } = await container.items.query(querySpec).fetchAll();
-    
-    // For individual swing access, check if the ID is a swing within a session
     if (id && sessions.length === 0) {
-      // Try to find a session containing the requested swing ID
       const swingQuerySpec = {
         query: "SELECT * FROM c WHERE ARRAY_CONTAINS(c.swings, { 'id': @swingId }, true)",
         parameters: [{ name: "@swingId", value: id }]
       };
-      
       const { resources: sessionWithSwing } = await container.items.query(swingQuerySpec).fetchAll();
-      
       if (sessionWithSwing.length > 0) {
-        // Extract just the requested swing from the session
         const session = sessionWithSwing[0];
         const swing = session.swings.find((s: any) => s.id === id);
-        
         if (swing) {
           return NextResponse.json([swing], { status: 200 });
         }
       }
     }
-    
     return NextResponse.json(sessions, { status: 200 });
   } catch (error) {
     return handleRouteError(error, 'video data fetch');
   }
 }
-
 export async function POST(request: Request) {
   try {
-    // Get container from singleton client
     const container = getContainer();
-    
     const data = await request.json();
-    
-    // Check if we're submitting a session or an individual swing
     if (data.athlete) {
-      // Validate session required fields
       if (!data.athlete.name || !data.date || !data.timeWindow) {
         return handleBadRequest('Missing required fields for session: athlete.name, date, timeWindow');
       }
-      
-      // Ensure the session has an ID or generate one
       if (!data.id) {
         data.id = `session-${Date.now()}`;
       }
-      
-      // Set default status if not provided
       if (!data.status) {
         data.status = 'Not Started';
       }
-      
-      // Ensure swings array exists
       if (!data.swings) {
         data.swings = [];
       }
-      
       const { resource: createdSession } = await container.items.create(data);
       return NextResponse.json(createdSession, { status: 201 });
     } else {
-      // We're submitting an individual swing
-      // Validate required fields
       if (!data.title || !data.videoUrl) {
         return handleBadRequest('Missing required fields: title, videoUrl');
       }
-      
-      // Ensure the swing has an ID or generate one
       if (!data.id) {
         data.id = `swing-${Date.now()}`;
       }
-      
-      // Add timestamp if not present
       if (!data.dateAdded) {
         data.dateAdded = new Date().toISOString().split('T')[0];
       }
-      
-      // Set default status if not provided
       if (!data.status) {
         data.status = 'Not Started';
       }
-      
       const { resource: createdSwing } = await container.items.create(data);
       return NextResponse.json(createdSwing, { status: 201 });
     }
@@ -124,71 +82,45 @@ export async function POST(request: Request) {
     return handleRouteError(error, 'video data creation');
   }
 }
-
 export async function PUT(request: Request) {
   try {
-    // Get container from singleton client
     const container = getContainer();
-    
     const data = await request.json();
-    
     if (!data.id) {
       return handleBadRequest('Missing ID');
     }
-    
-    // Check if this is a session update or a swing update
     const isSession = !!data.athlete;
-    
-    // Get the existing item to preserve the _rid, _self properties required by Cosmos DB
     const { resource: existingItem } = await container.item(data.id, data.id).read();
-    
     if (!existingItem) {
       return handleNotFound('Item');
     }
-    
-    // Update status based on specific conditions
     if (isSession) {
-      // For sessions, check if all swings are completed
       if (data.swings && data.swings.every((swing: any) => swing.status === 'Completed')) {
         data.status = 'Completed';
       }
     } else {
-      // For individual swings, check if reviewSession is present
       if (data.reviewSession && data.status !== 'Archived') {
         data.status = 'Completed';
-        
-        // If this is a swing within a session, we need to update the session's swing
         const swingId = data.id;
         const sessionQuerySpec = {
           query: "SELECT * FROM c WHERE ARRAY_CONTAINS(c.swings, { 'id': @swingId }, true)",
           parameters: [{ name: "@swingId", value: swingId }]
         };
-        
         const { resources: sessionsWithSwing } = await container.items.query(sessionQuerySpec).fetchAll();
-        
         if (sessionsWithSwing.length > 0) {
           const session = sessionsWithSwing[0];
-          
-          // Update the swing within the session
           const swingIndex = session.swings.findIndex((s: any) => s.id === swingId);
           if (swingIndex !== -1) {
             session.swings[swingIndex] = data;
-            
-            // Check if all swings are completed to update session status
             if (session.swings.every((s: any) => s.status === 'Completed')) {
               session.status = 'Completed';
             }
-            
-            // Update the session with the modified swing
             await container.item(session.id, session.id).replace(session);
           }
         }
       }
     }
-    
-    // Update the main item
     const { resource: updatedItem } = await container.item(data.id, data.id).replace(data);
-    
     return NextResponse.json(updatedItem, { status: 200 });
   } catch (error) {
     return handleRouteError(error, 'video data update');

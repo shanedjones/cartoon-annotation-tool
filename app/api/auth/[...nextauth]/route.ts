@@ -1,10 +1,7 @@
 import NextAuth from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcrypt";
-
-// Import auth helpers
 import { findUserByEmail } from "@/src/lib/auth";
-
 const authOptions = {
   providers: [
     CredentialsProvider({
@@ -17,21 +14,17 @@ const authOptions = {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
-        
         const user = await findUserByEmail(credentials.email);
         if (!user) {
           return null;
         }
-        
         const isPasswordValid = await compare(
           credentials.password,
           user.hashedPassword
         );
-        
         if (!isPasswordValid) {
           return null;
         }
-        
         return {
           id: user.id,
           email: user.email,
@@ -61,6 +54,5 @@ const authOptions = {
     signIn: "/auth/signin",
   },
 };
-
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

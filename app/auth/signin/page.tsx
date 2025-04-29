@@ -2,39 +2,33 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-
 export default function SignIn() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
     try {
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
       });
-      
       if (result?.error) {
         setError("Invalid email or password");
         setLoading(false);
         return;
       }
-      
       router.push("/inbox");
     } catch (error) {
       setError("An error occurred. Please try again.");
       setLoading(false);
     }
   };
-  
   return (
     <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -42,7 +36,6 @@ export default function SignIn() {
           Sign in to Annotation Tool
         </h2>
       </div>
-
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
@@ -66,7 +59,6 @@ export default function SignIn() {
                 />
               </div>
             </div>
-
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -84,7 +76,6 @@ export default function SignIn() {
                 />
               </div>
             </div>
-
             <div>
               <button
                 type="submit"
