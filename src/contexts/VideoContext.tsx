@@ -61,6 +61,7 @@ function formatTime(time: number): string {
   const seconds = Math.floor(time % 60);
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
+
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];

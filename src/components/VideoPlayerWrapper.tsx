@@ -22,9 +22,11 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     reader.readAsDataURL(blob);
   });
 };
+
 const getCategoryLabel = (category: string): string => {
   return category.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
 };
+
 const base64ToBlob = (base64: string, mimeType: string): Blob => {
   try {
     if (!base64 || typeof base64 !== 'string') {
@@ -73,8 +75,6 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
   }
   return Promise.all(chunks.map(async (chunk, index) => {
     try {
-      console.log(`Processing chunk ${index} for save, blob type:`,
-        chunk.blob instanceof Blob ? 'Blob object' : typeof chunk.blob);
       if (chunk.blob instanceof Blob) {
         const base64 = await blobToBase64(chunk.blob);
         return {
@@ -87,6 +87,7 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
       } else if (typeof chunk.blob === 'string' && chunk.blob.startsWith('data:')) {
         const parts = chunk.blob.split(',');
         if (parts.length !== 2) {
+          // Invalid data URL format
         }
         return {
           ...chunk,
@@ -125,11 +126,14 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
           try {
             const dataUrlParts = savedChunk.blob.split(',');
             if (dataUrlParts.length !== 2) {
+              // Invalid data URL format
             }
             const mimeMatch = dataUrlParts[0].match(/:(.*?);/);
             if (!mimeMatch) {
+              // Missing MIME type in data URL
             }
           } catch (validationError) {
+            // Data URL validation error
           }
           return {
             ...savedChunk,
@@ -140,12 +144,7 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
             videoTime: savedChunk.videoTime || 0,
             blobUrl: savedChunk.blobUrl
           };
-        } else {
         }
-      }
-      if (typeof savedChunk.blob === 'string') {
-              } else if (savedChunk.blob === null) {
-      } else if (savedChunk.blob === undefined) {
       }
       return {
         ...savedChunk,
@@ -618,7 +617,6 @@ export default function VideoPlayerWrapper({
   }, [contextVideoUrl]);
   return (
     <div className="w-full">
-        {}
         <div className="hidden">
           <button
             id="startRecordingButton"
@@ -656,7 +654,6 @@ export default function VideoPlayerWrapper({
             Stop
           </button>
         </div>
-        {}
         <div className="relative">
           <ErrorBoundary
             fallback={
@@ -732,7 +729,6 @@ export default function VideoPlayerWrapper({
               hasRecordedSession={typeof window !== 'undefined' && window.__hasRecordedSession === true}
             />
           </ErrorBoundary>
-          {}
           <ErrorBoundary
             fallback={
               <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-center">

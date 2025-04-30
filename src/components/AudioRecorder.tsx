@@ -18,7 +18,6 @@ interface AudioRecorderProps {
   replayAudioChunks?: AudioChunk[];
 }
 
-// Define state interface for the audio recorder
 interface AudioRecorderState {
   isRecordingAudio: boolean;
   audioPermissionGranted: boolean;
@@ -27,7 +26,6 @@ interface AudioRecorderState {
   elapsedTime: number;
 }
 
-// Define actions for the reducer
 type AudioRecorderAction =
   | { type: 'START_RECORDING'; format: string }
   | { type: 'STOP_RECORDING' }
@@ -36,7 +34,6 @@ type AudioRecorderAction =
   | { type: 'TICK' }
   | { type: 'RESET_TIMER' };
 
-// Initial state
 const initialAudioRecorderState: AudioRecorderState = {
   isRecordingAudio: false,
   audioPermissionGranted: false,
@@ -44,8 +41,6 @@ const initialAudioRecorderState: AudioRecorderState = {
   recordingFormat: '',
   elapsedTime: 0
 };
-
-// Reducer function
 function audioRecorderReducer(state: AudioRecorderState, action: AudioRecorderAction): AudioRecorderState {
   switch (action.type) {
     case 'START_RECORDING':
@@ -93,7 +88,6 @@ function AudioRecorder({
   onAudioChunk,
   replayAudioChunks = []
 }: AudioRecorderProps) {
-  // Replace multiple useState hooks with a single useReducer
   const [state, dispatch] = useReducer(audioRecorderReducer, initialAudioRecorderState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -220,14 +214,11 @@ function AudioRecorder({
       recordingStartTimeRef.current = startTime;
       recorder.start();
       
-      // Start recording and dispatch action with the mime type format
       dispatch({ type: 'START_RECORDING', format: mimeType || 'default format' });
       
       if (!recordingStartTimeRef.current) {
         recordingStartTimeRef.current = Date.now();
       }
-      
-      // Set up the timer for elapsed time
       timerRef.current = setInterval(() => {
         dispatch({ type: 'TICK' });
       }, 1000);

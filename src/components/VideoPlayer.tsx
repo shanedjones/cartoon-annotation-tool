@@ -263,7 +263,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setDuration(duration);
     }
   };
-  // Define seekToTime first before it's used in other functions
   const seekToTime = useCallback((time: number) => {
     if (videoRef.current) {
       const previousTime = videoRef.current.currentTime;
@@ -274,8 +273,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
     return null;
   }, [duration, videoRef]);
-  
-  // Now update handleSeek with the correct dependencies
   const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     const result = seekToTime(time);
@@ -397,7 +394,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   }));
   return (
     <div className="flex flex-col w-full max-w-5xl bg-gray-100 rounded-lg shadow-md overflow-hidden">
-      {}
       {!isReplaying && !(isCompletedVideo || hasRecordedSession) && (
         <div className="p-3 bg-white border-b border-gray-200">
           <div className="flex flex-wrap items-center space-x-3">
@@ -505,7 +501,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           />
         )}
       </div>
-      {}
       {!isReplaying && !(isCompletedVideo || hasRecordedSession) ? (
         <div className="p-4 bg-white">
           <div className="flex items-center mb-2 relative">

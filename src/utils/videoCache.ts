@@ -15,7 +15,7 @@ type VideoCacheEntry = {
   blobUrl?: string;
   lastAccessed: number;
 };
-const MAX_CACHE_SIZE = 100 * 1024 * 1024;
+const MAX_CACHE_SIZE = 100 * 1024 * 1024; // 100MB maximum cache size
 function initializeDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!('indexedDB' in window)) {

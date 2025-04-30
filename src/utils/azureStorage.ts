@@ -12,9 +12,7 @@ const initializeStorageClient = () => {
         containerClient = blobServiceClient.getContainerClient(containerName);
       } catch (innerError) {
         if (innerError instanceof Error && innerError.message.includes('Invalid URL')) {
-          console.error(`DEBUG - URL construction error details:`,
-            `Container name: "${containerName}"`,
-            `Connection string format: ${connectionString.startsWith('DefaultEndpointsProtocol') ? 'Starts correctly' : 'Invalid start'}`);
+          console.error('Invalid URL error in Azure Storage client initialization');
         }
         throw innerError;
       }

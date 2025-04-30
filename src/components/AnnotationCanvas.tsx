@@ -116,7 +116,6 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     }
     ctx.stroke();
   }, []);
-  // Memoize the visible annotations calculation for better performance
   const visibleAnnotations = useMemo(() => {
     if (!isReplaying || !replayAnnotations || replayAnnotations.length === 0) {
       return [];
