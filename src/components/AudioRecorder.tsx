@@ -16,7 +16,7 @@ interface AudioRecorderProps {
   onAudioChunk?: (chunk: AudioChunk) => void;
   replayAudioChunks?: AudioChunk[];
 }
-export default function AudioRecorder({
+function AudioRecorder({
   isRecording,
   isReplaying,
   currentVideoTime,
@@ -181,12 +181,12 @@ export default function AudioRecorder({
     setIsRecordingAudio(false);
     recordingStartTimeRef.current = null;
   };
-  const formatTime = (seconds: number) => {
+  const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-  const dataURLToBlob = (dataURL: string): Blob => {
+  }, []);
+  const dataURLToBlob = useCallback((dataURL: string): Blob => {
     try {
       if (!dataURL || typeof dataURL !== 'string') {
         throw new Error('Invalid data URL: not a string or empty');
@@ -229,8 +229,8 @@ export default function AudioRecorder({
     } catch (error) {
       return new Blob([], { type: 'audio/webm' });
     }
-  };
-  const cleanupAudioPlayers = () => {
+  }, []);
+  const cleanupAudioPlayers = useCallback(() => {
     audioPlayersRef.current.forEach((player, key) => {
       try {
         player.pause();
@@ -242,7 +242,7 @@ export default function AudioRecorder({
     });
     audioPlayersRef.current.clear();
     playingChunksRef.current.clear();
-  };
+  }, []);
   useEffect(() => {
     if (!isReplaying) {
       cleanupAudioPlayers();
@@ -424,3 +424,5 @@ export default function AudioRecorder({
     </div>
   );
 }
+
+export default React.memo(AudioRecorder);

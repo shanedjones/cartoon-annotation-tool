@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { DrawingPath, DrawingTool } from './AnnotationCanvas';
 import AnnotationCanvas from './AnnotationCanvas';
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
@@ -214,7 +214,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       onRecordAction(action);
     }
   };
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (isReplaying) return;
     if (videoRef.current) {
       if (playing) {
@@ -226,7 +226,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       }
       setPlaying(!playing);
     }
-  };
+  }, [isReplaying, videoRef, playing, recordAction]);
   const timeUpdateRef = useRef<number | null>(null);
   useEffect(() => {
     const updateTimeDisplay = () => {
@@ -263,14 +263,28 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setDuration(duration);
     }
   };
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Define seekToTime first before it's used in other functions
+  const seekToTime = useCallback((time: number) => {
+    if (videoRef.current) {
+      const previousTime = videoRef.current.currentTime;
+      const newTime = Math.max(0, Math.min(duration, time));
+      videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+      return { previousTime, newTime };
+    }
+    return null;
+  }, [duration, videoRef]);
+  
+  // Now update handleSeek with the correct dependencies
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     const result = seekToTime(time);
     if (result) {
       recordAction('seek', { from: result.previousTime, to: result.newTime });
     }
-  };
-  const handleSliderClick = (e: React.MouseEvent<HTMLInputElement>) => {
+  }, [seekToTime, recordAction]);
+  
+  const handleSliderClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
     const element = e.target as HTMLInputElement;
     const rect = element.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
@@ -280,33 +294,23 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     if (result) {
       recordAction('seek', { from: result.previousTime, to: result.newTime });
     }
-  };
-  const handlePlaybackRateChange = (rate: number) => {
+  }, [duration, seekToTime, recordAction]);
+  const handlePlaybackRateChange = useCallback((rate: number) => {
     if (videoRef.current) {
       const previousRate = videoRef.current.playbackRate;
       videoRef.current.playbackRate = rate;
       setPlaybackRate(rate);
       recordAction('playbackRate', { from: previousRate, to: rate });
     }
-  };
-  const formatTime = (time: number) => {
+  }, [videoRef, recordAction]);
+  const formatTime = useCallback((time: number) => {
     if (!time || isNaN(time) || time < 0) {
       return '0:00';
     }
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
-  const seekToTime = (time: number) => {
-    if (videoRef.current) {
-      const previousTime = videoRef.current.currentTime;
-      const newTime = Math.max(0, Math.min(duration, time));
-      videoRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-      return { previousTime, newTime };
-    }
-    return null;
-  };
+  }, []);
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReplaying) return;

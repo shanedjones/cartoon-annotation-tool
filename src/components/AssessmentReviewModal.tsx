@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 interface AssessmentReview {
   notes: string;
 }
@@ -9,7 +9,7 @@ interface AssessmentReviewModalProps {
   isOpen: boolean;
   onClose: (saved?: boolean) => void;
 }
-export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, onClose }: AssessmentReviewModalProps) {
+function AssessmentReviewModal({ sessionId, athleteName, isOpen, onClose }: AssessmentReviewModalProps) {
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -39,7 +39,7 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
       fetchReview();
     }
   }, [isOpen, sessionId]);
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!sessionId) return;
     try {
       setIsSaving(true);
@@ -68,7 +68,7 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [sessionId, notes, onClose]);
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -125,3 +125,5 @@ export default function AssessmentReviewModal({ sessionId, athleteName, isOpen, 
     </div>
   );
 }
+
+export default React.memo(AssessmentReviewModal);

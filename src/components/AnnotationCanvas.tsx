@@ -116,18 +116,14 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     }
     ctx.stroke();
   }, []);
-  useEffect(() => {
-    if (!isReplaying) return;
-    const ctx = getContext();
-    if (!ctx) {
-      return;
+  // Memoize the visible annotations calculation for better performance
+  const visibleAnnotations = useMemo(() => {
+    if (!isReplaying || !replayAnnotations || replayAnnotations.length === 0) {
+      return [];
     }
-    ctx.clearRect(0, 0, width, height);
-    if (!replayAnnotations || replayAnnotations.length === 0) {
-      return;
-    }
+    
     const videoTimeMs = currentTime * 1000;
-    const visibleAnnotations = replayAnnotations.filter(annotation => {
+    return replayAnnotations.filter(annotation => {
       if (!annotation || !annotation.points || annotation.points.length < 2) {
         return false;
       }
@@ -152,6 +148,16 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       }
       return annotation.timestamp <= videoTimeMs;
     });
+  }, [isReplaying, replayAnnotations, currentTime, lastClearTime, globalTimePosition]);
+
+  useEffect(() => {
+    if (!isReplaying) return;
+    const ctx = getContext();
+    if (!ctx) {
+      return;
+    }
+    ctx.clearRect(0, 0, width, height);
+    
     if (visibleAnnotations.length > 0) {
       visibleAnnotations.forEach(path => {
         if (!path.tool) {
@@ -170,7 +176,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       drawPath(ctx, path);
     });
   }, [allDrawings, isReplaying, width, height]);
-  const handleManualAnnotation = (path: DrawingPath) => {
+  const handleManualAnnotation = useCallback((path: DrawingPath) => {
     const completePath = {
       ...path,
       tool: path.tool || 'freehand'
@@ -179,8 +185,8 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     if (isRecording && onAnnotationAdded) {
       onAnnotationAdded(completePath);
     }
-  };
-  const getPointerPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  }, [isRecording, onAnnotationAdded]);
+  const getPointerPosition = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
@@ -196,8 +202,8 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
       x: clientX - rect.left,
       y: clientY - rect.top
     };
-  };
-  const drawTemporaryLine = (start: Point, end: Point) => {
+  }, [canvasRef]);
+  const drawTemporaryLine = useCallback((start: Point, end: Point) => {
     const ctx = getContext();
     if (!ctx) return;
     ctx.clearRect(0, 0, width, height);
@@ -210,7 +216,7 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     ctx.moveTo(start.x, start.y);
     ctx.lineTo(end.x, end.y);
     ctx.stroke();
-  };
+  }, [getContext, width, height, allDrawings, toolColor, toolWidth, drawPath]);
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (isReplaying) return;
     setIsDrawing(true);
@@ -338,4 +344,4 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   );
 });
 AnnotationCanvas.displayName = 'AnnotationCanvas';
-export default AnnotationCanvas;
+export default React.memo(AnnotationCanvas);
