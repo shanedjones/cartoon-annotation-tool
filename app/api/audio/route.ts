@@ -5,7 +5,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     try {
       await ensureContainer();
-      console.log('Container initialization successful');
     } catch (err) {
       return handleRouteError(err, 'storage initialization', 'Failed to initialize storage');
     }

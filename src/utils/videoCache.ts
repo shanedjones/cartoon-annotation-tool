@@ -53,6 +53,7 @@ export async function cacheVideo(url: string): Promise<string> {
         isCrossOrigin = videoUrlObj.origin !== window.location.origin;
       }
     } catch (e) {
+      // Invalid URL format or browser environment issues
     }
     if (isCrossOrigin) {
       throw new Error('Cross-origin videos cannot be loaded. Please contact technical support.');
@@ -156,6 +157,7 @@ async function updateLastAccessed(url: string): Promise<void> {
       };
     });
   } catch (error) {
+    // Non-critical last accessed time update, silently handle error
   }
 }
 async function getCacheTotalSize(): Promise<number> {
@@ -185,6 +187,7 @@ async function ensureCacheSpace(newItemSize: number): Promise<void> {
       await removeOldestItems(currentSize + newItemSize - MAX_CACHE_SIZE);
     }
   } catch (error) {
+    // Cache management error, non-critical for video playback functionality
   }
 }
 async function removeOldestItems(bytesToFree: number): Promise<void> {
@@ -209,6 +212,7 @@ async function removeOldestItems(bytesToFree: number): Promise<void> {
           }
           const deleteRequest = cursor.delete();
           deleteRequest.onerror = () => {
+            // Individual item deletion failures are non-critical
           };
           cursor.continue();
         } else {
@@ -217,6 +221,7 @@ async function removeOldestItems(bytesToFree: number): Promise<void> {
       };
     });
   } catch (error) {
+    // Cache cleanup error, can be safely ignored
   }
 }
 export async function clearVideoCache(): Promise<void> {
@@ -246,6 +251,7 @@ export async function clearVideoCache(): Promise<void> {
       };
     });
   } catch (error) {
+    // Cache clearing operation failed but won't affect core functionality
   }
 }
 export async function getVideoCacheStats(): Promise<{ count: number; totalSize: number }> {

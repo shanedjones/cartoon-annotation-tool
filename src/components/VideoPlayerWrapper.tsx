@@ -613,8 +613,6 @@ export default function VideoPlayerWrapper({
   } catch (error) {
     contextVideoUrl = videoUrl;
   }
-  useEffect(() => {
-  }, [contextVideoUrl]);
   return (
     <div className="w-full">
         <div className="hidden">

@@ -418,7 +418,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
     const totalDuration = session.events.length > 0
       ? Math.max(...session.events.map(e => e.timeOffset)) + 5000
       : 30000;
-    console.log(`Starting timeline simulation with ${session.events.length} events over ${totalDuration}ms`);
     let elapsed = 0;
     const interval = 100;
     const timelineInterval = window.setInterval(() => {

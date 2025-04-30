@@ -20,7 +20,6 @@ export async function GET(
     if (!blobName) {
       return handleBadRequest('No blob path specified');
     }
-    console.log(`Proxying request for blob: ${blobName}`);
     const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
     const containerClient = blobServiceClient.getContainerClient(containerName);
     const blobClient = containerClient.getBlobClient(blobName);
@@ -34,7 +33,6 @@ export async function GET(
           'Failed to download blob or empty blob'
         );
       }
-      console.log(`Successfully downloaded blob: ${blobName}, size: ${downloadResponse.length} bytes`);
       const response = new NextResponse(downloadResponse);
       response.headers.set('Content-Type', properties.contentType || 'audio/webm');
       response.headers.set('Content-Length', properties.contentLength?.toString() || downloadResponse.length.toString());
@@ -42,9 +40,7 @@ export async function GET(
       response.headers.set('Cache-Control', 'max-age=3600');
       return response;
     } catch (downloadError) {
-      console.error('Error downloading blob:', downloadError);
       try {
-        console.log('Trying alternative download approach...');
         const downloadUrl = blobClient.url;
         const response = await fetch(downloadUrl);
         if (!response.ok) {
@@ -52,7 +48,6 @@ export async function GET(
         }
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        console.log(`Successfully downloaded blob using alternative method: ${blobName}, size: ${buffer.length} bytes`);
         const nextResponse = new NextResponse(buffer);
         nextResponse.headers.set('Content-Type', properties.contentType || 'audio/webm');
         nextResponse.headers.set('Content-Length', buffer.length.toString());
