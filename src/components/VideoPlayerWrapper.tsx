@@ -9,6 +9,7 @@ import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from
 import { AppProviders } from '../contexts/AppProviders';
 import { useVideoSource, useVideo } from '../contexts/VideoContext';
 import type { AudioChunk } from './AudioRecorder';
+import ErrorBoundary from './ErrorBoundary';
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), { ssr: false });
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -657,89 +658,123 @@ export default function VideoPlayerWrapper({
         </div>
         {}
         <div className="relative">
-          <VideoPlayer
-            ref={getVideoPlayerRef}
-            isRecording={mode === 'record' && isActive}
-            isReplaying={mode === 'replay' && isActive}
-            setVideoRef={setVideoElementRef}
-            replayAnnotations={currentSession?.events
-              ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
-              ?.map(e => {
-                const tool = e.payload.path.tool || 'freehand';
-                return {
-                  ...e.payload.path,
-                  timeOffset: e.timeOffset,
-                  globalTimeOffset: e.timeOffset,
-                  videoTime: e.timeOffset,
-                  tool: tool
-                };
-              }) || feedbackData.annotations || []}
-            videoUrl={videoUrl}
-            onLoadingStateChange={(isLoading) => {
-              setIsVideoLoading(isLoading);
-              if (onVideoLoadingChange) {
-                onVideoLoadingChange(isLoading);
-              }
-            }}
-            onRecordAction={(action) => {
-              if (orchestratorRef.current && mode === 'record' && isActive) {
-                switch(action.type) {
-                  case 'play':
-                  case 'pause':
-                  case 'seek':
-                  case 'playbackRate':
-                  case 'keyboardShortcut':
-                    orchestratorRef.current.handleVideoEvent(action.type, action.details);
-                    break;
-                  case 'annotation':
-                    if (action.details?.clear) {
-                      orchestratorRef.current.handleAnnotationEvent('clear');
-                    } else if (action.details?.path) {
-                      orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
-                    }
-                    break;
-                }
-              }
-            }}
-            onAnnotationAdded={(annotation) => {
-              if (orchestratorRef.current && mode === 'record' && isActive) {
-                orchestratorRef.current.handleAnnotationEvent('draw', annotation);
-              }
-            }}
-            isCompletedVideo={typeof window !== 'undefined' && window.__isCompletedVideo === true}
-            hasRecordedSession={typeof window !== 'undefined' && window.__hasRecordedSession === true}
-          />
-          {}
-          <FeedbackOrchestrator
-          videoElementRef={orchestratorVideoRef}
-          canvasRef={canvasRef}
-          drawAnnotation={drawAnnotation}
-          clearAnnotations={clearAnnotations}
-          onAudioRecorded={handleAudioRecorded}
-          onSessionComplete={handleSessionComplete}
-          initialSession={currentSession}
-          mode={mode}
-          onCategoriesLoaded={(loadedCategories) => {
-            if (loadedCategories) {
-              if (onCategoriesCleared) {
-                onCategoriesCleared();
-              }
-              const hasCheckedCategories = Object.values(loadedCategories).some(isChecked => isChecked);
-              if (hasCheckedCategories && onCategoriesLoaded) {
-                setTimeout(() => {
-                  const numberCategories: Record<string, number> = {};
-                  Object.entries(loadedCategories).forEach(([key, value]) => {
-                    numberCategories[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as number;
-                  });
-                  onCategoriesLoaded(numberCategories);
-                }, 100);
-              } else {
-              }
-            } else {
+          <ErrorBoundary
+            fallback={
+              <div className="flex flex-col items-center justify-center bg-red-50 p-8 rounded-lg border border-red-200 text-center min-h-[300px]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h3 className="text-lg font-medium text-red-800 mb-2">Video Player Error</h3>
+                <p className="text-sm text-red-600 mb-4">There was a problem loading the video player.</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                >
+                  Reload Page
+                </button>
+              </div>
             }
-          }}
-          ref={getOrchestratorRef}
-        />
+            onError={(error) => {
+              console.error("Video player error:", error);
+              // You could send this error to a monitoring service
+            }}
+          >
+            <VideoPlayer
+              ref={getVideoPlayerRef}
+              isRecording={mode === 'record' && isActive}
+              isReplaying={mode === 'replay' && isActive}
+              setVideoRef={setVideoElementRef}
+              replayAnnotations={currentSession?.events
+                ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
+                ?.map(e => {
+                  const tool = e.payload.path.tool || 'freehand';
+                  return {
+                    ...e.payload.path,
+                    timeOffset: e.timeOffset,
+                    globalTimeOffset: e.timeOffset,
+                    videoTime: e.timeOffset,
+                    tool: tool
+                  };
+                }) || feedbackData.annotations || []}
+              videoUrl={videoUrl}
+              onLoadingStateChange={(isLoading) => {
+                setIsVideoLoading(isLoading);
+                if (onVideoLoadingChange) {
+                  onVideoLoadingChange(isLoading);
+                }
+              }}
+              onRecordAction={(action) => {
+                if (orchestratorRef.current && mode === 'record' && isActive) {
+                  switch(action.type) {
+                    case 'play':
+                    case 'pause':
+                    case 'seek':
+                    case 'playbackRate':
+                    case 'keyboardShortcut':
+                      orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                      break;
+                    case 'annotation':
+                      if (action.details?.clear) {
+                        orchestratorRef.current.handleAnnotationEvent('clear');
+                      } else if (action.details?.path) {
+                        orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
+                      }
+                      break;
+                  }
+                }
+              }}
+              onAnnotationAdded={(annotation) => {
+                if (orchestratorRef.current && mode === 'record' && isActive) {
+                  orchestratorRef.current.handleAnnotationEvent('draw', annotation);
+                }
+              }}
+              isCompletedVideo={typeof window !== 'undefined' && window.__isCompletedVideo === true}
+              hasRecordedSession={typeof window !== 'undefined' && window.__hasRecordedSession === true}
+            />
+          </ErrorBoundary>
+          {}
+          <ErrorBoundary
+            fallback={
+              <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-center">
+                <h3 className="text-md font-medium text-yellow-800 mb-2">Feedback System Error</h3>
+                <p className="text-sm text-yellow-700">There was a problem with the feedback system. Your video should still work, but recording and playback features may be limited.</p>
+              </div>
+            }
+            onError={(error) => {
+              console.error("Feedback orchestrator error:", error);
+            }}
+          >
+            <FeedbackOrchestrator
+              videoElementRef={orchestratorVideoRef}
+              canvasRef={canvasRef}
+              drawAnnotation={drawAnnotation}
+              clearAnnotations={clearAnnotations}
+              onAudioRecorded={handleAudioRecorded}
+              onSessionComplete={handleSessionComplete}
+              initialSession={currentSession}
+              mode={mode}
+              onCategoriesLoaded={(loadedCategories) => {
+                if (loadedCategories) {
+                  if (onCategoriesCleared) {
+                    onCategoriesCleared();
+                  }
+                  const hasCheckedCategories = Object.values(loadedCategories).some(isChecked => isChecked);
+                  if (hasCheckedCategories && onCategoriesLoaded) {
+                    setTimeout(() => {
+                      const numberCategories: Record<string, number> = {};
+                      Object.entries(loadedCategories).forEach(([key, value]) => {
+                        numberCategories[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as number;
+                      });
+                      onCategoriesLoaded(numberCategories);
+                    }, 100);
+                  } else {
+                  }
+                } else {
+                }
+              }}
+              ref={getOrchestratorRef}
+            />
+          </ErrorBoundary>
       </div>
       {currentSession && (
         <div className="mt-6 p-4 bg-gray-100 rounded-lg">
