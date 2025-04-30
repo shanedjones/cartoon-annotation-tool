@@ -42,8 +42,8 @@
     - Fix: Implement consistent error handling across the application
     - Requires coordination across components but can be done incrementally
 
-11. **Overusing useState** (8/10)
-    - Fix: Consolidate related state variables using useReducer
+11. **Done: Overusing useState** (8/10)
+    - Fix: Consolidated related state variables using useReducer
     - Moderate refactoring with medium risk of regressions
 
 12. **Direct DOM Manipulation** (6/10)

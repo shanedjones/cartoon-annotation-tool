@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useReducer } from 'react';
 export interface AudioChunk {
   blob: Blob | string;
   startTime: number;
@@ -9,12 +9,82 @@ export interface AudioChunk {
   mimeType?: string;
   blobUrl?: string;
 }
+
 interface AudioRecorderProps {
   isRecording: boolean;
   isReplaying: boolean;
   currentVideoTime: number;
   onAudioChunk?: (chunk: AudioChunk) => void;
   replayAudioChunks?: AudioChunk[];
+}
+
+// Define state interface for the audio recorder
+interface AudioRecorderState {
+  isRecordingAudio: boolean;
+  audioPermissionGranted: boolean;
+  error: string | null;
+  recordingFormat: string;
+  elapsedTime: number;
+}
+
+// Define actions for the reducer
+type AudioRecorderAction =
+  | { type: 'START_RECORDING'; format: string }
+  | { type: 'STOP_RECORDING' }
+  | { type: 'SET_PERMISSION'; granted: boolean }
+  | { type: 'SET_ERROR'; error: string | null }
+  | { type: 'TICK' }
+  | { type: 'RESET_TIMER' };
+
+// Initial state
+const initialAudioRecorderState: AudioRecorderState = {
+  isRecordingAudio: false,
+  audioPermissionGranted: false,
+  error: null,
+  recordingFormat: '',
+  elapsedTime: 0
+};
+
+// Reducer function
+function audioRecorderReducer(state: AudioRecorderState, action: AudioRecorderAction): AudioRecorderState {
+  switch (action.type) {
+    case 'START_RECORDING':
+      return {
+        ...state,
+        isRecordingAudio: true,
+        error: null,
+        recordingFormat: action.format,
+        elapsedTime: 0
+      };
+    case 'STOP_RECORDING':
+      return {
+        ...state,
+        isRecordingAudio: false
+      };
+    case 'SET_PERMISSION':
+      return {
+        ...state,
+        audioPermissionGranted: action.granted,
+        error: action.granted ? null : state.error
+      };
+    case 'SET_ERROR':
+      return {
+        ...state,
+        error: action.error
+      };
+    case 'TICK':
+      return {
+        ...state,
+        elapsedTime: state.elapsedTime + 1
+      };
+    case 'RESET_TIMER':
+      return {
+        ...state,
+        elapsedTime: 0
+      };
+    default:
+      return state;
+  }
 }
 function AudioRecorder({
   isRecording,
@@ -23,11 +93,8 @@ function AudioRecorder({
   onAudioChunk,
   replayAudioChunks = []
 }: AudioRecorderProps) {
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-  const [audioPermissionGranted, setAudioPermissionGranted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [recordingFormat, setRecordingFormat] = useState('');
-  const [elapsedTime, setElapsedTime] = useState(0);
+  // Replace multiple useState hooks with a single useReducer
+  const [state, dispatch] = useReducer(audioRecorderReducer, initialAudioRecorderState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
@@ -39,34 +106,38 @@ function AudioRecorder({
     const checkAudioPermission = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setAudioPermissionGranted(true);
+        dispatch({ type: 'SET_PERMISSION', granted: true });
         stream.getTracks().forEach(track => track.stop());
       } catch (err) {
-        setError('Microphone access denied. Please enable microphone permissions in your browser.');
-        setAudioPermissionGranted(false);
+        dispatch({ 
+          type: 'SET_ERROR', 
+          error: 'Microphone access denied. Please enable microphone permissions in your browser.' 
+        });
+        dispatch({ type: 'SET_PERMISSION', granted: false });
       }
     };
     checkAudioPermission();
   }, []);
   useEffect(() => {
-    if (isRecording && audioPermissionGranted && !isRecordingAudio) {
+    if (isRecording && state.audioPermissionGranted && !state.isRecordingAudio) {
       recordingStartTimeRef.current = null;
       startAudioRecording();
-    } else if (!isRecording && isRecordingAudio) {
+    } else if (!isRecording && state.isRecordingAudio) {
       stopAudioRecording();
     }
     return () => {
-      if (isRecordingAudio) {
+      if (state.isRecordingAudio) {
         stopAudioRecording();
       }
       cleanupAudioPlayers();
     };
-  }, [isRecording, audioPermissionGranted, isRecordingAudio]);
+  }, [isRecording, state.audioPermissionGranted, state.isRecordingAudio]);
   const startAudioRecording = async () => {
     try {
       chunksRef.current = [];
-      setElapsedTime(0);
-      setError(null);
+      dispatch({ type: 'RESET_TIMER' });
+      dispatch({ type: 'SET_ERROR', error: null });
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -77,6 +148,7 @@ function AudioRecorder({
         }
       });
       streamRef.current = stream;
+      
       let mimeType = '';
       const formats = [
         'audio/webm;codecs=opus',
@@ -93,7 +165,7 @@ function AudioRecorder({
           break;
         }
       }
-      setRecordingFormat(mimeType || 'default format');
+      
       const recorderOptions = {
         mimeType: mimeType || undefined,
         audioBitsPerSecond: 128000
@@ -111,11 +183,11 @@ function AudioRecorder({
         }
         const audioBlob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
         if (!recordingStartTimeRef.current) {
-          recordingStartTimeRef.current = Date.now() - (elapsedTime * 1000);
+          recordingStartTimeRef.current = Date.now() - (state.elapsedTime * 1000);
         }
         const now = Date.now();
         const calculatedDuration = recordingStartTimeRef.current ? now - recordingStartTimeRef.current : 0;
-        const finalDuration = calculatedDuration > 0 ? calculatedDuration : elapsedTime * 1000;
+        const finalDuration = calculatedDuration > 0 ? calculatedDuration : state.elapsedTime * 1000;
         if (audioBlob.size > 0 && recordingStartTimeRef.current && onAudioChunk) {
           try {
             const audioChunk: AudioChunk = {
@@ -127,7 +199,10 @@ function AudioRecorder({
             };
             onAudioChunk(audioChunk);
           } catch (error) {
-            setError(`Failed to process audio recording: ${error instanceof Error ? error.message : String(error)}`);
+            dispatch({ 
+              type: 'SET_ERROR', 
+              error: `Failed to process audio recording: ${error instanceof Error ? error.message : String(error)}` 
+            });
           }
         } else {
         }
@@ -139,25 +214,33 @@ function AudioRecorder({
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
-        setIsRecordingAudio(false);
+        dispatch({ type: 'STOP_RECORDING' });
       };
       const startTime = Date.now();
       recordingStartTimeRef.current = startTime;
       recorder.start();
-      setIsRecordingAudio(true);
+      
+      // Start recording and dispatch action with the mime type format
+      dispatch({ type: 'START_RECORDING', format: mimeType || 'default format' });
+      
       if (!recordingStartTimeRef.current) {
         recordingStartTimeRef.current = Date.now();
       }
+      
+      // Set up the timer for elapsed time
       timerRef.current = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
+        dispatch({ type: 'TICK' });
       }, 1000);
     } catch (error) {
-      setError(`Could not start recording: ${error instanceof Error ? error.message : String(error)}`);
+      dispatch({ 
+        type: 'SET_ERROR', 
+        error: `Could not start recording: ${error instanceof Error ? error.message : String(error)}` 
+      });
     }
   };
   const stopAudioRecording = () => {
     const recordingEndTime = Date.now();
-    const finalElapsedTimeMs = elapsedTime * 1000;
+    const finalElapsedTimeMs = state.elapsedTime * 1000;
     if (!recordingStartTimeRef.current) {
       recordingStartTimeRef.current = recordingEndTime - finalElapsedTimeMs;
     }
@@ -178,7 +261,7 @@ function AudioRecorder({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    setIsRecordingAudio(false);
+    dispatch({ type: 'STOP_RECORDING' });
     recordingStartTimeRef.current = null;
   };
   const formatTime = useCallback((seconds: number) => {
@@ -354,29 +437,29 @@ function AudioRecorder({
   }, [isReplaying, currentVideoTime, replayAudioChunks]);
   return (
     <div className="mb-4">
-      {error && (
+      {state.error && (
         <div className="text-red-500 text-sm mb-2 p-2 bg-red-50 border border-red-200 rounded">
-          {error}
+          {state.error}
         </div>
       )}
-      <div className={`flex items-center ${isRecordingAudio ? 'text-red-500' : 'text-gray-500'}`}>
-        {isRecordingAudio && (
+      <div className={`flex items-center ${state.isRecordingAudio ? 'text-red-500' : 'text-gray-500'}`}>
+        {state.isRecordingAudio && (
           <span className="inline-block h-3 w-3 bg-red-500 rounded-full animate-pulse mr-2"></span>
         )}
         <span className="text-sm font-medium">
-          {isRecordingAudio
-            ? `Recording audio: ${formatTime(elapsedTime)}`
+          {state.isRecordingAudio
+            ? `Recording audio: ${formatTime(state.elapsedTime)}`
             : isRecording
               ? 'Microphone ready'
               : 'Audio recording ready'}
         </span>
-        {isRecordingAudio && (
+        {state.isRecordingAudio && (
           <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
             Live
           </span>
         )}
       </div>
-      {!audioPermissionGranted && (
+      {!state.audioPermissionGranted && (
         <div className="mt-2 text-sm text-amber-600 bg-amber-50 p-2 rounded flex items-center">
           <svg xmlns="http:
             <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
@@ -406,7 +489,7 @@ function AudioRecorder({
         </div>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
-        {isRecordingAudio && (
+        {state.isRecordingAudio && (
           <div className="px-3 py-1 bg-red-100 text-red-800 text-xs rounded-md flex items-center">
             <svg xmlns="http:
               <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
@@ -415,9 +498,9 @@ function AudioRecorder({
             <span>Speak to add verbal feedback</span>
           </div>
         )}
-        {isRecordingAudio && (
+        {state.isRecordingAudio && (
           <div className="text-xs text-gray-500 mt-1">
-            Recording format: {recordingFormat}
+            Recording format: {state.recordingFormat}
           </div>
         )}
       </div>
