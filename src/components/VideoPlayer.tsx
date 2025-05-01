@@ -52,22 +52,25 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     isCompletedVideo, 
     hasRecordedSession 
   } = recordingState;
+  
+  console.log('Recording state:', { 
+    isRecording, 
+    isReplaying, 
+    isCompletedVideo, 
+    hasRecordedSession 
+  });
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [isLoading, setIsLoading] = useState(true);
-  const [isVideoCached, setIsVideoCached] = useState(false);
-  const [cachedVideoSrc, setCachedVideoSrc] = useState<string | undefined>(undefined);
-  const [isLoadStarted, setIsLoadStarted] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
   const annotationCanvasRef = useRef<any>(null);
-  const localBlobCache = useRef<Record<string, string>>({});
   useEffect(() => {
     if (isRecording && !recordingStartTimeRef.current) {
       recordingStartTimeRef.current = Date.now();
@@ -87,22 +90,16 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   }, [isReplaying]);
   const prevUrlRef = useRef(videoUrl);
   useEffect(() => {
-    // Use a direct URL to a known working video
-    const actualVideoUrl = videoUrl || 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-    
-    if (prevUrlRef.current !== actualVideoUrl) {
-      setIsLoadStarted(false);
-      prevUrlRef.current = actualVideoUrl;
+    if (prevUrlRef.current !== videoUrl) {
+      prevUrlRef.current = videoUrl;
+      
+      if (videoUrl) {
+        setIsLoading(true);
+        setHasError(false);
+        setErrorMessage('');
+      }
     }
-    
-    if (!isLoadStarted) {
-      setIsLoading(true);
-      setIsLoadStarted(true);
-      setHasError(false);
-      setErrorMessage('');
-      setCachedVideoSrc(actualVideoUrl);
-    }
-  }, [videoUrl, isLoadStarted]);
+  }, [videoUrl]);
   useEffect(() => {
     if (!videoRef.current) return;
     const handleError = () => {
@@ -251,9 +248,13 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const handleCanPlayThrough = () => {
     setTimeout(() => {
       setIsLoading(false);
-      setIsVideoCached(true);
       setHasError(false);
       setErrorMessage('');
+      
+      // Log the video object after it is loaded
+      if (videoRef.current) {
+        console.log('Video loaded successfully:', videoRef.current);
+      }
     }, 250);
   };
   const handleDurationChange = () => {
@@ -393,7 +394,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   }));
   return (
     <div className="flex flex-col w-full max-w-5xl bg-gray-100 rounded-lg shadow-md overflow-hidden">
-      {!isReplaying && !(isCompletedVideo || hasRecordedSession) && (
+      {!isReplaying && !(isCompletedVideo && hasRecordedSession) && (
         <div className="p-3 bg-white border-b border-gray-200">
           <div className="flex flex-wrap items-center space-x-3">
             <div className="flex items-center space-x-1">
@@ -463,7 +464,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-30">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mb-2"></div>
             <p className="text-white font-medium">Loading video...</p>
-            <p className="text-white text-sm mt-1">{isVideoCached ? 'Video will be cached for future viewing' : 'Please wait while the video loads, this can take a few minutes...'}</p>
+            <p className="text-white text-sm mt-1">Please wait while the video loads, this can take a few moments...</p>
           </div>
         )}
         {hasError && (
@@ -488,17 +489,14 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onError={(e) => {
             setIsLoading(false);
             setHasError(true);
-            setErrorMessage('Failed to load the video. Using backup source.');
-            // Fallback to a guaranteed working video
-            setCachedVideoSrc('https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
+            setErrorMessage('Failed to load the video. Please try again or contact support.');
           }}
           playsInline
           preload="metadata"
           muted
           controls
+          src={videoUrl}
         >
-          <source src={cachedVideoSrc} type="video/mp4" />
-          <source src="https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
         {videoDimensions.width > 0 && videoDimensions.height > 0 && (
@@ -514,7 +512,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           />
         )}
       </div>
-      {!isReplaying && !(isCompletedVideo || hasRecordedSession) ? (
+      {!isReplaying && !(isCompletedVideo && hasRecordedSession) ? (
         <div className="p-4 bg-white">
           <div className="flex items-center mb-2 relative">
             <input
