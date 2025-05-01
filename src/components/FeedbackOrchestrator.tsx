@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 import type { AudioChunk } from './AudioRecorder';
-import type { DrawingPath } from './AnnotationCanvas';
+import type { DrawingPath } from '../types';
 import type { RecordedAction } from './VideoPlayer';
 export interface FeedbackSession {
   id: string;

@@ -2,7 +2,8 @@
 import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
 import { useDrawingTools, useDrawingToolsState } from '../contexts/DrawingToolsContext';
-import { DrawingPath, Point, DrawingTool } from '../types';
+import { DrawingPath, Point } from '../types';
+import { DrawingTool } from '../types/feedback';
 
 interface AnnotationCanvasProps {
   width: number;

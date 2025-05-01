@@ -1,10 +1,6 @@
-import { Color, StrokeWidth } from './common';
+import { Color, StrokeWidth, CategoryRatings } from './common';
 
 export type DrawingTool = 'freehand' | 'line';
-
-export interface CategoryRatings {
-  [category: string]: number | null;
-}
 
 export interface DrawingToolsState {
   toolColor: Color;

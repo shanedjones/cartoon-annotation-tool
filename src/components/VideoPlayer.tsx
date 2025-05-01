@@ -2,7 +2,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useDrawingTools } from '../contexts/DrawingToolsContext';
 import { useRecording } from '../contexts/RecordingContext';
-import type { DrawingPath, DrawingTool } from '../types';
+import type { DrawingPath } from '../types';
+import type { DrawingTool } from '../types/feedback';
 import AnnotationCanvas from './AnnotationCanvas';
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
 export interface RecordedAction {

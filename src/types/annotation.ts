@@ -1,4 +1,6 @@
 import { Point, Color, StrokeWidth, TimelinePosition, VideoPosition, Timestamp, EntityId } from './common';
+import { DrawingTool } from './feedback';
+
 export interface DrawingPath {
   points: Point[];
   color: Color;
@@ -8,6 +10,7 @@ export interface DrawingPath {
   globalTimeOffset?: TimelinePosition;
   timeOffset?: TimelinePosition;
   id?: EntityId;
+  tool?: DrawingTool;
 }
 export interface AnnotationCanvasProps {
   width: number;

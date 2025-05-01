@@ -105,23 +105,29 @@ export const downloadAudioBlob = async (blobUrl: string): Promise<Blob> => {
     throw error;
   }
 };
-async function streamToBlob(stream: NodeJS.ReadableStream | null | undefined): Promise<Blob> {
+async function streamToBlob(stream: ReadableStream | NodeJS.ReadableStream | null | undefined): Promise<Blob> {
   if (!stream) {
     throw new Error('No stream provided');
   }
-  const reader = stream.getReader ? stream : new ReadableStream({
-    start(controller) {
-      stream.on('data', (chunk) => {
-        controller.enqueue(chunk);
-      });
-      stream.on('end', () => {
-        controller.close();
-      });
-      stream.on('error', (err) => {
-        controller.error(err);
-      });
-    }
-  }).getReader();
+  
+  // Check if the stream is a web ReadableStream (has getReader method)
+  const isWebStream = 'getReader' in stream;
+  
+  const reader = isWebStream 
+    ? (stream as ReadableStream).getReader()
+    : new ReadableStream({
+        start(controller) {
+          (stream as NodeJS.ReadableStream).on('data', (chunk) => {
+            controller.enqueue(chunk);
+          });
+          (stream as NodeJS.ReadableStream).on('end', () => {
+            controller.close();
+          });
+          (stream as NodeJS.ReadableStream).on('error', (err) => {
+            controller.error(err);
+          });
+        }
+      }).getReader();
   const chunks: Uint8Array[] = [];
   async function readChunks() {
     try {

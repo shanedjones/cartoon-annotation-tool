@@ -75,8 +75,16 @@ export function AppProviders({
 export * from './TimelineContext';
 export * from './AnnotationContext';
 export * from './VideoContext';
-export * from './SessionContext';
+export { 
+  SessionProvider, 
+  useSession, 
+  useSessionAvailability
+} from './SessionContext';
 export * from './AuthContext';
 export * from './DrawingToolsContext';
-export * from './FeedbackContext';
+export { 
+  FeedbackProvider, 
+  useFeedback,
+  useCategories as useFeedbackCategories 
+} from './FeedbackContext';
 export * from './RecordingContext';

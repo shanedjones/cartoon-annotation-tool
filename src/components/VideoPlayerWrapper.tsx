@@ -8,7 +8,7 @@ import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
 import { AppProviders } from '../contexts/AppProviders';
 import { useVideoSource, useVideo } from '../contexts/VideoContext';
-import { useCategories } from '../contexts/FeedbackContext';
+import { useFeedbackCategories } from '../contexts/AppProviders';
 import type { AudioChunk } from './AudioRecorder';
 import ErrorBoundary from './ErrorBoundary';
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), { ssr: false });
