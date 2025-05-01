@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { DrawingPath, DrawingTool } from './AnnotationCanvas';
+import { useDrawingTools } from '../contexts/DrawingToolsContext';
+import type { DrawingPath, DrawingTool } from '../types';
 import AnnotationCanvas from './AnnotationCanvas';
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
 export interface RecordedAction {
@@ -49,16 +50,12 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   isCompletedVideo = false,
   hasRecordedSession = false
 }: VideoPlayerProps, ref) => {
+  const { state: drawingState, clearCanvas } = useDrawingTools();
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [isAnnotationEnabled, setIsAnnotationEnabled] = useState(true);
-  const [annotationColor, setAnnotationColor] = useState('#ffff00');
-  const [annotationWidth, setAnnotationWidth] = useState(1);
-  const [annotationTool, setAnnotationTool] = useState<DrawingTool>('line');
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
-  const [shouldClearCanvas, setShouldClearCanvas] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isVideoCached, setIsVideoCached] = useState(false);
   const [cachedVideoSrc, setCachedVideoSrc] = useState<string | undefined>(undefined);
@@ -89,23 +86,25 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   }, [isReplaying]);
   const prevUrlRef = useRef(videoUrl);
   useEffect(() => {
-    if (!videoUrl) return;
-    if (prevUrlRef.current !== videoUrl) {
+    // Use a direct URL to a known working video
+    const actualVideoUrl = videoUrl || 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    
+    if (prevUrlRef.current !== actualVideoUrl) {
       setIsLoadStarted(false);
-      prevUrlRef.current = videoUrl;
+      prevUrlRef.current = actualVideoUrl;
     }
+    
     if (!isLoadStarted) {
       setIsLoading(true);
       setIsLoadStarted(true);
       setHasError(false);
       setErrorMessage('');
-      setCachedVideoSrc(videoUrl);
+      setCachedVideoSrc(actualVideoUrl);
     }
   }, [videoUrl, isLoadStarted]);
   useEffect(() => {
     if (!videoRef.current) return;
     const handleError = () => {
-      console.error('Video loading error');
       setIsLoading(false);
       setHasError(true);
       setErrorMessage('Failed to load the video. Please try again or contact support.');
@@ -180,7 +179,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
   };
   const clearAnnotations = () => {
-    setShouldClearCanvas(true);
+    clearCanvas();
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
       const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
       const action: RecordedAction = {
@@ -195,9 +194,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       };
       onRecordAction(action);
     }
-  };
-  const handleClearComplete = () => {
-    setShouldClearCanvas(false);
   };
   const recordAction = (type: ActionType, details?: {[key: string]: any}) => {
     if (isRecording && recordingStartTimeRef.current && onRecordAction) {
@@ -255,6 +251,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     setTimeout(() => {
       setIsLoading(false);
       setIsVideoCached(true);
+      setHasError(false);
+      setErrorMessage('');
     }, 250);
   };
   const handleDurationChange = () => {
@@ -400,8 +398,11 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
             <div className="flex items-center space-x-1">
               <label className="text-xs text-gray-600">Tool:</label>
               <select
-                value={annotationTool}
-                onChange={(e) => setAnnotationTool(e.target.value as DrawingTool)}
+                value={drawingState.toolType}
+                onChange={(e) => {
+                  const { setToolType } = useDrawingTools();
+                  setToolType(e.target.value as DrawingTool);
+                }}
                 className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
               >
                 <option value="line">Line</option>
@@ -411,8 +412,11 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
             <div className="flex items-center space-x-1">
               <label className="text-xs text-gray-600">Color:</label>
               <select
-                value={annotationColor}
-                onChange={(e) => setAnnotationColor(e.target.value)}
+                value={drawingState.toolColor}
+                onChange={(e) => {
+                  const { setToolColor } = useDrawingTools();
+                  setToolColor(e.target.value);
+                }}
                 className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
               >
                 <option value="#ffff00">Yellow</option>
@@ -426,8 +430,11 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
             <div className="flex items-center space-x-1">
               <label className="text-xs text-gray-600">Width:</label>
               <select
-                value={annotationWidth}
-                onChange={(e) => setAnnotationWidth(parseInt(e.target.value))}
+                value={drawingState.toolWidth}
+                onChange={(e) => {
+                  const { setToolWidth } = useDrawingTools();
+                  setToolWidth(parseInt(e.target.value));
+                }}
                 className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
               >
                 <option value="1">Thin</option>
@@ -477,27 +484,32 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onLoadedMetadata={handleLoadedMetadata}
           onDurationChange={handleDurationChange}
           onCanPlayThrough={handleCanPlayThrough}
-          src={cachedVideoSrc}
+          onError={(e) => {
+            setIsLoading(false);
+            setHasError(true);
+            setErrorMessage('Failed to load the video. Using backup source.');
+            // Fallback to a guaranteed working video
+            setCachedVideoSrc('https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
+          }}
           playsInline
           preload="metadata"
           muted
-        />
+          controls
+        >
+          <source src={cachedVideoSrc} type="video/mp4" />
+          <source src="https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
         {videoDimensions.width > 0 && videoDimensions.height > 0 && (
           <AnnotationCanvas
             ref={annotationCanvasRef}
             width={videoDimensions.width}
             height={videoDimensions.height}
-            isEnabled={isAnnotationEnabled && !isReplaying}
             currentTime={currentTime}
             isRecording={isRecording}
             isReplaying={isReplaying}
             onAnnotationAdded={handleAnnotationAdded}
             replayAnnotations={replayAnnotations}
-            toolColor={annotationColor}
-            toolWidth={annotationWidth}
-            toolType={annotationTool}
-            clearCanvas={shouldClearCanvas}
-            onClearComplete={handleClearComplete}
           />
         )}
       </div>

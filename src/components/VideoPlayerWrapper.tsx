@@ -3,11 +3,12 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { v4 as uuidv4 } from 'uuid';
 import type { RecordedAction, FeedbackData } from './VideoPlayer';
-import type { DrawingPath } from './AnnotationCanvas';
+import type { DrawingPath } from '../types';
 import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
 import { AppProviders } from '../contexts/AppProviders';
 import { useVideoSource, useVideo } from '../contexts/VideoContext';
+import { useCategories } from '../contexts/FeedbackContext';
 import type { AudioChunk } from './AudioRecorder';
 import ErrorBoundary from './ErrorBoundary';
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), { ssr: false });
@@ -615,44 +616,49 @@ export default function VideoPlayerWrapper({
   }
   return (
     <div className="w-full">
-        <div className="hidden">
-          <button
-            id="startRecordingButton"
-            onClick={startRecording}
-          >
-            Start Recording
-          </button>
-          <button
-            id="startReplayButton"
-            onClick={startReplay}
-            disabled={!currentSession}
-          >
-            Replay Session
-          </button>
-          <button
-            id="downloadDataButton"
-            onClick={downloadSessionData}
-            disabled={!currentSession}
-          >
-            Download Data
-          </button>
-          <label>
-            <input
-              id="fileUploadInput"
-              type="file"
-              accept=".json"
-              onChange={handleFileUpload}
-            />
-            Load Data
-          </label>
-          <button
-            id="stopButton"
-            onClick={mode === 'record' ? stopRecording : stopReplay}
-          >
-            Stop
-          </button>
-        </div>
-        <div className="relative">
+        <AppProviders 
+          initialVideoUrl={videoUrl}
+          onCategoriesCleared={onCategoriesCleared}
+          onCategoriesLoaded={onCategoriesLoaded}
+        >
+          <div className="hidden">
+            <button
+              id="startRecordingButton"
+              onClick={startRecording}
+            >
+              Start Recording
+            </button>
+            <button
+              id="startReplayButton"
+              onClick={startReplay}
+              disabled={!currentSession}
+            >
+              Replay Session
+            </button>
+            <button
+              id="downloadDataButton"
+              onClick={downloadSessionData}
+              disabled={!currentSession}
+            >
+              Download Data
+            </button>
+            <label>
+              <input
+                id="fileUploadInput"
+                type="file"
+                accept=".json"
+                onChange={handleFileUpload}
+              />
+              Load Data
+            </label>
+            <button
+              id="stopButton"
+              onClick={mode === 'record' ? stopRecording : stopReplay}
+            >
+              Stop
+            </button>
+          </div>
+          <div className="relative">
           <ErrorBoundary
             fallback={
               <div className="flex flex-col items-center justify-center bg-red-50 p-8 rounded-lg border border-red-200 text-center min-h-[300px]">
@@ -857,6 +863,7 @@ export default function VideoPlayerWrapper({
           </div>
         </div>
       )}
+      </AppProviders>
     </div>
   );
 }

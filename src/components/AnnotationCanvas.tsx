@@ -1,49 +1,29 @@
 'use client';
 import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useTimeline, useLastClearTime } from '../contexts/TimelineContext';
-export interface Point {
-  x: number;
-  y: number;
-}
-export type DrawingTool = 'freehand' | 'line';
-export interface DrawingPath {
-  points: Point[];
-  color: string;
-  width: number;
-  timestamp: number;
-  videoTime?: number;
-  tool?: DrawingTool;
-}
+import { useDrawingTools, useDrawingToolsState } from '../contexts/DrawingToolsContext';
+import { DrawingPath, Point, DrawingTool } from '../types';
+
 interface AnnotationCanvasProps {
   width: number;
   height: number;
-  isEnabled: boolean;
   currentTime: number;
   isRecording?: boolean;
   isReplaying?: boolean;
   onAnnotationAdded?: (path: DrawingPath) => void;
   replayAnnotations?: DrawingPath[];
-  toolColor?: string;
-  toolWidth?: number;
-  toolType?: DrawingTool;
-  clearCanvas?: boolean;
-  onClearComplete?: () => void;
 }
 const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
   width,
   height,
-  isEnabled,
   currentTime,
   isRecording = false,
   isReplaying = false,
   onAnnotationAdded,
-  replayAnnotations = [],
-  toolColor = '#ffff00',
-  toolWidth = 1,
-  toolType = 'freehand',
-  clearCanvas = false,
-  onClearComplete
+  replayAnnotations = []
 }, ref) => {
+  const { state: drawingState, clearCanvasComplete } = useDrawingTools();
+  const { toolColor, toolWidth, toolType, isEnabled, shouldClearCanvas } = drawingState;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
@@ -71,24 +51,20 @@ const AnnotationCanvas = forwardRef<any, AnnotationCanvasProps>(({
     });
   }, [getContext, width, height]);
   useEffect(() => {
-    if (clearCanvas) {
+    if (shouldClearCanvas) {
       requestAnimationFrame(() => {
         clearCanvasDrawings()
           .then(() => {
             requestAnimationFrame(() => {
-              if (onClearComplete) {
-                onClearComplete();
-              }
+              clearCanvasComplete();
             });
           })
           .catch(err => {
-            if (onClearComplete) {
-              onClearComplete();
-            }
+            clearCanvasComplete();
           });
       });
     }
-  }, [clearCanvas, onClearComplete]);
+  }, [shouldClearCanvas, clearCanvasComplete, clearCanvasDrawings]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;

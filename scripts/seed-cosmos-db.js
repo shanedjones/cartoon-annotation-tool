@@ -86,9 +86,9 @@ function generateSwings(sessionId, startIndex = 1) {
         id: swingId,
         title: `${club} - ${strength}`,
         description: description,
-        thumbnailUrl: `https:
-        videoUrl: "https:
-        duration: `0:${Math.floor(Math.random() * 20) + 30}`,
+        thumbnailUrl: "https://example.com/thumbnail.jpg",
+        videoUrl: "https://example.com/video.mp4",
+        duration: "0:" + (Math.floor(Math.random() * 20) + 30),
         status: "Not Started",
         dataLabelingTitle: dataLabelingTitle,
         labelProperties: labelProperties,
