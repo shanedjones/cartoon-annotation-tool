@@ -107,25 +107,68 @@ export const downloadAudioBlob = async (blobUrl: string): Promise<Blob> => {
     throw error;
   }
 };
-async function streamToBlob(stream: NodeJS.ReadableStream | null | undefined): Promise<Blob> {
+async function streamToBlob(stream: NodeJS.ReadableStream | ReadableStream | null | undefined): Promise<Blob> {
   if (!stream) {
     throw new Error('No stream provided');
   }
-  const reader = stream.getReader ? stream : new ReadableStream({
+  
+  // Check if it's a web ReadableStream with getReader method
+  if ('getReader' in stream) {
+    const reader = (stream as ReadableStream).getReader();
+    const chunks: Uint8Array[] = [];
+    
+    async function readWebChunks() {
+      try {
+        let reading = true;
+        while (reading) {
+          const result = await reader.read();
+          if (result.done) {
+            reading = false;
+          } else {
+            chunks.push(new Uint8Array(result.value));
+          }
+        }
+      } catch (error) {
+        throw error;
+      }
+    }
+    
+    await readWebChunks();
+    
+    let totalLength = 0;
+    for (const chunk of chunks) {
+      totalLength += chunk.length;
+    }
+    
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    
+    return new Blob([result]);
+  }
+  
+  // If it's a Node.js stream, convert it to a web ReadableStream
+  const nodeStream = stream as NodeJS.ReadableStream;
+  const webStream = new ReadableStream({
     start(controller) {
-      stream.on('data', (chunk) => {
+      nodeStream.on('data', (chunk) => {
         controller.enqueue(chunk);
       });
-      stream.on('end', () => {
+      nodeStream.on('end', () => {
         controller.close();
       });
-      stream.on('error', (err) => {
+      nodeStream.on('error', (err) => {
         controller.error(err);
       });
     }
-  }).getReader();
+  });
+  
+  const reader = webStream.getReader();
   const chunks: Uint8Array[] = [];
-  async function readChunks() {
+  async function readNodeChunks() {
     try {
       let reading = true;
       while (reading) {
@@ -140,7 +183,7 @@ async function streamToBlob(stream: NodeJS.ReadableStream | null | undefined): P
       throw error;
     }
   }
-  await readChunks();
+  await readNodeChunks();
   let totalLength = 0;
   for (const chunk of chunks) {
     totalLength += chunk.length;
