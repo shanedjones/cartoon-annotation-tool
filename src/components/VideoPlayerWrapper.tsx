@@ -279,6 +279,8 @@ export default function VideoPlayerWrapper({
   const [isActive, setIsActive] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [currentSession, setCurrentSession] = useState<FeedbackSession | null>(initialSession || null);
+  // Track hasRecordedSession as a derived state
+  const [hasRecordedSession, setHasRecordedSession] = useState<boolean>(!!currentSession);
   const [feedbackData, setFeedbackData] = useState<FeedbackData>({
     sessionId: '',
     videoId: videoId,
@@ -332,6 +334,7 @@ export default function VideoPlayerWrapper({
         onCategoriesCleared();
       }
       if (typeof window !== 'undefined') {
+        setHasRecordedSession(true);
         window.__hasRecordedSession = true;
         window.dispatchEvent(new Event('session-available'));
       }
@@ -406,6 +409,7 @@ export default function VideoPlayerWrapper({
     const legacyData = convertSessionToLegacyData(sessionWithCategories);
     setFeedbackData(legacyData);
     if (typeof window !== 'undefined') {
+      setHasRecordedSession(true);
       window.__hasRecordedSession = true;
       window.dispatchEvent(new Event('session-available'));
     }
@@ -575,7 +579,7 @@ export default function VideoPlayerWrapper({
           }
         }
       };
-      window.__hasRecordedSession = currentSession !== null;
+      window.__hasRecordedSession = hasRecordedSession;
     }
     if (onReplayModeChange) {
       const isReplay = mode === 'replay';
@@ -587,6 +591,14 @@ export default function VideoPlayerWrapper({
       }
     };
   }, [recordCategoryChange, mode, isActive, onReplayModeChange, currentSession]);
+  // Update hasRecordedSession whenever currentSession changes
+  useEffect(() => {
+    setHasRecordedSession(!!currentSession);
+    if (typeof window !== 'undefined') {
+      window.__hasRecordedSession = !!currentSession;
+    }
+  }, [currentSession]);
+
   useEffect(() => {
     if (initialSession && !isActive && mode === 'record') {
       setTimeout(() => {
@@ -620,6 +632,47 @@ export default function VideoPlayerWrapper({
           initialVideoUrl={videoUrl}
           onCategoriesCleared={onCategoriesCleared}
           onCategoriesLoaded={onCategoriesLoaded}
+          onRecordAction={(action) => {
+            if (orchestratorRef.current && mode === 'record' && isActive) {
+              switch(action.type) {
+                case 'play':
+                case 'pause':
+                case 'seek':
+                case 'playbackRate':
+                case 'keyboardShortcut':
+                  orchestratorRef.current.handleVideoEvent(action.type, action.details);
+                  break;
+                case 'annotation':
+                  if (action.details?.clear) {
+                    orchestratorRef.current.handleAnnotationEvent('clear');
+                  } else if (action.details?.path) {
+                    orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
+                  }
+                  break;
+              }
+            }
+          }}
+          onAnnotationAdded={(annotation) => {
+            if (orchestratorRef.current && mode === 'record' && isActive) {
+              orchestratorRef.current.handleAnnotationEvent('draw', annotation);
+            }
+          }}
+          initialAnnotations={currentSession?.events
+            ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
+            ?.map(e => {
+              const tool = e.payload.path.tool || 'freehand';
+              return {
+                ...e.payload.path,
+                timeOffset: e.timeOffset,
+                globalTimeOffset: e.timeOffset,
+                videoTime: e.timeOffset,
+                tool: tool
+              };
+            }) || feedbackData.annotations || []}
+          initialIsRecording={mode === 'record' && isActive}
+          initialIsReplaying={mode === 'replay' && isActive}
+          initialHasRecordedSession={!!currentSession}
+          initialIsCompletedVideo={typeof window !== 'undefined' && window.__isCompletedVideo === true}
         >
           <div className="hidden">
             <button
@@ -682,21 +735,7 @@ export default function VideoPlayerWrapper({
           >
             <VideoPlayer
               ref={getVideoPlayerRef}
-              isRecording={mode === 'record' && isActive}
-              isReplaying={mode === 'replay' && isActive}
               setVideoRef={setVideoElementRef}
-              replayAnnotations={currentSession?.events
-                ?.filter(e => e.type === 'annotation' && e.payload?.action === 'draw' && e.payload?.path)
-                ?.map(e => {
-                  const tool = e.payload.path.tool || 'freehand';
-                  return {
-                    ...e.payload.path,
-                    timeOffset: e.timeOffset,
-                    globalTimeOffset: e.timeOffset,
-                    videoTime: e.timeOffset,
-                    tool: tool
-                  };
-                }) || feedbackData.annotations || []}
               videoUrl={videoUrl}
               onLoadingStateChange={(isLoading) => {
                 setIsVideoLoading(isLoading);
@@ -704,33 +743,6 @@ export default function VideoPlayerWrapper({
                   onVideoLoadingChange(isLoading);
                 }
               }}
-              onRecordAction={(action) => {
-                if (orchestratorRef.current && mode === 'record' && isActive) {
-                  switch(action.type) {
-                    case 'play':
-                    case 'pause':
-                    case 'seek':
-                    case 'playbackRate':
-                    case 'keyboardShortcut':
-                      orchestratorRef.current.handleVideoEvent(action.type, action.details);
-                      break;
-                    case 'annotation':
-                      if (action.details?.clear) {
-                        orchestratorRef.current.handleAnnotationEvent('clear');
-                      } else if (action.details?.path) {
-                        orchestratorRef.current.handleAnnotationEvent('draw', action.details.path);
-                      }
-                      break;
-                  }
-                }
-              }}
-              onAnnotationAdded={(annotation) => {
-                if (orchestratorRef.current && mode === 'record' && isActive) {
-                  orchestratorRef.current.handleAnnotationEvent('draw', annotation);
-                }
-              }}
-              isCompletedVideo={typeof window !== 'undefined' && window.__isCompletedVideo === true}
-              hasRecordedSession={typeof window !== 'undefined' && window.__hasRecordedSession === true}
             />
           </ErrorBoundary>
           <ErrorBoundary

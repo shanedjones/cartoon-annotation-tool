@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useDrawingTools } from '../contexts/DrawingToolsContext';
+import { useRecording } from '../contexts/RecordingContext';
 import type { DrawingPath, DrawingTool } from '../types';
 import AnnotationCanvas from './AnnotationCanvas';
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
@@ -23,34 +24,33 @@ export interface FeedbackData {
   audioChunks?: AudioChunk[];
 }
 interface VideoPlayerProps {
-  isRecording?: boolean;
-  isReplaying?: boolean;
-  onRecordAction?: (action: RecordedAction) => void;
   setVideoRef?: (ref: HTMLVideoElement | null) => void;
-  replayAnnotations?: DrawingPath[];
-  onAnnotationAdded?: (annotation: DrawingPath) => void;
   videoUrl?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
-  isCompletedVideo?: boolean;
-  hasRecordedSession?: boolean;
 }
 interface VideoPlayerImperativeHandle {
   video: HTMLVideoElement | null;
   annotationCanvas: any;
 }
 const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, VideoPlayerProps>(({
-  isRecording = false,
-  isReplaying = false,
-  onRecordAction,
   setVideoRef,
-  replayAnnotations = [],
-  onAnnotationAdded,
   videoUrl = "",
-  onLoadingStateChange,
-  isCompletedVideo = false,
-  hasRecordedSession = false
+  onLoadingStateChange
 }: VideoPlayerProps, ref) => {
   const { state: drawingState, clearCanvas } = useDrawingTools();
+  const { 
+    state: recordingState, 
+    onRecordAction, 
+    onAnnotationAdded 
+  } = useRecording();
+  
+  const { 
+    isRecording, 
+    isReplaying, 
+    replayAnnotations, 
+    isCompletedVideo, 
+    hasRecordedSession 
+  } = recordingState;
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
