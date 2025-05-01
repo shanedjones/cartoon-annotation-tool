@@ -76,7 +76,6 @@ export default function InboxPage() {
     const lowerCaseSearch = term.toLowerCase();
     const results = sessionsToFilter.filter(session =>
       session.athlete.name.toLowerCase().includes(lowerCaseSearch) ||
-      session.location.toLowerCase().includes(lowerCaseSearch) ||
       session.coach.toLowerCase().includes(lowerCaseSearch) ||
       session.swings.some(swing =>
         swing.title.toLowerCase().includes(lowerCaseSearch) ||
@@ -164,7 +163,7 @@ export default function InboxPage() {
         <div className="flex-1">
           <input
             type="text"
-            placeholder="Search athletes, locations, coaches..."
+            placeholder="Search athletes, coaches, or swing details..."
             className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -197,12 +196,6 @@ export default function InboxPage() {
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Athlete
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Date & Time
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Location
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
@@ -243,13 +236,6 @@ export default function InboxPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">{session.date ? formatDate(session.date) : 'No date'}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-300">{session.timeWindow || 'No time specified'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      {session.location || 'No location'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(session.status || 'Not Started')}`}>
                         {session.status || 'Not Started'}
                       </span>
@@ -274,12 +260,6 @@ export default function InboxPage() {
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">{swing.title}</div>
-                      </td>
-                      <td className="px-6 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-300">{swing.duration}</span>
-                      </td>
-                      <td className="px-6 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-300">-</span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(swing.status)}`}>
