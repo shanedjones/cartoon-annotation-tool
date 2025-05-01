@@ -231,71 +231,97 @@ export function VideoProvider({ children, initialUrl = '' }: VideoProviderProps)
   const loadingUrlRef = useRef<string | null>(null);
   useEffect(() => {
     if (!state.videoUrl || typeof window === 'undefined') return;
-    if (loadingUrlRef.current === state.videoUrl) {
+    
+    // Fix: Only proceed if not already loading this URL and not already loaded/cached
+    if (loadingUrlRef.current === state.videoUrl || (state.cachedUrl && !state.isLoading)) {
       return;
     }
-    if (state.isLoading) {
-    }
+    
+    // Create a single loading promise for the current URL
+    let currentLoadPromise: Promise<void> | null = null;
+    
     const loadVideoFromCacheOrNetwork = async () => {
-      try {
-        loadingUrlRef.current = state.videoUrl;
-        dispatch({ type: 'SET_LOADING', payload: { isLoading: true } });
-        const isLocalOrBlobUrl =
-          state.videoUrl.startsWith('blob:') ||
-          state.videoUrl.startsWith('data:') ||
-          state.videoUrl.startsWith('file:');
-        if (isLocalOrBlobUrl) {
-          dispatch({ type: 'SET_CACHED_URL', payload: { url: state.videoUrl } });
-          dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
-          return;
-        }
-        const cachedVideo = await getFromCache(state.videoUrl);
-        if (loadingUrlRef.current !== state.videoUrl) {
-          return;
-        }
-        if (cachedVideo) {
-          dispatch({ type: 'SET_CACHED_URL', payload: { url: cachedVideo.blobUrl } });
-          dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
-          return;
-        }
-        let isCrossOrigin = false;
+      if (currentLoadPromise) return currentLoadPromise;
+      
+      currentLoadPromise = (async () => {
         try {
-          if (typeof window !== 'undefined') {
-            const videoUrlObj = new URL(state.videoUrl, window.location.href);
-            isCrossOrigin = videoUrlObj.origin !== window.location.origin;
+          loadingUrlRef.current = state.videoUrl;
+          dispatch({ type: 'SET_LOADING', payload: { isLoading: true } });
+          
+          const isLocalOrBlobUrl =
+            state.videoUrl.startsWith('blob:') ||
+            state.videoUrl.startsWith('data:') ||
+            state.videoUrl.startsWith('file:');
+            
+          if (isLocalOrBlobUrl) {
+            dispatch({ type: 'SET_CACHED_URL', payload: { url: state.videoUrl } });
+            dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
+            return;
           }
-        } catch (e) {
-        }
-        if (isCrossOrigin) {
-        }
-        const blobUrl = await cacheVideo(state.videoUrl);
-        if (loadingUrlRef.current !== state.videoUrl) {
-          return;
-        }
-        dispatch({ type: 'SET_CACHED_URL', payload: { url: blobUrl } });
-        const stats = await getVideoCacheStats();
-        dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
-      } catch (error) {
-        if (loadingUrlRef.current === state.videoUrl) {
-          const message = error instanceof Error
-            ? error.message
-            : 'Failed to load video. Please contact technical support.';
-          dispatch({
-            type: 'SET_ERROR',
-            payload: {
-              hasError: true,
-              errorMessage: message
+          
+          const cachedVideo = await getFromCache(state.videoUrl);
+          
+          // Early return if URL has changed during async operation
+          if (loadingUrlRef.current !== state.videoUrl) {
+            return;
+          }
+          
+          if (cachedVideo) {
+            dispatch({ type: 'SET_CACHED_URL', payload: { url: cachedVideo.blobUrl } });
+            dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
+            return;
+          }
+          
+          let isCrossOrigin = false;
+          try {
+            if (typeof window !== 'undefined') {
+              const videoUrlObj = new URL(state.videoUrl, window.location.href);
+              isCrossOrigin = videoUrlObj.origin !== window.location.origin;
             }
-          });
+          } catch (e) {
+            // URL parsing error
+          }
+          
+          if (isCrossOrigin) {
+            // Cross-origin handling
+          }
+          
+          const blobUrl = await cacheVideo(state.videoUrl);
+          
+          // Early return if URL has changed during async operation
+          if (loadingUrlRef.current !== state.videoUrl) {
+            return;
+          }
+          
+          dispatch({ type: 'SET_CACHED_URL', payload: { url: blobUrl } });
+          const stats = await getVideoCacheStats();
+          dispatch({ type: 'SET_CACHE_STATS', payload: { stats } });
+        } catch (error) {
+          if (loadingUrlRef.current === state.videoUrl) {
+            const message = error instanceof Error
+              ? error.message
+              : 'Failed to load video. Please contact technical support.';
+            dispatch({
+              type: 'SET_ERROR',
+              payload: {
+                hasError: true,
+                errorMessage: message
+              }
+            });
+          }
+        } finally {
+          if (loadingUrlRef.current === state.videoUrl) {
+            loadingUrlRef.current = null;
+          }
+          currentLoadPromise = null;
         }
-      } finally {
-        if (loadingUrlRef.current === state.videoUrl) {
-          loadingUrlRef.current = null;
-        }
-      }
+      })();
+      
+      return currentLoadPromise;
     };
+    
     loadVideoFromCacheOrNetwork();
-  }, [state.videoUrl]);
+  }, [state.videoUrl, state.cachedUrl, state.isLoading]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const updateStats = async () => {

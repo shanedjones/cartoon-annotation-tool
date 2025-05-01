@@ -270,11 +270,13 @@ export default function VideoPlayerWrapper({
   }
   const prevUrlRef = useRef(videoUrl);
   useEffect(() => {
+    // Only update the video URL if it has actually changed
     if (videoUrl && videoUrl !== prevUrlRef.current) {
-      videoContext.setVideoUrl(videoUrl);
+      // Set the current URL in the ref immediately to prevent duplicate calls
       prevUrlRef.current = videoUrl;
+      videoContext.setVideoUrl(videoUrl);
     }
-  }, [videoUrl]);
+  }, [videoUrl, videoContext]);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);

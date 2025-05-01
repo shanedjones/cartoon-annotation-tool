@@ -38,7 +38,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   videoUrl = "",
   onLoadingStateChange
 }: VideoPlayerProps, ref) => {
-  const { state: drawingState, clearCanvas } = useDrawingTools();
+  const { state: drawingState, clearCanvas, setToolType, setToolColor, setToolWidth } = useDrawingTools();
   const { 
     state: recordingState, 
     onRecordAction, 
@@ -90,10 +90,13 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   }, [isReplaying]);
   const prevUrlRef = useRef(videoUrl);
   useEffect(() => {
+    // Only update loading state if the URL has actually changed
     if (prevUrlRef.current !== videoUrl) {
+      // Store the current URL immediately to prevent duplicate processing
       prevUrlRef.current = videoUrl;
       
       if (videoUrl) {
+        // Reset loading state for the new URL
         setIsLoading(true);
         setHasError(false);
         setErrorMessage('');
@@ -402,7 +405,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
               <select
                 value={drawingState.toolType}
                 onChange={(e) => {
-                  const { setToolType } = useDrawingTools();
                   setToolType(e.target.value as DrawingTool);
                 }}
                 className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
@@ -416,7 +418,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
               <select
                 value={drawingState.toolColor}
                 onChange={(e) => {
-                  const { setToolColor } = useDrawingTools();
                   setToolColor(e.target.value);
                 }}
                 className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
@@ -434,7 +435,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
               <select
                 value={drawingState.toolWidth}
                 onChange={(e) => {
-                  const { setToolWidth } = useDrawingTools();
                   setToolWidth(parseInt(e.target.value));
                 }}
                 className="bg-gray-100 text-xs rounded p-1 border border-gray-300"
