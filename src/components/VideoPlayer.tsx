@@ -514,7 +514,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           playsInline
           preload="metadata"
           muted
-          controls
           src={videoUrl}
         >
           Your browser does not support the video tag.
