@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  useEffect,
   ReactNode
 } from 'react';
 import type { DrawingPath } from '../types';
@@ -61,23 +62,65 @@ export function RecordingProvider({
   initialHasRecordedSession = false,
   initialIsCompletedVideo = false
 }: RecordingProviderProps) {
-  const [isRecording, setIsRecording] = useState(initialIsRecording);
+  // Get the initial recording state from both props and window global
+  const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
+  const [isRecording, setIsRecording] = useState(initialIsRecording || windowIsRecording);
   const [isReplaying, setIsReplaying] = useState(initialIsReplaying);
   const [replayAnnotations, setReplayAnnotations] = useState<DrawingPath[]>(initialAnnotations);
   const [hasRecordedSession, setHasRecordedSession] = useState(initialHasRecordedSession);
   const [isCompletedVideo, setIsCompletedVideo] = useState(initialIsCompletedVideo);
+  
+  // Listen for recording state changes from window events
+  useEffect(() => {
+    const handleRecordingStateChange = (event: CustomEvent) => {
+      if (event.detail && typeof event.detail.isRecording === 'boolean') {
+        console.log('Recording state changed via event:', event.detail.isRecording);
+        setIsRecording(event.detail.isRecording);
+      }
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('recording-state-change', handleRecordingStateChange as EventListener);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('recording-state-change', handleRecordingStateChange as EventListener);
+      }
+    };
+  }, []);
 
   const onRecordAction = useCallback((action: RecordedAction) => {
-    if (onRecordCallback) {
+    // Always log the action to help with debugging
+    console.log('Recording action:', action.type, action);
+    
+    // Check window recording state as a fallback
+    const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
+    const isCurrentlyRecording = isRecording || windowIsRecording;
+    
+    if (onRecordCallback && isCurrentlyRecording) {
+      console.log('Forwarding action to callback:', action.type);
       onRecordCallback(action);
+    } else if (!isCurrentlyRecording) {
+      console.log('Action not recorded - not in recording mode');
     }
-  }, [onRecordCallback]);
+  }, [onRecordCallback, isRecording]);
 
   const onAnnotationAdded = useCallback((annotation: DrawingPath) => {
-    if (onAnnotationCallback) {
+    // Always log the annotation to help with debugging
+    console.log('Recording annotation:', annotation);
+    
+    // Check window recording state as a fallback
+    const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
+    const isCurrentlyRecording = isRecording || windowIsRecording;
+    
+    if (onAnnotationCallback && isCurrentlyRecording) {
+      console.log('Forwarding annotation to callback');
       onAnnotationCallback(annotation);
+    } else if (!isCurrentlyRecording) {
+      console.log('Annotation not recorded - not in recording mode');
     }
-  }, [onAnnotationCallback]);
+  }, [onAnnotationCallback, isRecording]);
 
   const value = useMemo(() => ({
     state: {

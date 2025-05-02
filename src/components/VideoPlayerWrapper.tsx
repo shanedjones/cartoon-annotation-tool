@@ -315,6 +315,13 @@ export default function VideoPlayerWrapper({
     if (orchestratorRef.current) {
       orchestratorRef.current.startRecordingSession();
       setIsActive(true);
+      
+      // Ensure recording state is updated in the RecordingContext
+      if (typeof window !== 'undefined') {
+        window.__isRecording = true;
+        // Dispatch a custom event to notify that recording has started
+        window.dispatchEvent(new CustomEvent('recording-state-change', { detail: { isRecording: true } }));
+      }
     }
   }, []);
   const stopRecording = useCallback(() => {
@@ -338,7 +345,10 @@ export default function VideoPlayerWrapper({
       if (typeof window !== 'undefined') {
         setHasRecordedSession(true);
         window.__hasRecordedSession = true;
+        window.__isRecording = false;
         window.dispatchEvent(new Event('session-available'));
+        // Dispatch a custom event to notify that recording has stopped
+        window.dispatchEvent(new CustomEvent('recording-state-change', { detail: { isRecording: false } }));
       }
     }
   }, [onCategoriesCleared, currentSession]);

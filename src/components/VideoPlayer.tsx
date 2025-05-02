@@ -53,6 +53,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     hasRecordedSession 
   } = recordingState;
   
+  // Debug recording state
   console.log('Recording state:', { 
     isRecording, 
     isReplaying, 
@@ -72,9 +73,17 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   const recordingStartTimeRef = useRef<number | null>(null);
   const annotationCanvasRef = useRef<any>(null);
   useEffect(() => {
-    if (isRecording && !recordingStartTimeRef.current) {
+    // Check for recording state from both the component state and window global
+    const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
+    const isCurrentlyRecording = isRecording || windowIsRecording;
+    
+    console.log('Recording state changed:', isCurrentlyRecording);
+    
+    if (isCurrentlyRecording && !recordingStartTimeRef.current) {
+      console.log('Setting recording start time');
       recordingStartTimeRef.current = Date.now();
-    } else if (!isRecording) {
+    } else if (!isCurrentlyRecording) {
+      console.log('Clearing recording start time');
       recordingStartTimeRef.current = null;
     }
   }, [isRecording]);
@@ -197,8 +206,15 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     }
   };
   const recordAction = (type: ActionType, details?: {[key: string]: any}) => {
-    if (isRecording && recordingStartTimeRef.current && onRecordAction) {
-      const globalTimeOffset = Date.now() - recordingStartTimeRef.current;
+    // Get recording state from window as a fallback
+    const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
+    const isCurrentlyRecording = isRecording || windowIsRecording;
+    
+    if (isCurrentlyRecording && onRecordAction) {
+      // Use current time as starting time if recordingStartTimeRef is not set
+      const startTime = recordingStartTimeRef.current || Date.now();
+      const globalTimeOffset = Date.now() - startTime;
+      
       const action: RecordedAction = {
         type,
         timestamp: globalTimeOffset,
@@ -208,7 +224,11 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           globalTimeOffset: globalTimeOffset
         }
       };
+      
+      console.log(`Recording action ${type} at time ${globalTimeOffset}ms`);
       onRecordAction(action);
+    } else {
+      console.log(`Not recording action ${type} - recording: ${isCurrentlyRecording}`);
     }
   };
   const togglePlay = useCallback(() => {

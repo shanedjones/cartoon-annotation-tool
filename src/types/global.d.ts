@@ -10,6 +10,7 @@ interface Window {
   __isCompletedVideo?: boolean;
   __sessionReady?: boolean;
   __isReplaying?: boolean;
+  __isRecording?: boolean;
   __globalTimePosition?: number;
   __lastClearTime?: number;
 }
