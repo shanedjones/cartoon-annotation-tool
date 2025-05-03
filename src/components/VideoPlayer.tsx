@@ -305,7 +305,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
   }, [seekToTime, recordAction]);
   
   const handleSliderClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
-    const element = e.target as HTMLInputElement;
+    const element = e.currentTarget as HTMLInputElement;
     const rect = element.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const percentage = offsetX / rect.width;
@@ -534,24 +534,37 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       {!isReplaying && !(isCompletedVideo && hasRecordedSession) ? (
         <div className="p-4 bg-white">
           <div className="flex items-center mb-2 relative">
-            <input
-              type="range"
-              min="0"
-              max={duration || 0}
-              value={currentTime}
-              onChange={handleSeek}
-              onClick={handleSliderClick}
-              className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer relative z-10
-                        focus:outline-none focus:ring-1 focus:ring-blue-300
-                        [&::-webkit-slider-thumb]:appearance-none
-                        [&::-webkit-slider-thumb]:opacity-0
-                        [&::-moz-range-thumb]:opacity-0
-                        [&::-ms-thumb]:opacity-0
-                        transition-all duration-100"
-              style={{
-                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb 100%)`
+            <div
+              className="w-full h-6 bg-gray-200 rounded-lg cursor-pointer flex items-center relative"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left;
+                const percentage = offsetX / rect.width;
+                const time = percentage * duration;
+                const result = seekToTime(time);
+                if (result) {
+                  recordAction('seek', { from: result.previousTime, to: result.newTime });
+                }
               }}
-            />
+            >
+              <div 
+                className="h-3 bg-blue-500 rounded-l-lg absolute left-0"
+                style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+              ></div>
+              <div 
+                className="h-3 bg-gray-300 rounded-r-lg absolute"
+                style={{ 
+                  left: `${(currentTime / (duration || 1)) * 100}%`,
+                  width: `${100 - (currentTime / (duration || 1)) * 100}%` 
+                }}
+              ></div>
+              <div 
+                className="w-4 h-4 bg-white border-2 border-blue-500 rounded-full absolute"
+                style={{ 
+                  left: `calc(${(currentTime / (duration || 1)) * 100}% - 4px)`,
+                }}
+              ></div>
+            </div>
           </div>
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center space-x-2">
