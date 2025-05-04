@@ -82,7 +82,8 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         .then(() => {
           setPlaying(true);
         })
-        .catch(err => {
+        .catch(() => {
+          // Silently handle play errors
         });
     }
   }, [isReplaying]);
@@ -481,7 +482,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         <video
           ref={videoRef}
           className="w-full aspect-video"
-          onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onDurationChange={handleDurationChange}
           onCanPlayThrough={handleCanPlayThrough}

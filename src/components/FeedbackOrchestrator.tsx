@@ -128,8 +128,8 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         }
         break;
       case 'marker':
-        break;
       case 'category':
+        // No actions for marker and category events in executeEvent
         break;
     }
   });
@@ -397,6 +397,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         clearAnnotations();
       }
     } catch (error) {
+      // Silently handle errors
     }
     pendingEventsRef.current = [];
     setIsActive(false);
@@ -586,6 +587,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         clearAnnotations();
       }
     } catch (error) {
+      // Silently handle errors
     }
     pendingEventsRef.current = [];
     setIsActive(false);

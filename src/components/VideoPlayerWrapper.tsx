@@ -734,8 +734,7 @@ export default function VideoPlayerWrapper({
               </div>
             }
             onError={(error) => {
-              console.error("Video player error:", error);
-              // You could send this error to a monitoring service
+              // Handle errors silently
             }}
           >
             <VideoPlayer
@@ -758,7 +757,7 @@ export default function VideoPlayerWrapper({
               </div>
             }
             onError={(error) => {
-              console.error("Feedback orchestrator error:", error);
+              // Handle errors silently
             }}
           >
             <FeedbackOrchestrator
@@ -784,9 +783,7 @@ export default function VideoPlayerWrapper({
                       });
                       onCategoriesLoaded(numberCategories);
                     }, 100);
-                  } else {
                   }
-                } else {
                 }
               }}
               ref={getOrchestratorRef}
