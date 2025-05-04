@@ -438,6 +438,17 @@ export default function VideoPlayerWrapper({
       }
     }
   }, []);
+  
+  const handleAudioRecorded = useCallback((audioTrack: AudioTrack) => {
+    if (currentSession) {
+      const updatedSession = {
+        ...currentSession,
+        audioTrack: audioTrack
+      };
+      setCurrentSession(updatedSession);
+    }
+  }, [currentSession]);
+  
   const clearAnnotations = useCallback(() => {
     if (annotationCanvasComponentRef.current) {
       try {
