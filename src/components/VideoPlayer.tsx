@@ -53,13 +53,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     hasRecordedSession 
   } = recordingState;
   
-  // Debug recording state
-  console.log('Recording state:', { 
-    isRecording, 
-    isReplaying, 
-    isCompletedVideo, 
-    hasRecordedSession 
-  });
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -77,13 +70,9 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
     const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
     const isCurrentlyRecording = isRecording || windowIsRecording;
     
-    console.log('Recording state changed:', isCurrentlyRecording);
-    
     if (isCurrentlyRecording && !recordingStartTimeRef.current) {
-      console.log('Setting recording start time');
       recordingStartTimeRef.current = Date.now();
     } else if (!isCurrentlyRecording) {
-      console.log('Clearing recording start time');
       recordingStartTimeRef.current = null;
     }
   }, [isRecording]);
@@ -225,10 +214,7 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
         }
       };
       
-      console.log(`Recording action ${type} at time ${globalTimeOffset}ms`);
       onRecordAction(action);
-    } else {
-      console.log(`Not recording action ${type} - recording: ${isCurrentlyRecording}`);
     }
   };
   const togglePlay = useCallback(() => {
@@ -260,8 +246,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       }
     };
   }, []);
-  const handleTimeUpdate = () => {
-  };
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       const duration = videoRef.current.duration;
@@ -273,11 +257,6 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
       setIsLoading(false);
       setHasError(false);
       setErrorMessage('');
-      
-      // Log the video object after it is loaded
-      if (videoRef.current) {
-        console.log('Video loaded successfully:', videoRef.current);
-      }
     }, 250);
   };
   const handleDurationChange = () => {

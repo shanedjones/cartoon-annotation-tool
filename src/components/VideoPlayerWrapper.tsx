@@ -59,9 +59,6 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
         ia[i] = byteString.charCodeAt(i);
       }
       const blob = new Blob([ab], { type: mimeType });
-      if (blob.size === 0) {
-      } else {
-      }
       return blob;
     } catch (binaryError) {
       throw new Error(`Failed to process binary data: ${binaryError instanceof Error ? binaryError.message : String(binaryError)}`);
@@ -88,7 +85,7 @@ const prepareAudioChunksForSave = async (chunks: AudioChunk[]): Promise<any[]> =
       } else if (typeof chunk.blob === 'string' && chunk.blob.startsWith('data:')) {
         const parts = chunk.blob.split(',');
         if (parts.length !== 2) {
-          // Invalid data URL format
+          throw new Error('Invalid data URL format');
         }
         return {
           ...chunk,
@@ -127,14 +124,14 @@ const restoreAudioChunks = (savedChunks: any[]): AudioChunk[] => {
           try {
             const dataUrlParts = savedChunk.blob.split(',');
             if (dataUrlParts.length !== 2) {
-              // Invalid data URL format
+              throw new Error('Invalid data URL format');
             }
             const mimeMatch = dataUrlParts[0].match(/:(.*?);/);
             if (!mimeMatch) {
-              // Missing MIME type in data URL
+              throw new Error('Missing MIME type in data URL');
             }
           } catch (validationError) {
-            // Data URL validation error
+            // Continue despite validation error
           }
           return {
             ...savedChunk,
@@ -429,8 +426,6 @@ export default function VideoPlayerWrapper({
       onSessionComplete(sessionWithCategories);
     }
   }, [categories, onSessionComplete]);
-  const handleAudioRecorded = useCallback((audioTrack: AudioTrack) => {
-  }, []);
   const drawAnnotation = useCallback((path: DrawingPath) => {
     if (videoRef.current && !path.videoTime) {
       path.videoTime = videoRef.current.currentTime * 1000;
@@ -439,8 +434,8 @@ export default function VideoPlayerWrapper({
       try {
         annotationCanvasComponentRef.current.handleManualAnnotation(path);
       } catch (error) {
+        // Silently handle errors
       }
-    } else {
     }
   }, []);
   const clearAnnotations = useCallback(() => {
@@ -448,11 +443,10 @@ export default function VideoPlayerWrapper({
       try {
         if (annotationCanvasComponentRef.current.clearCanvasDrawings) {
           annotationCanvasComponentRef.current.clearCanvasDrawings();
-        } else {
         }
       } catch (error) {
+        // Silently handle errors
       }
-    } else {
     }
   }, []);
   const downloadSessionData = useCallback(async () => {
@@ -537,7 +531,6 @@ export default function VideoPlayerWrapper({
         }
       }
       orchestratorRef.current.handleCategoryEvent(category, rating);
-    } else {
     }
   }, [mode, isActive, currentSession, videoId]);
   const getVideoPlayerRef = useCallback((videoPlayerInstance: any) => {

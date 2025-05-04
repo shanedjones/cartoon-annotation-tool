@@ -112,6 +112,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                   };
                   drawAnnotation(pathWithTiming);
                 } catch (error) {
+                  // Silently handle errors
                 }
               }
               break;
@@ -120,6 +121,7 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
                 updateClearTime(event.timeOffset);
                 clearAnnotations();
               } catch (error) {
+                // Silently handle errors
               }
               break;
           }
@@ -359,8 +361,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         categories: updatedCategories
       };
     });
-    setTimeout(() => {
-    }, 50);
     const event = {
       id: generateId(),
       type: 'category' as const,
@@ -425,8 +425,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       setReplayProgress((elapsed / totalDuration) * 100);
       requestAnimationFrame(() => {
         updatePosition(elapsed);
-        if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - interval) / 1000)) {
-        }
         Promise.resolve().then(() => {
           processPendingEvents(elapsed);
         });
@@ -499,10 +497,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         }
         const audio = new Audio();
         audio.preload = 'auto';
-        audio.onloadeddata = () => {
-        };
-        audio.onplay = () => {
-        };
         audio.src = audioUrl;
         audio.ontimeupdate = () => {
           const currentTime = audio.currentTime * 1000;
@@ -510,8 +504,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           setReplayProgress((currentTime / totalDuration) * 100);
           requestAnimationFrame(() => {
             updatePosition(currentTime);
-            if (Math.floor(currentTime / 250) !== Math.floor((currentTime - 16) / 250)) {
-            }
             Promise.resolve().then(() => {
               processPendingEvents(currentTime);
             });
@@ -608,19 +600,15 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
         const chunk = session.audioTrack.chunks[i];
         if (chunk.blobUrl) {
           try {
-            try {
-              const url = new URL(chunk.blobUrl);
-              const blobPath = url.pathname.split('/').slice(2).join('/');
-              const proxyUrl = `/api/audio/${blobPath}`;
-              session.audioTrack.chunks[i] = {
-                ...chunk,
-                blobUrl: proxyUrl
-              };
-            } catch (urlError) {
-            }
-            if (typeof window !== 'undefined') {
-            }
+            const url = new URL(chunk.blobUrl);
+            const blobPath = url.pathname.split('/').slice(2).join('/');
+            const proxyUrl = `/api/audio/${blobPath}`;
+            session.audioTrack.chunks[i] = {
+              ...chunk,
+              blobUrl: proxyUrl
+            };
           } catch (error) {
+            // Silently handle URL parsing errors
           }
         }
       }
@@ -630,8 +618,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
       }
     }
     setCurrentSession(session);
-    session.events.forEach((event, index) => {
-    });
     const categoriesState: Record<string, number> = {};
     if (session.categories && Object.keys(session.categories).length > 0) {
       Object.entries(session.categories).forEach(([category, rating]) => {
@@ -666,7 +652,6 @@ const FeedbackOrchestrator = forwardRef<any, FeedbackOrchestratorProps>(({
           onCategoriesLoaded(numericCategories);
         }
       }, 100);
-    } else {
     }
   }, [onCategoriesLoaded]);
   useEffect(() => {

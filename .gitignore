@@ -47,3 +47,5 @@ yarn-error.log*
 next-env.d.ts
 
 annotation-code-export.txt
+
+**/.claude/settings.local.json
