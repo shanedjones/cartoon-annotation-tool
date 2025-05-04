@@ -42,8 +42,8 @@ export default function ReviewPage() {
           </div>
         </div>
       }
-      onError={(error) => {
-        console.error("Review page error:", error);
+      onError={() => {
+        // Error is handled by fallback UI
       }}
     >
       <Suspense fallback={<div>Loading...</div>}>

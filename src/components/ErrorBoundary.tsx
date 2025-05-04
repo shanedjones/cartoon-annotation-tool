@@ -30,8 +30,6 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('Error caught by ErrorBoundary:', error, errorInfo);
-    
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
@@ -39,7 +37,6 @@ class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
-      // You can render any custom fallback UI
       return this.props.fallback || (
         <div className="p-4 border border-red-500 rounded-md bg-red-50">
           <h2 className="text-lg font-semibold text-red-700 mb-2">Something went wrong</h2>

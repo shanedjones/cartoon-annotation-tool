@@ -74,7 +74,6 @@ export function RecordingProvider({
   useEffect(() => {
     const handleRecordingStateChange = (event: CustomEvent) => {
       if (event.detail && typeof event.detail.isRecording === 'boolean') {
-        console.log('Recording state changed via event:', event.detail.isRecording);
         setIsRecording(event.detail.isRecording);
       }
     };
@@ -91,34 +90,22 @@ export function RecordingProvider({
   }, []);
 
   const onRecordAction = useCallback((action: RecordedAction) => {
-    // Always log the action to help with debugging
-    console.log('Recording action:', action.type, action);
-    
     // Check window recording state as a fallback
     const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
     const isCurrentlyRecording = isRecording || windowIsRecording;
     
     if (onRecordCallback && isCurrentlyRecording) {
-      console.log('Forwarding action to callback:', action.type);
       onRecordCallback(action);
-    } else if (!isCurrentlyRecording) {
-      console.log('Action not recorded - not in recording mode');
     }
   }, [onRecordCallback, isRecording]);
 
   const onAnnotationAdded = useCallback((annotation: DrawingPath) => {
-    // Always log the annotation to help with debugging
-    console.log('Recording annotation:', annotation);
-    
     // Check window recording state as a fallback
     const windowIsRecording = typeof window !== 'undefined' && window.__isRecording === true;
     const isCurrentlyRecording = isRecording || windowIsRecording;
     
     if (onAnnotationCallback && isCurrentlyRecording) {
-      console.log('Forwarding annotation to callback');
       onAnnotationCallback(annotation);
-    } else if (!isCurrentlyRecording) {
-      console.log('Annotation not recorded - not in recording mode');
     }
   }, [onAnnotationCallback, isRecording]);
 

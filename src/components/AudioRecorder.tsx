@@ -198,8 +198,6 @@ function AudioRecorder({
               error: `Failed to process audio recording: ${error instanceof Error ? error.message : String(error)}` 
             });
           }
-        } else {
-        }
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
@@ -242,6 +240,7 @@ function AudioRecorder({
       try {
         mediaRecorderRef.current.stop();
       } catch (e) {
+        // Silently handle errors
       }
     }
     if (streamRef.current) {
@@ -277,10 +276,6 @@ function AudioRecorder({
       const mimeMatch = headerPart.match(/^data:(.*?)(;base64)?$/);
       if (mimeMatch && mimeMatch[1]) {
         mime = mimeMatch[1];
-      } else {
-      }
-      if (!headerPart.includes(';base64')) {
-      }
       const base64Data = parts[1];
       if (!base64Data) {
         throw new Error('Empty base64 data in data URL');
@@ -294,8 +289,6 @@ function AudioRecorder({
         }
         const blob = new Blob([uint8Array], { type: mime });
         if (blob.size === 0) {
-        } else {
-        }
         return blob;
       } catch (binaryError) {
         throw new Error(`Failed to process binary data: ${binaryError instanceof Error ? binaryError.message : String(binaryError)}`);
@@ -312,6 +305,7 @@ function AudioRecorder({
           URL.revokeObjectURL(player.src);
         }
       } catch (e) {
+        // Silently handle errors
       }
     });
     audioPlayersRef.current.clear();
@@ -353,12 +347,6 @@ function AudioRecorder({
               return;
             }
             const audio = new Audio(audioUrl);
-            audio.onloadedmetadata = () => {
-            };
-            audio.oncanplay = () => {
-            };
-            audio.onplay = () => {
-            };
             audio.onended = () => {
               playingChunksRef.current.delete(chunkId);
               if (!chunk.url && !chunk.blobUrl && chunk.blob instanceof Blob) {
