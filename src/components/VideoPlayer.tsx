@@ -5,22 +5,6 @@ import { useRecording } from '../contexts/RecordingContext';
 import type { DrawingPath } from '../types';
 import type { DrawingTool } from '../types/feedback';
 import AnnotationCanvas from './AnnotationCanvas';
-
-// Helper function to provide more descriptive error messages for video error codes
-const getVideoErrorMessage = (errorCode: number): string => {
-  switch (errorCode) {
-    case MediaError.MEDIA_ERR_ABORTED:
-      return "Playback aborted by the user";
-    case MediaError.MEDIA_ERR_NETWORK:
-      return "Network error - video download failed";
-    case MediaError.MEDIA_ERR_DECODE:
-      return "Video decoding error - file may be corrupted";
-    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-      return "Video format not supported by your browser";
-    default:
-      return "Unknown error";
-  }
-};
 export type ActionType = 'play' | 'pause' | 'seek' | 'playbackRate' | 'keyboardShortcut' | 'annotation' | 'audio';
 export interface RecordedAction {
   type: ActionType;
@@ -504,22 +488,12 @@ const VideoPlayer = React.memo(React.forwardRef<VideoPlayerImperativeHandle, Vid
           onError={(e) => {
             setIsLoading(false);
             setHasError(true);
-            // Get more detailed error information if available
-            let errorMsg = 'Failed to load the video. Please try again or contact support.';
-            if (videoRef.current && videoRef.current.error) {
-              const videoError = videoRef.current.error;
-              const errorDetails = videoError.message || 
-                `Error code: ${videoError.code} - ${getVideoErrorMessage(videoError.code)}`;
-              errorMsg = `Video loading failed: ${errorDetails}`;
-            }
-            setErrorMessage(errorMsg);
-            console.error("Video error:", errorMsg);
+            setErrorMessage('Failed to load the video. Please try again or contact support.');
           }}
           playsInline
-          preload="auto"
+          preload="metadata"
           muted
-          src={videoUrl ? `/api/proxy/video/full?url=${encodeURIComponent(videoUrl)}` : ''}
-          disableRemotePlayback
+          src={videoUrl}
         >
           Your browser does not support the video tag.
         </video>
