@@ -31,6 +31,15 @@ function HomeContent() {
   const videoId = searchParams.get('videoId');
   const [contentToReview, setContentToReview] = useState<ReviewContent | null>(null);
   useEffect(() => {
+    // Reset states when videoId changes
+    if (typeof window !== 'undefined') {
+      window.__hasRecordedSession = false;
+      window.__isCompletedVideo = false;
+      setHasRecordedSession(false);
+      setIsCompletedVideo(false);
+      clearCategories();
+    }
+    
     if (!videoId) {
       setContentToReview(null);
       return;

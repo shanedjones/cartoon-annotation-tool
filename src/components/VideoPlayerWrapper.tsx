@@ -4,11 +4,9 @@ import dynamic from 'next/dynamic';
 import { v4 as uuidv4 } from 'uuid';
 import type { RecordedAction, FeedbackData } from './VideoPlayer';
 import type { DrawingPath } from '../types';
-import AudioRecorder from './AudioRecorder';
 import FeedbackOrchestrator, { FeedbackSession, AudioTrack, TimelineEvent } from './FeedbackOrchestrator';
 import { AppProviders } from '../contexts/AppProviders';
 import { useVideoSource, useVideo } from '../contexts/VideoContext';
-import { useFeedbackCategories } from '../contexts/AppProviders';
 import type { AudioChunk } from './AudioRecorder';
 import ErrorBoundary from './ErrorBoundary';
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), { ssr: false });
@@ -272,8 +270,17 @@ export default function VideoPlayerWrapper({
       // Set the current URL in the ref immediately to prevent duplicate calls
       prevUrlRef.current = videoUrl;
       videoContext.setVideoUrl(videoUrl);
+      
+      // Reset states when loading a new video
+      if (!initialSession) {
+        setCurrentSession(null);
+        setHasRecordedSession(false);
+        if (typeof window !== 'undefined') {
+          window.__hasRecordedSession = false;
+        }
+      }
     }
-  }, [videoUrl, videoContext]);
+  }, [videoUrl, videoContext, initialSession]);
   const [mode, setMode] = useState<'record' | 'replay'>('record');
   const [isActive, setIsActive] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
@@ -438,6 +445,17 @@ export default function VideoPlayerWrapper({
       }
     }
   }, []);
+    
+  const handleAudioRecorded = useCallback((audioTrack: AudioTrack) => {
+    if (currentSession) {
+      const updatedSession = {
+        ...currentSession,
+        audioTrack: audioTrack
+      };
+      setCurrentSession(updatedSession);
+    }
+  }, [currentSession]);
+  
   const clearAnnotations = useCallback(() => {
     if (annotationCanvasComponentRef.current) {
       try {
